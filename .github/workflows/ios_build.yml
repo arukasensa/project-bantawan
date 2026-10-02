@@ -1,0 +1,55 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch: # กดปุ่ม Run workflow เองได้จากแท็บ Actions บนเว็บ GitHub
+  push:
+    branches: [ main, master ] # ทำงานอัตโนมัติเมื่อ push เข้า branch หลัก
+
+jobs:
+  build-ios:
+    name: Build iOS (IPA)
+    runs-on: macos-latest
+
+    steps:
+      # 1. ดึง Source Code จาก Repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. ติดตั้ง Flutter SDK (เวอร์ชัน Stable ล่าสุด)
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 3. ตรวจสอบเวอร์ชันและสภาพแวดล้อม
+      - name: Check Environment
+        run: |
+          flutter --version
+          flutter doctor
+
+      # 4. ดาวน์โหลด Dependencies ทั้งหมดของโปรเจกต์
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # 5. สั่ง Build iOS แบบ Release โดยไม่ต้องมี Apple Certificate (--no-codesign)
+      - name: Build iOS Application
+        run: flutter build ios --release --no-codesign
+
+      # 6. บรรจุ Runner.app เข้า Payload โครงสร้างเพื่อสร้างเป็นไฟล์ .ipa
+      # (สามารถนำไฟล์ .ipa นี้ไปติดตั้งบน iPhone ผ่าน Sideloadly / AltStore ได้ทันที)
+      - name: Package Payload into IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -r -q Bantawan_iOS.ipa Payload
+          cd ../../..
+
+      # 7. อัปโหลดไฟล์ .ipa ขึ้นเป็น Artifact ให้ดาวน์โหลดได้จากหน้า GitHub
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bantawan-iOS-IPA
+          path: build/ios/iphoneos/Bantawan_iOS.ipa
+          retention-days: 14

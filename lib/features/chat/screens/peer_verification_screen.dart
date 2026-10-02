@@ -1,0 +1,391 @@
+// ============================================================================
+// 🛡️ BANTAWAN Peer Verification Screen: PeerVerificationScreen
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// ├─────────────────────────────────────────────────────────┤
+// │              Peer Identity Verification Layer           │
+// │            (PeerVerificationScreen: UI Fingerprint)     │
+// ├─────────────────────────────────────────────────────────┤
+// │                   E2EE Security Layer                   │
+// └─────────────────────────────────────────────────────────┘
+// 
+// หน้าจอสำหรับตรวจสอบและยืนยัน Cryptographic Fingerprint ของ Peer คู่สนทนา
+// ช่วยป้องกันการถูกปลอมแปลงตัวตน (Impersonation / MITM Attack)
+// ============================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../models/mesh_peer.dart';
+import '../models/peer_trust.dart';
+import '../services/identity_service.dart';
+
+/// 🛡️ หน้าจอแสดงผลและยืนยัน Cryptographic Fingerprint ของ Peer คู่สนทนา
+class PeerVerificationScreen extends StatefulWidget {
+  final MeshPeer peer;
+
+  const PeerVerificationScreen({
+    super.key,
+    required this.peer,
+  });
+
+  @override
+  State<PeerVerificationScreen> createState() => _PeerVerificationScreenState();
+}
+
+class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final identityService = IdentityService.instance;
+    final trustState = identityService.getTrustState(
+      widget.peer.peerId,
+      widget.peer.publicKeyHex,
+    );
+    final peerFingerprint = identityService.computeFingerprint(widget.peer.publicKeyHex);
+    final myFingerprint = identityService.myFingerprint;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        surfaceTintColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'ตรวจสอบตัวตนคู่สนทนา',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 👤 Header Info Card
+            _buildPeerHeaderCard(trustState),
+            const SizedBox(height: 16),
+
+            // ⚠️ Warning banner if Key has CHANGED
+            if (trustState == PeerTrustState.changed) ...[
+              _buildChangedWarningBanner(),
+              const SizedBox(height: 16),
+            ],
+
+            // 🔐 Peer's Fingerprint Card
+            _buildFingerprintCard(
+              title: '🔑 Fingerprint ของ ${widget.peer.peerName}',
+              subtitle: 'เปรียบเทียบข้อความนี้กับหน้าจอของ ${widget.peer.peerName}',
+              fingerprint: peerFingerprint,
+              accentColor: trustState == PeerTrustState.verified
+                  ? Colors.greenAccent
+                  : (trustState == PeerTrustState.changed ? Colors.orangeAccent : Colors.cyanAccent),
+            ),
+            const SizedBox(height: 16),
+
+            // 📱 My Fingerprint Card
+            _buildFingerprintCard(
+              title: '📱 Fingerprint ของเครื่องคุณ',
+              subtitle: 'ให้ ${widget.peer.peerName} ตรวจสอบรหัสนี้บนเครื่องของเขา',
+              fingerprint: myFingerprint,
+              accentColor: Colors.purpleAccent,
+            ),
+            const SizedBox(height: 24),
+
+            // ℹ️ Informational Note
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha:0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: Colors.white54, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'การยืนยัน Fingerprint จะทำเฉพาะครั้งแรกเพื่อความมั่นใจ โดย Fingerprint สร้างขึ้นจาก Public Key ประจำเครื่องอย่างถาวร',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // 🔘 Verify / Action Buttons
+            _buildActionButtons(trustState, identityService),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 👤 การ์ดแสดงชื่อและสถานะ Trust
+  Widget _buildPeerHeaderCard(PeerTrustState trustState) {
+    Color badgeColor;
+    IconData badgeIcon;
+    String badgeText;
+
+    switch (trustState) {
+      case PeerTrustState.verified:
+        badgeColor = Colors.greenAccent;
+        badgeIcon = Icons.verified_user_rounded;
+        badgeText = 'ยืนยันตัวตนแล้ว (Verified)';
+        break;
+      case PeerTrustState.changed:
+        badgeColor = Colors.orangeAccent;
+        badgeIcon = Icons.warning_amber_rounded;
+        badgeText = 'Key มีการเปลี่ยนแปลง (Identity Changed)';
+        break;
+      case PeerTrustState.unverified:
+      case PeerTrustState.unknown:
+        badgeColor = Colors.white54;
+        badgeIcon = Icons.gpp_maybe_rounded;
+        badgeText = 'ยังไม่ได้ยืนยัน (Unverified)';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E2C),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: badgeColor.withValues(alpha:0.4), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: badgeColor.withValues(alpha:0.15),
+            child: Icon(Icons.person_rounded, size: 32, color: badgeColor),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            widget.peer.peerName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Node ID: ${widget.peer.peerId}',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha:0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: badgeColor.withValues(alpha:0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(badgeIcon, size: 16, color: badgeColor),
+                const SizedBox(width: 6),
+                Text(
+                  badgeText,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ⚠️ ป้ายเตือนเมื่อ Key เปลี่ยน
+  Widget _buildChangedWarningBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha:0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orangeAccent, width: 1),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'คำเตือน: Public Key ของ Peer นี้ไม่ตรงกับที่เคยยืนยันไว้ก่อนหน้า อาจเกิดจากการลงแอปใหม่ หรือเสี่ยงต่อการถูกแทรกแซงตัวตน (MITM Attack)',
+              style: TextStyle(
+                color: Colors.orangeAccent,
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🔐 การ์ดแสดง Fingerprint Monospace
+  Widget _buildFingerprintCard({
+    required String title,
+    required String subtitle,
+    required String fingerprint,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161622),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha:0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white54),
+                tooltip: 'คัดลอก Fingerprint',
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: fingerprint.replaceAll('\n', ' ')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('คัดลอก Fingerprint เรียบร้อย'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          Text(
+            subtitle,
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: accentColor.withValues(alpha:0.3)),
+            ),
+            child: SelectableText(
+              fingerprint,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'monospace',
+                letterSpacing: 1.5,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🔘 ปุ่มแอ็กชันยืนยันตัวตน
+  Widget _buildActionButtons(PeerTrustState trustState, IdentityService identityService) {
+    if (trustState == PeerTrustState.verified) {
+      return Column(
+        children: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.withValues(alpha:0.2),
+              foregroundColor: Colors.greenAccent,
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Colors.greenAccent),
+              ),
+            ),
+            icon: const Icon(Icons.check_circle_rounded),
+            label: const Text('ยืนยันตัวตนเรียบร้อยแล้ว', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            onPressed: null,
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: Colors.white54),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('ยกเลิกการยืนยัน (Reset Trust)'),
+            onPressed: () async {
+              await identityService.resetTrust(widget.peer.peerId);
+              setState(() {});
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ยกเลิกการยืนยันเรียบร้อยแล้ว')),
+                );
+              }
+            },
+          ),
+        ],
+      );
+    }
+
+    final isChanged = trustState == PeerTrustState.changed;
+
+    return ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isChanged ? Colors.orangeAccent : Colors.cyan,
+        foregroundColor: Colors.black,
+        minimumSize: const Size.fromHeight(52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+      ),
+      icon: const Icon(Icons.verified_user_rounded),
+      label: Text(
+        isChanged ? 'ยืนยันตัวตน Key ใหม่ (Accept New Key)' : 'ยืนยันตัวตนคู่สนทนา (Mark as Verified)',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      onPressed: () async {
+        await identityService.verifyPeer(
+          peerId: widget.peer.peerId,
+          displayName: widget.peer.peerName,
+          publicKeyHex: widget.peer.publicKeyHex,
+        );
+        setState(() {});
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ยืนยันตัวตนของ ${widget.peer.peerName} เรียบร้อยแล้ว'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        }
+      },
+    );
+  }
+}

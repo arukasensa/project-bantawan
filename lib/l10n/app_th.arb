@@ -1,0 +1,171 @@
+{
+  "appTitle": "SOS Premier",
+  "sos": "ขอความช่วยเหลือ",
+  "profile": "โปรไฟล์",
+  "navHome": "หน้าหลัก",
+  "navMap": "แผนที่",
+  "navSOS": "ฉุกเฉิน",
+  "navProfile": "โปรไฟล์",
+  "greetingAfternoon": "สวัสดีตอนกลางวัน,",
+  "safetyStatusNormal": "ระบบดูแลความปลอดภัยทำงานปกติ",
+  "loadingWeather": "กำลังดึงข้อมูลสภาพอากาศ...",
+  "retryHint": "หากค้างนานเกินไปกรุณาแตะเพื่อลองใหม่",
+  "locationNotFound": "หาพิกัดไม่พบ",
+  "tapToRetry": "แตะเพื่อลองใหม่",
+  "emergencyHotlines": "สายด่วนความช่วยเหลือ",
+  "seeAll": "ดูทั้งหมด",
+  "hospitals": "โรงพยาบาล",
+  "firstAidGuide": "คู่มือปฐมพยาบาล",
+  "survivalTools": "เครื่องมือเอาตัวรอด",
+  "emergencyContacts": "ผู้ติดต่อฉุกเฉิน",
+  "medicalHistory": "ประวัติสุขภาพ",
+  "medicalId": "ข้อมูลการแพทย์",
+  "bloodType": "หมู่เลือด",
+  "nearestHospital": "โรงพยาบาลใกล้ที่สุด",
+  "survivalTitle": "เครื่องมือเอาตัวรอด",
+  "compass": "เข็มทิศดิจิทัล",
+  "flashlight": "ไฟฉายขอความช่วยเหลือ",
+  "siren": "เสียงหวอฉุกเฉิน",
+  "nearbyNetwork": "เครือข่ายฉุกเฉินใกล้เคียง",
+  "startNetwork": "เปิดระบบระบุตัวตน",
+  "stopNetwork": "ปิดระบบระบุตัวตน",
+  "enterChat": "เข้าสู่ห้องแชทใกล้เคียง",
+  "offlineChatTitle": "แชทเครือข่ายออฟไลน์",
+  "searchingPeers": "กำลังค้นหาคนรอบข้าง...",
+  "connectedDevices": "เชื่อมต่อ {count} อุปกรณ์",
+  "@connectedDevices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noMessages": "ยังไม่มีข้อความ\nส่ง SOS หรือทักทายคนรอบข้างได้เลย",
+  "typeEmergencyMsg": "พิมพ์ข้อความฉุกเฉิน...",
+  "myLocation": "พิกัดของฉัน",
+  "viewInMap": "ดูในแผนที่",
+  "locationError": "ไม่สามารถดึงตำแหน่งได้",
+  "medicalEmergency": "เหตุฉุกเฉินทางการแพทย์",
+  "police": "สถานีตำรวจ",
+  "fire": "สถานีดับเพลิง",
+  "tourist": "ตำรวจท่องเที่ยว",
+  "rescue": "หน่วยกู้ภัย",
+  "mentalHealth": "สุขภาพจิต",
+  "sosButtonHint": "กดเพื่อขอความช่วยเหลือทันที",
+  "signalAccuracy": "ความแม่นยำของสัญญาณ",
+  "searchingSignal": "กำลังค้นหาสัญญาณ...",
+  "meters": "เมตร",
+  "latitude": "ละติจูด",
+  "longitude": "ลองจิจูด",
+  "altitude": "ความสูง",
+  "heading": "ทิศทาง",
+  "copyCoordsForRescue": "คัดลอกพิกัดเพื่อขอความช่วยเหลือ",
+  "readyForWifiRadio": "พร้อมสำหรับการสื่อสารทางวิทยุ",
+  "startingSystem": "กำลังเริ่มระบบ...",
+  "identifiableByOthers": "ผู้อื่นสามารถเห็นคุณได้แล้ว",
+  "startOfflineSearch": "เริ่มการค้นหาออฟไลน์",
+  "sendMsgToDevices": "ส่งข้อความไปยัง {count} อุปกรณ์ใกล้เคียง",
+  "@sendMsgToDevices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coordsCopied": "คัดลอกพิกัดตำแหน่งแล้ว",
+  "mapTitle": "สถานพยาบาลใกล้เคียง",
+  "mapSubtitle": "ค้นหาสถานพยาบาลที่ใกล้ที่สุด",
+  "mapPoints": "{count} จุด",
+  "@mapPoints": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterAll": "ทั้งหมด",
+  "filterHospitals": "โรงพยาบาล",
+  "filterClinics": "คลินิก",
+  "searchRadius": "รัศมีค้นหา",
+  "mapStyle": "รูปแบบแผนที่",
+  "kmUnit": "กม.",
+  "etaLabel": "ถึงใน {eta}",
+  "@etaLabel": {
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "minutes": "นาที",
+  "sosInitialMsg": "กำลังขอความช่วยเหลือ! โปรดอยู่ในความสงบ",
+  "sosCountdown": "กำลังส่งสัญญาณใน {count}...",
+  "@sosCountdown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sosSent": "ส่งสัญญาณ SOS สำเร็จ",
+  "sosActive": "กำลังทำงาน",
+  "cancelSos": "ยกเลิก SOS",
+  "nearbyUsers": "คนรอบข้าง",
+  "distUnit": "{dist} กม.",
+  "@distUnit": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      }
+    }
+  },
+  "sosHoldCancelHelp": "ปล่อยเพื่อยกเลิก | ถือต่อเพื่อยืนยัน",
+  "sosCanceledNotify": "SOS ถูกยกเลิก",
+  "sosLoggingLocation": "ตำแหน่งปัจจุบันกำลังถูกบันทึก",
+  "sosSendingMedicalData": "ข้อมูลการแพทย์ของคุณจะถูกส่งไปด้วย",
+  "sosSentDetail": "เราได้ส่งข้อความ SMS และตำแหน่งของคุณให้คนสนิทแล้ว\nท่านสามารถโทรออกหาผู้ติดต่อฉุกเฉินตอนนี้ได้",
+  "finishButton": "เสร็จสิ้น",
+  "okButton": "ตกลง",
+  "noEmergencyContacts": "ไม่พบผู้ติดต่อฉุกเฉิน",
+  "addEmergencyContactsHint": "กรุณาเพิ่ม Emergency Contact ก่อนใช้งาน SOS",
+  "error": "ผิดพลาด",
+  "smsAppOpened": "เปิดแอป SMS แล้ว",
+  "distance": "ระยะทาง",
+  "medicalIDHeader": "ข้อมูลทางการแพทย์",
+  "conditionsLabel": "โรคประจำตัว",
+  "allergiesLabel": "อาการแพ้",
+  "hospitalPrefLabel": "โรงพยาบาลที่เลือก",
+  "insuranceLabel": "บริษัทประกัน",
+  "notSpecified": "ไม่ได้ระบุ",
+  "bodyCompHeader": "สัดส่วนร่างกาย",
+  "weightLabel": "น้ำหนัก",
+  "heightLabel": "ส่วนสูง",
+  "bmiLabel": "ดัชนีมวลกาย",
+  "appSettingsHeader": "ตั้งค่าทั่วไป",
+  "appLanguageLabel": "ภาษาของแอป",
+  "securityHeader": "ความปลอดภัยและบัญชี",
+  "deleteAccountLabel": "ลบบัญชี",
+  "logoutLabel": "ออกจากระบบ",
+  "editProfile": "แก้ไขข้อมูล",
+  "saveProfile": "บันทึกข้อมูล",
+  "guestUser": "ผู้ใช้งานทั่วไป",
+  "ageLabel": "อายุ",
+  "bloodTypeShort": "กรุ๊ปเลือด",
+  "smsConfirmHint": "กรุณากดยืนยันการส่งข้อความในแอป SMS\n\nส่งถึง: {count} คน",
+  "@smsConfirmHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cancelButton": "ยกเลิกทันที",
+  "filterPharmacies": "ร้านขายยา",
+  "openingHours": "เวลาทำการ",
+  "openNow": "เปิดอยู่",
+  "closed": "ปิดแล้ว",
+  "sosConfirmSend": "กรุณากดยืนยันการส่งข้อความในหน้า SMS ทันที",
+  "sosHaveYouSent": "คุณกดยืนยันการส่งข้อความแล้วหรือยัง?",
+  "yesAlreadySent": "ส่งเรียบร้อยแล้ว",
+  "reSendLimit": "ส่งอีกครั้ง"
+}

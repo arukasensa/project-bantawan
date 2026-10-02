@@ -1,0 +1,171 @@
+{
+  "appTitle": "SOS Premier",
+  "sos": "SOS",
+  "profile": "Profile",
+  "navHome": "Home",
+  "navMap": "Map",
+  "navSOS": "SOS",
+  "navProfile": "Profile",
+  "greetingAfternoon": "Good Afternoon,",
+  "safetyStatusNormal": "Safety system working normally",
+  "loadingWeather": "Loading weather data...",
+  "retryHint": "If it stuck for too long, please tap to retry",
+  "locationNotFound": "Location not found",
+  "tapToRetry": "Tap to retry",
+  "emergencyHotlines": "Emergency Hotlines",
+  "seeAll": "See All",
+  "hospitals": "Hospitals",
+  "firstAidGuide": "First Aid Guide",
+  "survivalTools": "Survival Tools",
+  "emergencyContacts": "Emergency Contacts",
+  "medicalHistory": "Medical History",
+  "medicalId": "Medical Identification",
+  "bloodType": "Blood Type",
+  "nearestHospital": "Nearest Hospital",
+  "survivalTitle": "Survival Tools",
+  "compass": "Digital Compass",
+  "flashlight": "Emergency Strobe",
+  "siren": "SOS Siren",
+  "nearbyNetwork": "Nearby Emergency Network",
+  "startNetwork": "Start Identification System",
+  "stopNetwork": "Stop Identification System",
+  "enterChat": "Enter Nearby Chat",
+  "offlineChatTitle": "Offline Mesh Chat",
+  "searchingPeers": "Searching for nearby people...",
+  "connectedDevices": "Connected {count} devices",
+  "@connectedDevices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noMessages": "No messages yet\nSend SOS or greet people around you",
+  "typeEmergencyMsg": "Type emergency message...",
+  "myLocation": "My Location",
+  "viewInMap": "View in Map",
+  "locationError": "Cannot get location",
+  "medicalEmergency": "Medical Emergency",
+  "police": "Police",
+  "fire": "Fire Department",
+  "tourist": "Tourist Police",
+  "rescue": "Rescue Support",
+  "mentalHealth": "Mental Health",
+  "sosButtonHint": "Press for immediate assistance",
+  "signalAccuracy": "Signal Accuracy",
+  "searchingSignal": "Searching for signal...",
+  "meters": "meters",
+  "latitude": "Latitude",
+  "longitude": "Longitude",
+  "altitude": "Altitude",
+  "heading": "Heading",
+  "copyCoordsForRescue": "Copy Coordinates for Rescue",
+  "readyForWifiRadio": "Ready for radio communication",
+  "startingSystem": "Starting System...",
+  "identifiableByOthers": "Others can see you now",
+  "startOfflineSearch": "Start searching offline",
+  "sendMsgToDevices": "Send message to {count} nearby devices",
+  "@sendMsgToDevices": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coordsCopied": "Coordinates copied to clipboard",
+  "mapTitle": "Nearby Medical Facilities",
+  "mapSubtitle": "Find the nearest help point",
+  "mapPoints": "{count} points",
+  "@mapPoints": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filterAll": "All",
+  "filterHospitals": "Hospitals",
+  "filterClinics": "Clinics",
+  "searchRadius": "Search Radius",
+  "mapStyle": "Map Style",
+  "kmUnit": "km",
+  "etaLabel": "Arrives in {eta}",
+  "@etaLabel": {
+    "placeholders": {
+      "eta": {
+        "type": "String"
+      }
+    }
+  },
+  "minutes": "mins",
+  "sosInitialMsg": "Emergency help requested! Please stay calm.",
+  "sosCountdown": "Sending alert in {count}...",
+  "@sosCountdown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sosSent": "SOS Alert Sent",
+  "sosActive": "SOS ACTIVE",
+  "cancelSos": "CANCEL SOS",
+  "nearbyUsers": "Nearby Users",
+  "distUnit": "{dist} km",
+  "@distUnit": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      }
+    }
+  },
+  "sosHoldCancelHelp": "Release to cancel | Hold to confirm",
+  "sosCanceledNotify": "SOS Canceled",
+  "sosLoggingLocation": "Current location is being recorded",
+  "sosSendingMedicalData": "Your medical info will be sent as well",
+  "sosSentDetail": "We have sent an SMS and your location to your emergency contacts. You can call them now.",
+  "finishButton": "Finished",
+  "okButton": "OK",
+  "noEmergencyContacts": "No Emergency Contacts Found",
+  "addEmergencyContactsHint": "Please add emergency contacts before using SOS",
+  "error": "Error",
+  "smsAppOpened": "SMS App Opened",
+  "distance": "Distance",
+  "medicalIDHeader": "Medical Identification",
+  "conditionsLabel": "Medical Conditions",
+  "allergiesLabel": "Allergies",
+  "hospitalPrefLabel": "Preferred Hospital",
+  "insuranceLabel": "Insurance Provider",
+  "notSpecified": "Not specified",
+  "bodyCompHeader": "Body Composition",
+  "weightLabel": "WEIGHT",
+  "heightLabel": "HEIGHT",
+  "bmiLabel": "BMI",
+  "appSettingsHeader": "App Global Settings",
+  "appLanguageLabel": "App Language",
+  "securityHeader": "Security & Account",
+  "deleteAccountLabel": "Delete Account",
+  "logoutLabel": "Logout",
+  "editProfile": "Edit Profile",
+  "saveProfile": "Save Profile",
+  "guestUser": "Guest User",
+  "ageLabel": "Age",
+  "bloodTypeShort": "Blood",
+  "smsConfirmHint": "Please confirm sending the message in your SMS app.\n\nSent to: {count} people",
+  "@smsConfirmHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cancelButton": "Cancel Now",
+  "filterPharmacies": "Pharmacies",
+  "openingHours": "Opening Hours",
+  "openNow": "Open Now",
+  "closed": "Closed",
+  "sosConfirmSend": "Please confirm sending the message in the SMS app immediately",
+  "sosHaveYouSent": "Have you confirmed the sending?",
+  "yesAlreadySent": "Yes, already sent",
+  "reSendLimit": "Send again"
+}
