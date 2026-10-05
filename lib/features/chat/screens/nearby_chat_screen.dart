@@ -494,6 +494,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
                     icon: Icon(
                       Icons.push_pin_rounded,
                       color: hasUrgent
@@ -511,8 +513,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                   ),
                   if (noticeCount > 0)
                     Positioned(
-                      top: 6,
-                      right: 6,
+                      top: 4,
+                      right: 2,
                       child: Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
@@ -553,6 +555,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
                     icon: Icon(
                       Icons.backpack_rounded,
                       color: muleCount > 0
@@ -771,6 +775,80 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     final count = service.connectedDevices.length;
     final isScanning = service.isAdvertising || service.isDiscovering;
 
+    // ⚡ กรณีระบบปิดอยู่: แสดงแถบกดเปิดสัญญาณ Mesh ได้ทันที ไม่ต้องสลับหน้า
+    if (!isScanning && count == 0) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+          border: Border(
+            bottom: BorderSide(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF59E0B),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "ระบบออฟไลน์ปิดอยู่",
+              style: TextStyle(
+                color: Color(0xFFFCD34D),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: () async {
+                HapticFeedback.mediumImpact();
+                await service.startEmergencyNetwork();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.cyanAccent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.cyanAccent.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.radar_rounded, size: 13, color: Colors.black),
+                    SizedBox(width: 4),
+                    Text(
+                      "เปิดสัญญาณ Mesh",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -829,13 +907,28 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           Text(
             count > 0
                 ? AppLocalizations.of(context)!.connectedDevices(count)
-                : (isScanning
-                      ? AppLocalizations.of(context)!.searchingPeers
-                      : "ระบบออฟไลน์ปิดอยู่"),
+                : AppLocalizations.of(context)!.searchingPeers,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Colors.white.withValues(alpha: 0.75),
               fontSize: 11,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // ปุ่มปิดสัญญาณ Mesh เมื่อไม่ใช้งาน
+          InkWell(
+            onTap: () async {
+              HapticFeedback.lightImpact();
+              await service.stopEmergencyNetwork();
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.all(2.0),
+              child: Icon(
+                Icons.power_settings_new_rounded,
+                size: 13,
+                color: Colors.white.withValues(alpha: 0.4),
+              ),
             ),
           ),
         ],
@@ -1029,11 +1122,55 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                         },
                       ),
                       const SizedBox(height: 16),
-                      Text(
-                        AppLocalizations.of(context)!.noMessages,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white24, fontSize: 13),
-                      ),
+                      if (!service.isAdvertising && !service.isDiscovering) ...[
+                        Text(
+                          "ระบบสัญญาณ Mesh ปิดอยู่",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.amberAccent.withValues(alpha: 0.85),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            HapticFeedback.mediumImpact();
+                            await service.startEmergencyNetwork();
+                          },
+                          icon: const Icon(
+                            Icons.wifi_tethering_rounded,
+                            color: Colors.black,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            "เปิดสัญญาณ Mesh & บลูทูธ",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.cyanAccent,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 6,
+                            shadowColor: Colors.cyanAccent.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          AppLocalizations.of(context)!.noMessages,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white24, fontSize: 13),
+                        ),
+                      ],
                     ],
                   ),
                 )

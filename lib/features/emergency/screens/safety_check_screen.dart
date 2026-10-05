@@ -763,18 +763,20 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         const Text(
                           "โหมดวนลูป (Recurring)",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.2,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
