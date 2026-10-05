@@ -24,6 +24,7 @@ import '../widgets/map_markers.dart';
 import '../widgets/routing_instructions_panel.dart';
 import '../widgets/facility_list_panel.dart';
 import '../widgets/floating_facility_card.dart';
+import '../widgets/tactical_coordinates_badge.dart';
 import 'package:flutter1/features/survival/screens/hike_dashboard_screen.dart';
 
 /// 🗺️ หน้าจอแผนที่หลักของแอปพลิเคชัน BANTAWAN (Tactical Map Screen)
@@ -520,18 +521,41 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           SafeArea(child: _buildNavigationHUD(provider))
         else if (!isWide)
           SafeArea(
-            child: GoogleMapHeader(
-              searchController: _searchController,
-              onSearch: (q) async {
-                final searchedPos = await provider.handleSearch(q);
-                if (mounted && searchedPos != null) {
-                  _animatedMapController.animateTo(
-                    dest: searchedPos,
-                    zoom: 15,
-                  );
-                }
-              },
-              onBack: () => Navigator.maybePop(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GoogleMapHeader(
+                  searchController: _searchController,
+                  onSearch: (q) async {
+                    final searchedPos = await provider.handleSearch(q);
+                    if (mounted && searchedPos != null) {
+                      _animatedMapController.animateTo(
+                        dest: searchedPos,
+                        zoom: 15,
+                      );
+                    }
+                  },
+                  onBack: () => Navigator.maybePop(context),
+                ),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: TacticalCoordinatesBadge(position: provider.currentPosition),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+        // 2.1 Wide Screen Coordinates Badge (Centered)
+        if (isWide && provider.routePoints.isEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 24,
+            child: Center(
+              child: TacticalCoordinatesBadge(position: provider.currentPosition),
             ),
           ),
 
@@ -993,7 +1017,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   Widget _buildSearchThisAreaButton(MapProvider provider) {
     return Positioned(
-      top: 80,
+      top: 148,
       left: 0,
       right: 0,
       child: Center(

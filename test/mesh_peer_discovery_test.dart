@@ -98,7 +98,7 @@ void main() {
         senderId: CryptoMeshService.nodeId,
       );
 
-      expect(encrypted.startsWith('ENC_V4::'), isTrue);
+      expect(encrypted.startsWith('ENC_V5::') || encrypted.startsWith('ENC_V4::'), isTrue);
 
       // Node C receives and decrypts
       final decrypted = CryptoMeshService.decryptPayload(

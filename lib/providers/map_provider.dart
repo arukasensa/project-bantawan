@@ -32,6 +32,7 @@ import '../repositories/i_poi_repository.dart';
 import '../repositories/poi_repository_impl.dart';
 import '../repositories/i_routing_repository.dart';
 import '../repositories/routing_repository_impl.dart';
+import '../core/utils/medical_facility_classifier.dart';
 
 /// 🏛️ คลาสผู้จัดการ State แผนที่และการนำทางหลัก (MapProvider)
 class MapProvider with ChangeNotifier {
@@ -435,25 +436,15 @@ class MapProvider with ChangeNotifier {
         );
         if (dist > _searchRadius * 1.1) return false;
 
-        // ถ้ามาจาก OSM ถือว่าผ่านการคัดกรองแท็ก amenity ทางการแพทย์มาแล้ว
-        if (f.source == 'osm') return true;
+        // ตรวจสอบความถูกต้องว่าเป็นสถานพยาบาลของมนุษย์จริง ไม่ใช่สัตว์เลี้ยง ขนส่ง หรืออาหาร
+        if (!MedicalFacilityClassifier.isValidFacility(f)) return false;
 
-        // สำหรับ Longdo ตรวจสอบคีย์เวิร์ดภาษาไทยเพิ่มเติม
-        final n = f.name.toLowerCase();
-        return n.contains('โรงพยาบาล') ||
-            n.contains('คลินิก') ||
-            n.contains('ยา') ||
-            n.contains('รพ.') ||
-            n.contains('ศูนย์แพทย์') ||
-            n.contains('อนามัย') ||
-            n.contains('ทันตกรรม') ||
-            n.contains('หมอ') ||
-            n.contains('แพทย์') ||
-            n.contains('การแพทย์') ||
-            n.contains('clinic') ||
-            n.contains('hospital') ||
-            n.contains('pharmacy') ||
-            n.length > 3;
+        // กรองตามหมวดหมู่ที่เลือก (all, hospital, clinic, pharmacy)
+        if (_selectedFilter != 'all') {
+          return f.type.toLowerCase() == _selectedFilter.toLowerCase();
+        }
+
+        return true;
       }).toList();
 
       // 5. จัดเรียงลำดับสถานพยาบาลจากระยะใกล้ที่สุดไปไกลที่สุด โดยวัดจาก centerPos
@@ -467,6 +458,11 @@ class MapProvider with ChangeNotifier {
               ),
             ),
       );
+
+      // 6. จำกัดจำนวนสถานที่ใกล้เคียงสูงสุด 100 แห่งตามความต้องการ
+      if (_facilities.length > 100) {
+        _facilities = _facilities.take(100).toList();
+      }
 
       _lastLoadPosition = centerPos;
       if (forceRefresh) {

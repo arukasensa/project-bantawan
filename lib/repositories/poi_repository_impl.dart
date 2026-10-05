@@ -28,6 +28,7 @@ import '../features/map/services/longdo_service.dart';
 import '../features/map/services/overpass_service.dart';
 import '../features/home/services/connectivity_service.dart';
 import '../core/database/poi_cache_service.dart';
+import '../core/utils/medical_facility_classifier.dart';
 import 'i_poi_repository.dart';
 
 /// 🏛️ คลาสอิมพลีเมนต์ระบบสืบค้นข้อมูลสถานพยาบาล (PoiRepositoryImpl)
@@ -83,32 +84,59 @@ class PoiRepositoryImpl implements IPoiRepository {
       final span = '${radiusKm.toInt()}km';
 
       // ─── Longdo Multi-Query Parallel Search ───
-      // ยิงขนาน 10+ query ด้วย keyword/tag ภาษาไทยครอบคลุมทุกประเภท
+      // ยิงค้นหาด้วย keyword/tag ที่เจาะจงเฉพาะสถานพยาบาลจริง
       final List<Future<List<Map<String, dynamic>>>> longdoFutures = [];
       final List<Future<List<Map<String, dynamic>>>> osmFutures = [];
 
+      // Helper function to query Longdo and attach source intent
+      Future<List<Map<String, dynamic>>> queryLongdo({
+        String? tag,
+        String? keyword,
+        required String defaultType,
+      }) async {
+        try {
+          final res = await LongdoService.searchNearbyPOI(
+            tag: tag,
+            keyword: keyword,
+            location: location,
+            limit: tag != null ? 500 : 300,
+            span: span,
+          );
+          for (final item in res) {
+            item['_queryType'] = defaultType;
+          }
+          return res;
+        } catch (_) {
+          return <Map<String, dynamic>>[];
+        }
+      }
+
       if (type == null || type == FacilityType.hospital) {
-        longdoFutures.add(LongdoService.searchNearbyPOI(tag: 'hospital', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'โรงพยาบาล', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'รพ.', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'hospital', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
+        longdoFutures.add(queryLongdo(tag: 'hospital', defaultType: 'hospital'));
+        longdoFutures.add(queryLongdo(keyword: 'โรงพยาบาล', defaultType: 'hospital'));
+        longdoFutures.add(queryLongdo(keyword: 'hospital', defaultType: 'hospital'));
+        longdoFutures.add(queryLongdo(keyword: 'ศูนย์การแพทย์', defaultType: 'hospital'));
       }
       if (type == null || type == FacilityType.clinic) {
-        // ในฐานข้อมูล Longdo คลินิกส่วนใหญ่ค้นหาด้วยคำว่า คลินิก, หมอ, แพทย์, รพ.สต., ทันตกรรม
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'คลินิก', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'หมอ', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'แพทย์', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'ทันตกรรม', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'รพ.สต.', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'อนามัย', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'clinic', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
+        // ค้นหาคลินิก สถานีอนามัย รพ.สต. และทันตกรรม
+        longdoFutures.add(queryLongdo(tag: 'clinic', defaultType: 'clinic'));
+        longdoFutures.add(queryLongdo(keyword: 'คลินิก', defaultType: 'clinic'));
+        longdoFutures.add(queryLongdo(keyword: 'clinic', defaultType: 'clinic'));
+        longdoFutures.add(queryLongdo(keyword: 'ทันตกรรม', defaultType: 'clinic'));
+        longdoFutures.add(queryLongdo(keyword: 'รพ.สต.', defaultType: 'hospital')); // รพ.สต. เป็นโรงพยาบาล
+        longdoFutures.add(queryLongdo(keyword: 'โรงพยาบาลส่งเสริมสุขภาพตำบล', defaultType: 'hospital'));
+        longdoFutures.add(queryLongdo(keyword: 'สถานีอนามัย', defaultType: 'clinic'));
+        longdoFutures.add(queryLongdo(keyword: 'ศูนย์บริการสาธารณสุข', defaultType: 'clinic'));
+        longdoFutures.add(queryLongdo(keyword: 'คลินิกเวชกรรม', defaultType: 'clinic'));
       }
       if (type == null || type == FacilityType.pharmacy) {
-        longdoFutures.add(LongdoService.searchNearbyPOI(tag: 'pharmacy', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'ร้านขายยา', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'ร้านยา', location: location, limit: 500, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'เภสัช', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
-        longdoFutures.add(LongdoService.searchNearbyPOI(keyword: 'pharmacy', location: location, limit: 300, span: span).catchError((_) => <Map<String, dynamic>>[]));
+        // เจาะจงเฉพาะร้านขายยาและเภสัชกรรม ป้องกันคำว่า 'ยา' ปลอม
+        longdoFutures.add(queryLongdo(tag: 'pharmacy', defaultType: 'pharmacy'));
+        longdoFutures.add(queryLongdo(keyword: 'ร้านขายยา', defaultType: 'pharmacy'));
+        longdoFutures.add(queryLongdo(keyword: 'ร้านยา', defaultType: 'pharmacy'));
+        longdoFutures.add(queryLongdo(keyword: 'เภสัช', defaultType: 'pharmacy'));
+        longdoFutures.add(queryLongdo(keyword: 'pharmacy', defaultType: 'pharmacy'));
+        longdoFutures.add(queryLongdo(keyword: 'ฟาร์มาซี', defaultType: 'pharmacy'));
       }
 
       // ─── Overpass API (OSM) ───
@@ -136,46 +164,33 @@ class PoiRepositoryImpl implements IPoiRepository {
 
       final List<MedicalFacility> allConverted = [];
 
-      // 4. แปลงผลลัพธ์ของ Longdo — จำแนกประเภท hospital, clinic, pharmacy อย่างแม่นยำ
+      // 4. แปลงผลลัพธ์ของ Longdo — จำแนกประเภท hospital, clinic, pharmacy ด้วย MedicalFacilityClassifier
       allConverted.addAll(
         longdoResults
             .where((item) => item['id'] != null && item['name'] != null)
             .map((item) {
-          final name = (item['name'] ?? '').toString().toLowerCase();
-          final tag = (item['tag'] ?? '').toString().toLowerCase();
+          final rawName = (item['name'] ?? '').toString().trim();
+          final rawTag = (item['tag'] ?? '').toString().trim();
 
-          String detectedType = 'clinic'; // default สำหรับสถานพยาบาลย่อย
-          if (tag.contains('pharmacy') ||
-              name.contains('ยา') ||
-              name.contains('เภสัช') ||
-              name.contains('pharmacy') ||
-              name.contains('drug')) {
-            detectedType = 'pharmacy';
-          } else if (name.contains('โรงพยาบาล') ||
-              name.contains('hospital') ||
-              (name.contains('รพ.') && !name.contains('รพ.สต.'))) {
-            detectedType = 'hospital';
-          } else if (tag.contains('clinic') ||
-              name.contains('คลินิก') ||
-              name.contains('clinic') ||
-              name.contains('หมอ') ||
-              name.contains('แพทย์') ||
-              name.contains('การแพทย์') ||
-              name.contains('อนามัย') ||
-              name.contains('รพ.สต.') ||
-              name.contains('สุขศาลา') ||
-              name.contains('ทันต') ||
-              name.contains('dental') ||
-              name.contains('eye') ||
-              name.contains('พยาบาล')) {
-            detectedType = 'clinic';
-          } else if (tag.contains('hospital')) {
-            detectedType = 'hospital';
+          // หากติด Blacklist (สัตว์เลี้ยง, ขนส่ง, ร้านอาหาร, กีฬา, ทหาร, สำนักงาน ฯลฯ) ตัดทิ้งทันที
+          if (MedicalFacilityClassifier.isBlacklisted(rawName, tag: rawTag)) {
+            return null;
           }
 
-          final rawName = (item['name'] ?? '').toString();
+          final detectedType = MedicalFacilityClassifier.classify(
+            name: rawName,
+            tag: rawTag,
+          );
+
+          // ⚠️ หากไม่สามารถจำแนกว่าเป็นสถานพยาบาลมนุษย์แท้จริง ให้ตัดทิ้งทันที
+          // ห้ามเดาหรือ fallback เป็น queryType เด็ดขาด เพราะ Longdo ส่งผลลัพธ์ปนเปื้อนจาก keyword ในที่อยู่/ข้อความ
+          if (detectedType == null) {
+            return null;
+          }
+
           final lat = double.tryParse(item['lat']?.toString() ?? '0') ?? 0.0;
           final lon = double.tryParse(item['lon']?.toString() ?? '0') ?? 0.0;
+          if (lat == 0.0 || lon == 0.0) return null;
 
           return MedicalFacility(
             id: item['id']?.toString() ?? UniqueKey().toString(),
@@ -186,11 +201,12 @@ class PoiRepositoryImpl implements IPoiRepository {
             longitude: lon,
             phone: item['tel'] ?? '',
             website: item['url'],
-            isOpen24Hours: rawName.contains('24') || rawName.contains('ตลอด 24'),
+            isOpen24Hours: detectedType == 'hospital' || rawName.contains('24') || rawName.contains('ตลอด 24'),
             source: 'longdo',
           );
-        }).where((f) {
-          if (f.latitude == 0.0 || f.longitude == 0.0) return false;
+        })
+        .whereType<MedicalFacility>()
+        .where((f) {
           if (type == null) return true;
           final fType = f.type.toLowerCase();
           if (type == FacilityType.hospital && fType != 'hospital') return false;
@@ -201,28 +217,52 @@ class PoiRepositoryImpl implements IPoiRepository {
       );
 
       // 5. แปลงผลลัพธ์ของ OSM (Overpass)
-      // กรองประเภทในฝั่งแอปตามโครงสร้างอินเทอร์เน็ตที่ได้สเปกมา
       allConverted.addAll(
         osmResults
             .map((item) {
+              final rawName = (item['name'] ?? '').toString().trim();
+              final rawType = (item['type'] ?? 'hospital').toString().trim();
+
+              // กรองสถานที่ที่ติด Blacklist ออก
+              if (MedicalFacilityClassifier.isBlacklisted(rawName, amenity: rawType)) {
+                return null;
+              }
+
+              final detectedType = MedicalFacilityClassifier.classify(
+                name: rawName,
+                amenity: rawType,
+              );
+
+              // หากไม่ใช่สถานพยาบาลแท้จริง ตัดทิ้งทันที
+              if (detectedType == null) {
+                return null;
+              }
+
+              final lat = double.tryParse(item['lat']?.toString() ?? '0') ?? 0.0;
+              final lon = double.tryParse(item['lon']?.toString() ?? '0') ?? 0.0;
+              if (lat == 0.0 || lon == 0.0) return null;
+
               return MedicalFacility(
                 id: item['id'] ?? UniqueKey().toString(),
-                name: item['name'] ?? 'ไม่ทราบชื่อ (OSM)',
-                type: item['type'] ?? 'hospital',
+                name: rawName.isEmpty ? 'ไม่ทราบชื่อ (OSM)' : rawName,
+                type: detectedType,
                 address: item['address'] ?? 'OpenStreetMap Facility',
-                latitude: double.tryParse(item['lat']?.toString() ?? '0') ?? 0.0,
-                longitude: double.tryParse(item['lon']?.toString() ?? '0') ?? 0.0,
+                latitude: lat,
+                longitude: lon,
                 phone: item['tel'] ?? '',
                 source: 'osm',
                 website: item['website'],
                 operator: item['operator'],
                 hasEmergency: item['emergency'] == 'yes',
+                isOpen24Hours: detectedType == 'hospital' ||
+                    item['emergency'] == 'yes' ||
+                    (item['opening_hours']?.toString().contains('24') ?? false),
                 wheelchair: item['wheelchair'],
                 openingHours: item['opening_hours'],
               );
             })
+            .whereType<MedicalFacility>()
             .where((f) {
-              // กรองสเตตัสในแอปให้ตรงกับประเภทที่คัดเลือก
               if (type == null) return true;
               final fType = f.type.toLowerCase();
               if (type == FacilityType.hospital && fType != 'hospital') return false;

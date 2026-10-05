@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter1/models/medical_facility.dart';
+import 'package:flutter1/core/utils/medical_facility_classifier.dart';
 
 /// คลาสตัวช่วยสร้างหมุดระบุพิกัดสถานพยาบาลบนแผนที่ (Tactical Marker)
 class TacticalFacilityMarker {
@@ -166,6 +167,7 @@ class TacticalFacilityMarker {
   static IconData _getPillIcon(MedicalFacility facility) {
     if (facility.isOpen24Hours) return Icons.access_time_filled_rounded;
     if (facility.hasEmergency) return Icons.local_hospital_rounded;
+    if (facility.type == 'hospital') return Icons.local_hospital_rounded;
     if (facility.type == 'pharmacy') return Icons.medication_rounded;
     return Icons.health_and_safety_rounded;
   }
@@ -193,10 +195,7 @@ class TacticalFacilityMarker {
   }
 
   static bool _isOpen(MedicalFacility facility) {
-    if (facility.isOpen24Hours) return true;
-    if (facility.openingHours == null) return true;
-    final lower = facility.openingHours!.toLowerCase();
-    return lower.contains('open') || lower.contains('24');
+    return MedicalFacilityClassifier.isFacilityOpen(facility);
   }
 
   static Widget _buildGlow(Color color) {

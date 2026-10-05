@@ -24,6 +24,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/foundation.dart';
+import '../../../core/utils/medical_facility_classifier.dart';
 
 /// 🏛️ คลาสบริการดึงข้อมูลพิกัดสถานพยาบาลจาก OpenStreetMap (OverpassService)
 /// ทุกเมธอดเป็น static เรียกใช้ได้ทันทีโดยไม่ต้องสร้างอินสแตนซ์
@@ -173,9 +174,19 @@ out tags center qt 100;
               // กรองเอาเฉพาะ Element ที่มีพิกัดที่ถูกต้อง
               final lat = e['lat'] ?? e['center']?['lat'];
               final lon = e['lon'] ?? e['center']?['lon'];
-              return lat != null && lon != null;
+              if (lat == null || lon == null) return false;
+
+              // กรองสัตวแพทย์และคลินิกสัตว์ออกทันที
+              final tags = e['tags'] as Map<String, dynamic>? ?? {};
+              final amenity = tags['amenity'] as String? ?? '';
+              final healthcare = tags['healthcare'] as String? ?? '';
+              if (amenity == 'veterinary' || healthcare == 'veterinary') return false;
+
+              return true;
             })
             .map((e) => _normalizeElement(e))
+            .where((m) => m != null)
+            .cast<Map<String, dynamic>>()
             .toList();
       }
     } catch (e) {
@@ -189,36 +200,11 @@ out tags center qt 100;
   // ============================================================================
 
   /// 📌 แปลง OSM Element ดิบให้เป็น Map มาตรฐานของแอป
-  static Map<String, dynamic> _normalizeElement(dynamic e) {
+  static Map<String, dynamic>? _normalizeElement(dynamic e) {
     final tags = e['tags'] as Map<String, dynamic>? ?? {};
     final amenity = tags['amenity'] as String? ?? '';
     final healthcare = tags['healthcare'] as String? ?? '';
     final building = tags['building'] as String? ?? '';
-
-    // Normalize type ให้อยู่ใน 3 กลุ่ม: hospital / clinic / pharmacy
-    String normalizedType = 'hospital';
-    if (amenity == 'pharmacy' || healthcare == 'pharmacy') {
-      normalizedType = 'pharmacy';
-    } else if (amenity == 'clinic' ||
-        amenity == 'doctors' ||
-        healthcare == 'clinic' ||
-        healthcare == 'doctor' ||
-        healthcare == 'centre' ||
-        healthcare == 'midwife' ||
-        healthcare == 'physiotherapist' ||
-        healthcare == 'psychotherapist' ||
-        healthcare == 'dentist') {
-      normalizedType = 'clinic';
-    } else if (amenity == 'hospital' ||
-        healthcare == 'hospital' ||
-        building == 'hospital') {
-      normalizedType = 'hospital';
-    } else if (amenity == 'health_post' || amenity == 'nursing_home') {
-      normalizedType = 'clinic';
-    } else if (healthcare.isNotEmpty) {
-      // healthcare ค่าอื่นๆ (laboratory, blood_bank, rehabilitation) → clinic
-      normalizedType = 'clinic';
-    }
 
     // ชื่อภาษาไทยก่อน ถ้าไม่มีใช้ชื่อภาษาอังกฤษ
     final name = tags['name:th'] ??
@@ -226,14 +212,34 @@ out tags center qt 100;
         tags['name:en'] ??
         'ไม่ทราบชื่อ (OSM)';
 
+    // กรองสถานที่ที่ติด Blacklist (สัตว์เลี้ยง, ขนส่ง, อาหาร, กีฬา, ทหาร ฯลฯ) ออก
+    if (MedicalFacilityClassifier.isBlacklisted(name, amenity: amenity, healthcare: healthcare)) {
+      return null;
+    }
+
+    // ใช้ MedicalFacilityClassifier จำแนกและคัดกรอง
+    final classified = MedicalFacilityClassifier.classify(
+      name: name,
+      amenity: amenity,
+      healthcare: healthcare,
+      building: building,
+    );
+
+    // หากไม่ผ่านการจำแนกว่าเป็นสถานพยาบาลมนุษย์แท้จริง ให้ตัดทิ้งทันที
+    if (classified == null) {
+      return null;
+    }
+
+    final String normalizedType = classified;
+
     return {
       'id': 'osm_${e['id']}',
       'name': name,
+      'type': normalizedType,
       'lat': e['lat'] ?? e['center']?['lat'],
       'lon': e['lon'] ?? e['center']?['lon'],
       'address': tags['addr:full'] ?? _buildAddress(tags),
       'tel': tags['phone'] ?? tags['contact:phone'] ?? tags['contact:mobile'] ?? '',
-      'type': normalizedType,
       'source': 'osm',
       'website': tags['website'] ?? tags['contact:website'] ?? '',
       'opening_hours': tags['opening_hours'] ?? '',

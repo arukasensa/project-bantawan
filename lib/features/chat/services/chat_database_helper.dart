@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'nearby_service.dart';
 import '../models/mesh_notice.dart';
+import '../models/mule_envelope.dart';
 
 // ============================================================================
 // 📦 BANTAWAN SQLite Chat Database Helper: ChatDatabaseHelper (Layer 4)
@@ -29,9 +30,9 @@ class ChatDatabaseHelper {
 
   ChatDatabaseHelper._internal();
 
-  /// ชื่อไฟล์ฐานข้อมูล SQLite และเวอร์ชัน Schema
+  /// ชื่อไฟล์ฐานข้อมูล SQLite และเวอร์ชัน Schema (V6: เพิ่มระบบคนเดินสาร Data Mule)
   static const String _dbName = 'bantawan_chat.db';
-  static const int _dbVersion = 5;
+  static const int _dbVersion = 6;
 
   /// ชื่อตารางจัดเก็บข้อความ
   static const String tableMessages = 'messages';
@@ -44,6 +45,9 @@ class ChatDatabaseHelper {
 
   /// 📌 ชื่อตารางกระดานประกาศฉุกเฉินออฟไลน์ (Offline Bulletin Board)
   static const String tableNotices = 'mesh_notices';
+
+  /// 🎒 ชื่อตารางซองจดหมายคนเดินสาร (Data Mule Envelopes Store-Carry-and-Forward)
+  static const String tableMuleEnvelopes = 'mule_envelopes';
 
   // --- ชื่อคอลัมน์ในตาราง SQLite ---
   static const String colId = 'id';
@@ -173,6 +177,35 @@ class ChatDatabaseHelper {
       CREATE INDEX idx_notices_expires
       ON $tableNotices (expiresAt)
     ''');
+
+    // 🎒 ตาราง Mule Envelopes สำหรับระบบคนเดินสาร (Store-Carry-and-Forward Mesh Carrier)
+    await db.execute('''
+      CREATE TABLE $tableMuleEnvelopes (
+        envelopeId TEXT PRIMARY KEY,
+        senderNodeId TEXT NOT NULL,
+        senderCallsign TEXT NOT NULL,
+        recipientNodeId TEXT NOT NULL,
+        encryptedPayload TEXT NOT NULL,
+        payloadIv TEXT NOT NULL,
+        payloadAuthTag TEXT NOT NULL,
+        senderSignature TEXT NOT NULL,
+        isUrgentSOS INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        hopCarryCount INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'CARRIED'
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_mule_recipient
+      ON $tableMuleEnvelopes (recipientNodeId)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_mule_expires
+      ON $tableMuleEnvelopes (expiresAt)
+    ''');
   }
 
   /// 🔄 ปรับปรุง Schema ของตารางสำหรับเวอร์ชันที่อัปเดตใหม่ (Database Migration)
@@ -234,6 +267,34 @@ class ChatDatabaseHelper {
       await db.execute('''
         CREATE INDEX IF NOT EXISTS idx_notices_expires
         ON $tableNotices (expiresAt)
+      ''');
+    }
+    if (oldVersion < 6) {
+      // 🎒 เพิ่มตาราง Mule Envelopes สำหรับระบบคนเดินสาร (Store-Carry-and-Forward Mesh Carrier)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableMuleEnvelopes (
+          envelopeId TEXT PRIMARY KEY,
+          senderNodeId TEXT NOT NULL,
+          senderCallsign TEXT NOT NULL,
+          recipientNodeId TEXT NOT NULL,
+          encryptedPayload TEXT NOT NULL,
+          payloadIv TEXT NOT NULL,
+          payloadAuthTag TEXT NOT NULL,
+          senderSignature TEXT NOT NULL,
+          isUrgentSOS INTEGER NOT NULL DEFAULT 0,
+          createdAt TEXT NOT NULL,
+          expiresAt TEXT NOT NULL,
+          hopCarryCount INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'CARRIED'
+        )
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_mule_recipient
+        ON $tableMuleEnvelopes (recipientNodeId)
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_mule_expires
+        ON $tableMuleEnvelopes (expiresAt)
       ''');
     }
   }
@@ -762,6 +823,225 @@ class ChatDatabaseHelper {
       debugPrint('[NoticeDB] 🗑️ Deleted notice $noticeId');
     } catch (e) {
       debugPrint('[NoticeDB Error] deleteNotice failed: $e');
+    }
+  }
+
+  // ==========================================================================
+  // 🎒 ระบบคนเดินสาร (Data Mule: Store-Carry-and-Forward Mesh Carrier)
+  // ==========================================================================
+
+  /// 📥 บันทึกซองจดหมายเข้ารหัสที่รับฝากมา (พร้อมระบบคุมโควต้า Quota Guard)
+  Future<bool> insertMuleEnvelope(
+    MuleEnvelope envelope, {
+    int maxStorageEnvelopes = 50,
+  }) async {
+    try {
+      if (envelope.isExpired) {
+        debugPrint('[MuleDB] ⚠️ ซองจดหมายหมดอายุแล้ว ไม่รับฝาก: ${envelope.envelopeId}');
+        return false;
+      }
+
+      final db = await database;
+
+      // ตรวจสอบว่ามีซองนี้ในเครื่องอยู่แล้วหรือไม่
+      final existing = await db.query(
+        tableMuleEnvelopes,
+        where: 'envelopeId = ?',
+        whereArgs: [envelope.envelopeId],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        debugPrint('[MuleDB] ℹ️ มีซองจดหมาย ${envelope.envelopeId} อยู่แล้ว');
+        return false;
+      }
+
+      // ตรวจสอบจำนวนซองจดหมายที่มีอยู่
+      final countResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM $tableMuleEnvelopes WHERE status = ?',
+        ['CARRIED'],
+      );
+      int currentCount = Sqflite.firstIntValue(countResult) ?? 0;
+
+      // ถ้าความจุเต็ม ให้ล้างซองที่หมดอายุออกก่อน
+      if (currentCount >= maxStorageEnvelopes) {
+        await purgeExpiredMuleEnvelopes();
+        final countAfterPurge = await db.rawQuery(
+          'SELECT COUNT(*) as count FROM $tableMuleEnvelopes WHERE status = ?',
+          ['CARRIED'],
+        );
+        currentCount = Sqflite.firstIntValue(countAfterPurge) ?? 0;
+      }
+
+      // หากยังเต็มอยู่ และซองใหม่ไม่ใช่ SOS ฉุกเฉิน ให้ปฏิเสธการรับฝากเพื่อป้องกันเมมเต็ม
+      if (currentCount >= maxStorageEnvelopes && !envelope.isUrgentSOS) {
+        debugPrint('[MuleDB] ❌ Quota เต็ม ($currentCount/$maxStorageEnvelopes) ปฏิเสธซองธรรมดา');
+        return false;
+      }
+
+      await db.insert(
+        tableMuleEnvelopes,
+        envelope.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      debugPrint('[MuleDB] 🎒 รับฝากซองจดหมายสำเร็จ: ${envelope.envelopeId} -> ${envelope.recipientNodeId} (ฉุกเฉิน: ${envelope.isUrgentSOS})');
+      return true;
+    } catch (e) {
+      debugPrint('[MuleDB Error] insertMuleEnvelope failed: $e');
+      return false;
+    }
+  }
+
+  /// 🔍 ค้นหาซองจดหมายที่ต้องส่งมอบให้โหนดผู้รับที่เพิ่งค้นพบ
+  /// รองรับทั้งรหัสโหนดเฉพาะบุคคล หรือข้อความขอความช่วยเหลือฉุกเฉิน (isUrgentSOS)
+  Future<List<MuleEnvelope>> getEnvelopesForRecipient(String recipientNodeId) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      final maps = await db.query(
+        tableMuleEnvelopes,
+        where: 'status = ? AND expiresAt > ? AND (recipientNodeId = ? OR isUrgentSOS = 1 OR recipientNodeId = ? OR recipientNodeId = ?)',
+        whereArgs: ['CARRIED', now, recipientNodeId, '@RESCUE_TEAM', '@PUBLIC_SOS'],
+        orderBy: 'isUrgentSOS DESC, createdAt ASC',
+      );
+
+      return maps.map(MuleEnvelope.fromMap).toList();
+    } catch (e) {
+      debugPrint('[MuleDB Error] getEnvelopesForRecipient failed: $e');
+      return [];
+    }
+  }
+
+  /// 🔄 ค้นหาซองจดหมายที่สามารถส่งต่อให้คนเดินสารคนอื่น (Mule Relay) ช่วยแบกต่อได้
+  /// ต้องยังไม่หมดอายุ และยังส่งต่อไม่เกินขีดจำกัด (hopCarryCount < maxHops)
+  Future<List<MuleEnvelope>> getEnvelopesForRelay({
+    required String peerNodeId,
+    int maxHops = 3,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      // ไม่ส่งซองที่ส่งมาจาก peer นั้น หรือมีเป้าหมายคือ peer นั้น (เพราะ peer นั้นจะได้รับทาง Handover ปกติอยู่แล้ว)
+      final maps = await db.query(
+        tableMuleEnvelopes,
+        where: 'status = ? AND expiresAt > ? AND hopCarryCount < ? AND senderNodeId != ? AND recipientNodeId != ?',
+        whereArgs: ['CARRIED', now, maxHops, peerNodeId, peerNodeId],
+        orderBy: 'isUrgentSOS DESC, createdAt ASC',
+        limit: 20,
+      );
+
+      return maps.map(MuleEnvelope.fromMap).toList();
+    } catch (e) {
+      debugPrint('[MuleDB Error] getEnvelopesForRelay failed: $e');
+      return [];
+    }
+  }
+
+  /// 📋 ดึงรายการซองจดหมายที่กำลังช่วยแบกอยู่ทั้งหมดในเครื่อง
+  Future<List<MuleEnvelope>> getAllCarriedEnvelopes() async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      final maps = await db.query(
+        tableMuleEnvelopes,
+        where: 'status = ? AND expiresAt > ?',
+        whereArgs: ['CARRIED', now],
+        orderBy: 'isUrgentSOS DESC, createdAt DESC',
+      );
+
+      return maps.map(MuleEnvelope.fromMap).toList();
+    } catch (e) {
+      debugPrint('[MuleDB Error] getAllCarriedEnvelopes failed: $e');
+      return [];
+    }
+  }
+
+  /// ✅ อัปเดตสถานะเป็นส่งมอบสำเร็จแล้ว (Delivered)
+  Future<void> markMuleEnvelopeDelivered(String envelopeId) async {
+    try {
+      final db = await database;
+      await db.update(
+        tableMuleEnvelopes,
+        {'status': 'DELIVERED'},
+        where: 'envelopeId = ?',
+        whereArgs: [envelopeId],
+      );
+      debugPrint('[MuleDB]  ทำเครื่องหมายส่งมอบสำเร็จ: $envelopeId');
+    } catch (e) {
+      debugPrint('[MuleDB Error] markMuleEnvelopeDelivered failed: $e');
+    }
+  }
+
+  /// 🗑️ ลบซองจดหมายออกจากเครื่องทันทีเมื่อได้รับใบเสร็จการส่งมอบ (Delivery Receipt)
+  Future<void> deleteMuleEnvelope(String envelopeId) async {
+    try {
+      final db = await database;
+      await db.delete(
+        tableMuleEnvelopes,
+        where: 'envelopeId = ?',
+        whereArgs: [envelopeId],
+      );
+      debugPrint('[MuleDB] 🗑️ ลบซองจดหมาย $envelopeId คืนพื้นที่ความจำแล้ว');
+    } catch (e) {
+      debugPrint('[MuleDB Error] deleteMuleEnvelope failed: $e');
+    }
+  }
+
+  /// 🧹 ลบซองจดหมายที่หมดอายุ หรือที่ส่งมอบสำเร็จแล้วออกจากเครื่อง
+  Future<int> purgeExpiredMuleEnvelopes() async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+      final count = await db.delete(
+        tableMuleEnvelopes,
+        where: 'expiresAt <= ? OR status = ?',
+        whereArgs: [now, 'DELIVERED'],
+      );
+      if (count > 0) {
+        debugPrint('[MuleDB] 🧹 ล้างซองจดหมายหมดอายุ/ส่งแล้ว $count รายการ');
+      }
+      return count;
+    } catch (e) {
+      debugPrint('[MuleDB Error] purgeExpiredMuleEnvelopes failed: $e');
+      return 0;
+    }
+  }
+
+  /// 📊 คำนวณสถิติพื้นที่จัดเก็บของระบบคนเดินสาร
+  Future<Map<String, int>> getMuleStorageStats() async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      final list = await db.query(
+        tableMuleEnvelopes,
+        where: 'status = ? AND expiresAt > ?',
+        whereArgs: ['CARRIED', now],
+      );
+
+      int totalBytes = 0;
+      int urgentCount = 0;
+
+      for (var map in list) {
+        final env = MuleEnvelope.fromMap(map);
+        totalBytes += env.estimatedSizeBytes;
+        if (env.isUrgentSOS) urgentCount++;
+      }
+
+      return {
+        'count': list.length,
+        'urgentCount': urgentCount,
+        'totalSizeBytes': totalBytes,
+      };
+    } catch (e) {
+      debugPrint('[MuleDB Error] getMuleStorageStats failed: $e');
+      return {
+        'count': 0,
+        'urgentCount': 0,
+        'totalSizeBytes': 0,
+      };
     }
   }
 }

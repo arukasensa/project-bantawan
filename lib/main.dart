@@ -21,6 +21,8 @@ import 'package:flutter1/features/map/services/map_offline_service.dart';
 import 'package:flutter1/features/home/services/connectivity_service.dart';
 import 'package:flutter1/providers/map_provider.dart';
 
+import 'package:flutter1/features/notifications/services/notification_service.dart';
+
 /// ฟังก์ชันหลักที่ทำงานเป็นลำดับแรกเมื่อแอปเริ่มทำงาน
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +32,7 @@ void main() async {
   await WeatherService.init();
   await ConnectivityService().init();
   await NearbyService().init();
-
+  await NotificationService.instance.init();
 
   final mapOfflineService = MapOfflineService();
   mapOfflineService.listenToConnectivity(ConnectivityService());
@@ -50,6 +52,7 @@ void main() async {
         ChangeNotifierProvider.value(value: ConnectivityService()),
         ChangeNotifierProvider(create: (_) => MapProvider()),
         ChangeNotifierProvider.value(value: DeviceHealthService()),
+        ChangeNotifierProvider.value(value: NotificationService.instance),
       ],
       child: const MyApp(),
     ),

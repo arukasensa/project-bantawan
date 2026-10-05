@@ -20,6 +20,7 @@ import 'package:flutter1/features/emergency/screens/emergency_contact_screen.dar
 import 'package:flutter1/features/emergency/screens/all_emergency_numbers_screen.dart';
 import 'package:flutter1/features/weather/services/weather_service.dart';
 import 'package:flutter1/models/medical_facility.dart';
+import 'package:flutter1/core/utils/medical_facility_classifier.dart';
 import 'package:flutter1/features/map/services/longdo_service.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import 'package:flutter1/features/weather/screens/weather_detail_screen.dart';
@@ -35,6 +36,10 @@ import 'package:flutter1/features/chat/services/nearby_service.dart';
 import 'package:flutter1/features/chat/screens/nearby_chat_screen.dart';
 import 'package:flutter1/features/survival/services/device_health_service.dart';
 import 'package:flutter1/core/widgets/tactical_decorations_painter.dart';
+import 'package:flutter1/features/notifications/services/notification_service.dart';
+import 'package:flutter1/features/notifications/widgets/notification_bottom_sheet.dart';
+import 'package:flutter1/features/survival/services/hike_service.dart';
+import 'package:flutter1/features/survival/screens/hike_dashboard_screen.dart';
 
 /// 🏠 หน้าจอหลักของแอปพลิเคชัน BANTAWAN (Home Dashboard)
 class HomeScreen extends StatefulWidget {
@@ -265,32 +270,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
 
           if (mounted && results.isNotEmpty) {
-            final first = results.first;
-            final firstName = (first['name'] ?? '').toString();
-            String detectedType = 'hospital';
-            if (firstName.contains('คลินิก') || firstName.contains('Clinic')) {
-              detectedType = 'clinic';
-            } else if (firstName.contains('ยา') ||
-                firstName.contains('Pharmacy')) {
-              detectedType = 'pharmacy';
+            Map<String, dynamic>? validItem;
+            String? detectedType;
+
+            for (final item in results) {
+              final name = (item['name'] ?? '').toString();
+              final type = MedicalFacilityClassifier.classify(
+                name: name,
+                tag: item['tag']?.toString(),
+              );
+              // ต้องเป็นโรงพยาบาลหรือสถานพยาบาลที่ผ่านการคัดกรอง
+              if (type != null) {
+                validItem = item;
+                detectedType = type;
+                break;
+              }
             }
 
-            setState(() {
-              _nearestHospital = MedicalFacility(
-                id: first['id']?.toString() ?? 'near-1',
-                name: firstName,
-                type: detectedType,
-                address: first['address'] ?? '',
-                latitude: double.tryParse(first['lat']?.toString() ?? '0') ?? 0,
-                longitude:
-                    double.tryParse(first['lon']?.toString() ?? '0') ?? 0,
-                phone: first['tel'] ?? '',
-              );
-              _nearestDistance = _nearestHospital!.distanceFrom(
-                currentPos.latitude,
-                currentPos.longitude,
-              );
-            });
+            if (validItem != null && detectedType != null) {
+              final firstName = (validItem['name'] ?? '').toString();
+              setState(() {
+                _nearestHospital = MedicalFacility(
+                  id: validItem!['id']?.toString() ?? 'near-1',
+                  name: firstName,
+                  type: detectedType!,
+                  address: validItem['address'] ?? '',
+                  latitude: double.tryParse(validItem['lat']?.toString() ?? '0') ?? 0,
+                  longitude: double.tryParse(validItem['lon']?.toString() ?? '0') ?? 0,
+                  phone: validItem['tel'] ?? '',
+                );
+                _nearestDistance = _nearestHospital!.distanceFrom(
+                  currentPos.latitude,
+                  currentPos.longitude,
+                );
+              });
+            }
           }
         } catch (e) {
           debugPrint('Hospital fetch error: $e');
@@ -526,6 +540,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
 
+          // 🌲 Hike Floating Action Pill (When Hiking Mode is active!)
+          Consumer<HikeService>(
+            builder: (context, hikeService, _) {
+              if (!hikeService.isHikeActive) return const SizedBox.shrink();
+
+              final hikeY = (currentPos.dy - _pillHeight - 12).clamp(minY, maxY);
+
+              return AnimatedPositioned(
+                duration: _isDraggingPill ? Duration.zero : const Duration(milliseconds: 320),
+                curve: Curves.easeOutBack,
+                left: currentPos.dx.clamp(minX, maxX),
+                top: hikeY,
+                child: _buildHikeFloatingPill(hikeService, minX, maxX, minY, maxY, screenSize),
+              );
+            },
+          ),
+
           // 🚀 Cyberpunk Floating Action Pill (Draggable + Magnetic Snap to Left/Right)
           AnimatedPositioned(
             duration: _isDraggingPill ? Duration.zero : const Duration(milliseconds: 320),
@@ -759,6 +790,147 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   );
   }
 
+  /// 🌲 ปุ่มลอยเข้าถึงโหมดเดินป่า (Hike Floating Pill) เมื่อมีการบันทึกเส้นทางค้างอยู่
+  Widget _buildHikeFloatingPill(
+    HikeService hikeService,
+    double minX,
+    double maxX,
+    double minY,
+    double maxY,
+    Size screenSize,
+  ) {
+    const primaryGlow = Colors.greenAccent;
+
+    return AnimatedBuilder(
+      animation: _radarAnimationController,
+      builder: (context, child) {
+        final pulseValue = (1.0 + 0.08 * (0.5 - (0.5 - _radarAnimationController.value).abs()));
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HikeDashboardScreen(
+                  initialPosition: hikeService.currentPosition,
+                ),
+              ),
+            );
+          },
+          child: AnimatedScale(
+            scale: _isDraggingPill ? 1.06 : 1.0,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  width: _pillWidth,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF0D2818),
+                        Color(0xFF05150D),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: primaryGlow.withValues(alpha: 0.75),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryGlow.withValues(alpha: 0.3),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // จุดเรดาร์สีเขียวนีออนกระพริบ
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.greenAccent,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.greenAccent.withValues(alpha: 0.8),
+                              blurRadius: 6 * pulseValue,
+                              spreadRadius: 1 * pulseValue,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // ไอคอนภูเขา/เดินป่า
+                      const Icon(
+                        Icons.landscape_rounded,
+                        color: Colors.greenAccent,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+
+                      // คอลัมน์ข้อความและสถานะ
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "🌲 เดินป่าอยู่",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              hikeService.isBacktrackActive
+                                  ? "🧭 กำลังย้อนรอย..."
+                                  : "${hikeService.totalDistanceKm.toStringAsFixed(2)} กม. • ${hikeService.breadcrumbs.length} จุด",
+                              style: const TextStyle(
+                                color: Colors.greenAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+
+                      // ไอคอนลูกศรนำทาง
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: primaryGlow.withValues(alpha: 0.7),
+                        size: 11,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMainLargeButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -965,26 +1137,82 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
-          Stack(
-            children: [
-              const Icon(
-                Icons.notifications_none_rounded,
-                color: Colors.white,
-                size: 28,
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle,
+          Consumer<NotificationService>(
+            builder: (context, notifService, _) {
+              final unread = notifService.unreadCount;
+              final hasSos = notifService.hasCriticalSos;
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (ctx) => NotificationBottomSheet(
+                      currentWeather: _weatherData,
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        unread > 0
+                            ? Icons.notifications_active_rounded
+                            : Icons.notifications_none_rounded,
+                        color: hasSos
+                            ? Colors.redAccent
+                            : (unread > 0 ? Colors.amberAccent : Colors.white),
+                        size: 28,
+                      ),
+                      if (unread > 0)
+                        Positioned(
+                          right: -4,
+                          top: -3,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: hasSos ? Colors.redAccent : const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFF0F172A),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (hasSos ? Colors.redAccent : Colors.red)
+                                      .withValues(alpha: 0.6),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Center(
+                              child: Text(
+                                unread > 99 ? '99+' : '$unread',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
@@ -1080,71 +1308,292 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return ShimmerLoading(isLoading: true, child: const WeatherSkeleton());
     }
 
+    final data = _weatherData!;
+
+    // กำหนดโทนสีตามความรุนแรงของสภาพอากาศหรือฝุ่น
+    Color themeColor = const Color(0xFF10B981); // Emerald
+    Color glowColor = const Color(0xFF10B981).withValues(alpha: 0.15);
+
+    if (data.pm25 > 50 || data.weatherCode >= 95) {
+      themeColor = const Color(0xFFEF4444); // Red
+      glowColor = const Color(0xFFEF4444).withValues(alpha: 0.25);
+    } else if (data.pm25 > 35) {
+      themeColor = const Color(0xFFF97316); // Orange
+      glowColor = const Color(0xFFF97316).withValues(alpha: 0.2);
+    } else if (data.weatherCode >= 51 && data.weatherCode <= 82) {
+      themeColor = const Color(0xFF06B6D4); // Cyan
+      glowColor = const Color(0xFF06B6D4).withValues(alpha: 0.2);
+    } else if (data.pm25 > 25) {
+      themeColor = const Color(0xFFF59E0B); // Amber
+      glowColor = const Color(0xFFF59E0B).withValues(alpha: 0.15);
+    }
+
     return GestureDetector(
       onTap: () {
+        HapticFeedback.lightImpact();
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                WeatherDetailScreen(weatherData: _weatherData!),
+            builder: (context) => WeatherDetailScreen(weatherData: data),
           ),
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF131D31).withValues(alpha: 0.9),
+              const Color(0xFF0D1424).withValues(alpha: 0.95),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(26),
           border: Border.all(
-            color: Colors.greenAccent.withValues(alpha: 0.3),
+            color: themeColor.withValues(alpha: 0.4),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.greenAccent.withValues(alpha: 0.05),
-              blurRadius: 15,
-              spreadRadius: 2,
+              color: glowColor,
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.greenAccent.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.greenAccent.withValues(alpha: 0.3),
-                  width: 1.5,
+            // Top Row: Radar Title & AQI Pill
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.radar_rounded,
+                        color: themeColor,
+                        size: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'สภาพอากาศและสิ่งแวดล้อม',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              child: Text(
-                _weatherData!.weatherIcon,
-                style: const TextStyle(fontSize: 22),
-              ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: themeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: themeColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: themeColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'AQI: ${data.aqiValue.toInt()} • ${data.status}',
+                        style: TextStyle(
+                          color: themeColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "คุณภาพอากาศดี (${_weatherData!.pm25} µg/m³)",
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+            const SizedBox(height: 14),
+
+            // Middle Row: Weather Icon + Big Temp + Thai Weather Text + Feels like
+            Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: themeColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: themeColor.withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
                   ),
-                  Text(
-                    'อุณหภูมิ ${_weatherData!.temperature}°C | PM 2.5: ${_weatherData!.pm25}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 11,
-                    ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    data.weatherIcon,
+                    style: const TextStyle(fontSize: 30),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            data.temperature.toStringAsFixed(0),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                            ),
+                          ),
+                          const Text(
+                            '°C',
+                            style: TextStyle(
+                              color: Colors.blueAccent,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data.weatherConditionTh,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'รู้สึกเหมือน ${data.apparentTemperature.toStringAsFixed(1)}°C • PM 2.5: ${data.pm25.toStringAsFixed(1)} µg/m³',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Chips Row: Humidity, Wind, UV, Rain probability
+            Row(
+              children: [
+                _buildWeatherMiniChip(
+                  icon: Icons.water_drop_rounded,
+                  label: 'ชื้น ${data.humidity}%',
+                  color: Colors.cyanAccent,
+                ),
+                const SizedBox(width: 8),
+                _buildWeatherMiniChip(
+                  icon: Icons.air_rounded,
+                  label: 'ลม ${data.windSpeed.toStringAsFixed(0)} km/h',
+                  color: Colors.blueAccent,
+                ),
+                const SizedBox(width: 8),
+                _buildWeatherMiniChip(
+                  icon: Icons.wb_sunny_rounded,
+                  label: 'UV ${data.uvIndex.toStringAsFixed(1)}',
+                  color: Colors.amberAccent,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Bottom Action Strip
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.insights_rounded,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'พยากรณ์ 24 ชม. & 7 วันข้างหน้า',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white.withValues(alpha: 0.5),
+                    size: 11,
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeatherMiniChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

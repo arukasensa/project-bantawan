@@ -26,15 +26,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/facility_type.dart';
 import '../../models/medical_facility.dart';
 import '../../models/cache_metadata.dart';
+import '../utils/medical_facility_classifier.dart';
 
 /// 🏛️ คลาสบริการบันทึกและจัดการแคชข้อมูลสถานพยาบาลแบบออฟไลน์ (PoiCacheService)
 /// ทำงานร่วมกับ SharedPreferences ในการจัดเก็บข้อมูล JSON และตรวจสอบสถานะแคช
 class PoiCacheService {
-  /// 🔑 คีย์สำหรับจัดเก็บรายการสถานพยาบาลทั้งหมดใน SharedPreferences
-  static const String _storageKey = 'cached_poi_facilities';
+  /// 🔑 คีย์สำหรับจัดเก็บรายการสถานพยาบาลทั้งหมดใน SharedPreferences (v5 ป้องกันการดึงร้านค้า/เซเว่นข้าง รพ.)
+  static const String _storageKey = 'cached_poi_facilities_v5';
 
   /// 🔑 คีย์สำหรับจัดเก็บประวัติและ Metadata ของการค้นหา (พิกัด, รัศมี, เวลาบันทึก)
-  static const String _metadataKey = 'cached_poi_metadata';
+  static const String _metadataKey = 'cached_poi_metadata_v5';
 
   // ============================================================================
   // 📥 Section 1: การบันทึกและจัดการข้อมูลแคช (Cache Storage & Eviction)
@@ -61,10 +62,14 @@ class PoiCacheService {
       // 3. ผสานรายการเดิมกับรายการใหม่ พร้อมกำจัดข้อมูลที่ซ้ำซ้อนโดยใช้ ID เป็นคีย์
       final Map<String, MedicalFacility> unique = {};
       for (var f in cached) {
-        unique[f.id] = f; // ใส่ข้อมูลเดิมลงใน Map
+        if (MedicalFacilityClassifier.isValidFacility(f)) {
+          unique[f.id] = f; // ใส่ข้อมูลเดิมเฉพาะที่ผ่านการตรวจสอบ
+        }
       }
       for (var f in newFacilities) {
-        unique[f.id] = f; // ข้อมูลใหม่อัปเดตทับข้อมูลเดิมที่มี ID ตรงกัน
+        if (MedicalFacilityClassifier.isValidFacility(f)) {
+          unique[f.id] = f; // ข้อมูลใหม่อัปเดตทับข้อมูลเดิมที่มี ID ตรงกัน
+        }
       }
 
       // 4. แปลงข้อมูลทั้งหมดเป็น JSON List แล้วบันทึกลง SharedPreferences
@@ -180,18 +185,48 @@ class PoiCacheService {
     final List<MedicalFacility> filtered = [];
 
     for (var f in all) {
-      // 2. ตรวจสอบเงื่อนไขการกรองประเภทสถานพยาบาล
+      // 2. กรองสถานที่ที่ไม่ใช่สถานพยาบาลมนุษย์แท้จริงออก
+      if (!MedicalFacilityClassifier.isValidFacility(f)) continue;
+
+      // จำแนกและอัปเดตประเภทให้ถูกต้องแม่นยำ (เช่น รพ.สต. -> hospital)
+      final classifiedType = MedicalFacilityClassifier.classify(
+        name: f.name,
+        amenity: f.source == 'osm' ? f.type : null,
+      );
+      if (classifiedType == null) continue;
+
+      final facility = MedicalFacility(
+        id: f.id,
+        name: f.name,
+        type: classifiedType, // อัปเดตประเภทให้ถูกต้องแม่นยำ
+        address: f.address,
+        latitude: f.latitude,
+        longitude: f.longitude,
+        phone: f.phone,
+        isOpen24Hours: f.isOpen24Hours || classifiedType == 'hospital',
+        imageUrl: f.imageUrl,
+        source: f.source,
+        website: f.website,
+        operator: f.operator,
+        hasEmergency: f.hasEmergency,
+        wheelchair: f.wheelchair,
+        openingHours: f.openingHours,
+        email: f.email,
+        description: f.description,
+      );
+
+      // 3. ตรวจสอบเงื่อนไขการกรองประเภทสถานพยาบาล
       if (type != null) {
-        final fType = f.type.toLowerCase();
+        final fType = facility.type.toLowerCase();
         if (type == FacilityType.hospital && fType != 'hospital') continue;
         if (type == FacilityType.clinic && fType != 'clinic') continue;
         if (type == FacilityType.pharmacy && fType != 'pharmacy') continue;
       }
 
-      // 3. ตรวจสอบพิกัดระยะทางจริงจากผู้ใช้โดยใช้สูตร Haversine
-      final distance = f.distanceFrom(userLat, userLng);
+      // 4. ตรวจสอบพิกัดระยะทางจริงจากผู้ใช้โดยใช้สูตร Haversine
+      final distance = facility.distanceFrom(userLat, userLng);
       if (distance <= radiusKm) {
-        filtered.add(f); // บรรจุลงรายการหากอยู่ในรัศมีที่กำหนด
+        filtered.add(facility); // บรรจุลงรายการหากอยู่ในรัศมีที่กำหนด
       }
     }
 

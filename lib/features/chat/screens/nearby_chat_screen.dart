@@ -32,6 +32,7 @@ import '../models/mesh_peer.dart';
 import '../models/peer_trust.dart';
 import '../widgets/peer_profile_sheet.dart';
 import '../widgets/notice_board_sheet.dart';
+import '../widgets/data_mule_sheet.dart';
 import 'peer_verification_screen.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
 import 'dart:ui';
@@ -152,13 +153,15 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     final isInsidePrivateRoom =
         _currentTabIndex == 1 && _activePrivatePeer != null;
     final activePeer = isInsidePrivateRoom
-        ? service.discoveredMeshPeers[_activePrivatePeer]
+        ? _resolveActivePeer(service, _activePrivatePeer!)
         : null;
-    final activeDisplayName =
-        activePeer?.peerName ??
-        _activePrivatePeerName ??
-        _activePrivatePeer ??
-        '';
+    final activeDisplayName = isInsidePrivateRoom
+        ? _resolvePeerDisplayName(
+            service,
+            _activePrivatePeer!,
+            activePeer?.peerName ?? _activePrivatePeerName,
+          )
+        : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -187,7 +190,13 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           Expanded(
             child: GestureDetector(
               onTap: isInsidePrivateRoom
-                  ? () => _showPeerProfileForName(_activePrivatePeer!, service)
+                  ? () {
+                      if (activePeer != null) {
+                        _showPeerProfile(activePeer, service);
+                      } else {
+                        _showPeerProfileForName(_activePrivatePeer!, service);
+                      }
+                    }
                   : null,
               child: Column(
                 children: [
@@ -311,8 +320,13 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 color: Colors.purpleAccent,
               ),
               tooltip: 'ดูโปรไฟล์ฉุกเฉิน',
-              onPressed: () =>
-                  _showPeerProfileForName(_activePrivatePeer!, service),
+              onPressed: () {
+                if (activePeer != null) {
+                  _showPeerProfile(activePeer, service);
+                } else {
+                  _showPeerProfileForName(_activePrivatePeer!, service);
+                }
+              },
             ),
 
           if (!isInsidePrivateRoom)
@@ -368,6 +382,62 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 );
               },
             ),
+
+          // 🎒 ปุ่มเปิดแผงควบคุมระบบคนเดินสาร (Data Mule)
+          ListenableBuilder(
+            listenable: service,
+            builder: (context, _) {
+              final muleCount = service.carriedEnvelopes.length;
+              final hasUrgent = service.carriedEnvelopes.any((e) => e.isUrgentSOS);
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.backpack_rounded,
+                      color: muleCount > 0
+                          ? (hasUrgent ? Colors.redAccent : Colors.purpleAccent)
+                          : (service.isDataMuleEnabled
+                              ? Colors.purpleAccent.withValues(alpha: 0.7)
+                              : Colors.white24),
+                      size: 22,
+                    ),
+                    tooltip: 'คนเดินสาร (Data Mule)',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      DataMuleSheet.show(context, service);
+                    },
+                  ),
+                  if (muleCount > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: hasUrgent ? Colors.redAccent : Colors.purpleAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Center(
+                          child: Text(
+                            muleCount > 9 ? '9+' : '$muleCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
 
           IconButton(
             icon: const Icon(
@@ -499,6 +569,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 setState(() {
                   _currentTabIndex = 0;
                   _activePrivatePeer = null;
+                  _activePrivatePeerName = null;
                 });
                 service.activeChatPeerId = null;
               },
@@ -543,7 +614,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 setState(() {
                   _currentTabIndex = 1;
                   _activePrivatePeer = null;
+                  _activePrivatePeerName = null;
                 });
+                service.activeChatPeerId = null;
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -1025,27 +1098,76 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       onStartChat: () {
         setState(() {
           _activePrivatePeer = peer.peerId;
+          _activePrivatePeerName = peer.peerName;
           _currentTabIndex = 1; // สลับไปยังแท็บแชทส่วนตัว
         });
+        service.activeChatPeerId = peer.peerId;
         service.sendReadAckForPeer(peer.peerId);
       },
     );
   }
 
-  /// 🪪 ค้นหาและเปิดดูโปรไฟล์ฉุกเฉินจากชื่อ Callsign
-  void _showPeerProfileForName(String name, NearbyService service) {
+  /// 🪪 ค้นหาและเปิดดูโปรไฟล์ฉุกเฉินจากชื่อ Callsign หรือ Peer ID
+  void _showPeerProfileForName(
+    String name,
+    NearbyService service, {
+    String? peerId,
+  }) {
     HapticFeedback.selectionClick();
     MeshPeer? targetPeer;
-    for (var peer in service.discoveredMeshPeers.values) {
-      if (peer.peerName == name || peer.peerId == name) {
-        targetPeer = peer;
-        break;
+    final allKnown = _getDiscoveredMeshPeers(service);
+
+    // 1. ค้นหาจาก peerId ก่อนเสมอ (หากระบุมา)
+    if (peerId != null && peerId.isNotEmpty) {
+      for (var peer in allKnown) {
+        if (peer.peerId == peerId) {
+          targetPeer = peer;
+          break;
+        }
+      }
+      if (targetPeer == null) {
+        final trust = IdentityService.instance.getStoredTrust(peerId);
+        if (trust != null) {
+          targetPeer = MeshPeer(
+            peerId: trust.peerId,
+            peerName: trust.displayName.isNotEmpty ? trust.displayName : name,
+            publicKeyHex: trust.publicKeyHex,
+            hopCount: 99,
+            lastSeen: trust.verifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+          );
+        }
       }
     }
 
+    // 2. หากยังไม่พบ ค้นหาจาก name หรือ peerId
+    if (targetPeer == null) {
+      for (var peer in allKnown) {
+        if (peer.peerId == name || peer.peerName == name) {
+          targetPeer = peer;
+          break;
+        }
+      }
+    }
+
+    final trust = IdentityService.instance.getStoredTrust(name);
+    if (targetPeer == null && trust != null) {
+      targetPeer = MeshPeer(
+        peerId: trust.peerId,
+        peerName: trust.displayName,
+        publicKeyHex: trust.publicKeyHex,
+        hopCount: 99,
+        lastSeen: trust.verifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+      );
+    }
+
+    final resolvedName = _resolvePeerDisplayName(service, peerId ?? name, name);
+    final resolvedPeerId = (peerId != null && peerId.startsWith('node_'))
+        ? peerId
+        : (name.startsWith('node_') ? name : 'node_$name');
+
     targetPeer ??= MeshPeer(
-      peerId: name,
-      peerName: name,
+      peerId: resolvedPeerId,
+      peerName: resolvedName,
       publicKeyHex: '',
       hopCount: service.connectedDevices.containsValue(name) ? 1 : 2,
     );
@@ -1144,9 +1266,15 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
   ) async {
     HapticFeedback.selectionClick();
     final activePeer = isInsidePrivateRoom
-        ? service.discoveredMeshPeers[_activePrivatePeer]
+        ? _resolveActivePeer(service, _activePrivatePeer!)
         : null;
-    final activeDisplayName = activePeer?.peerName ?? _activePrivatePeer ?? '';
+    final activeDisplayName = isInsidePrivateRoom
+        ? _resolvePeerDisplayName(
+            service,
+            _activePrivatePeer!,
+            activePeer?.peerName ?? _activePrivatePeerName,
+          )
+        : '';
 
     final String title = isInsidePrivateRoom
         ? 'ล้างแชทกับ $activeDisplayName?'
@@ -1221,7 +1349,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           SnackBar(
             content: Text(
               isInsidePrivateRoom
-                  ? 'ล้างข้อความกับ $_activePrivatePeer เรียบร้อยแล้ว'
+                  ? 'ล้างข้อความกับ $activeDisplayName เรียบร้อยแล้ว'
                   : 'ล้างข้อความแชทสาธารณะเรียบร้อยแล้ว',
             ),
             backgroundColor: Colors.redAccent.shade700,
@@ -1235,8 +1363,19 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
   /// View 3: ห้องแชทส่วนตัวกับผู้ใช้ที่เลือก (Private E2EE Chatroom View)
   Widget _buildPrivateChatRoomView(NearbyService service) {
     final peerId = _activePrivatePeer!;
-    final peer = service.discoveredMeshPeers[peerId];
-    final peerDisplayName = peer?.peerName ?? _activePrivatePeerName ?? peerId;
+    final peer = _resolveActivePeer(service, peerId);
+    final peerDisplayName = _resolvePeerDisplayName(
+      service,
+      peerId,
+      peer?.peerName ?? _activePrivatePeerName,
+    );
+
+    if (_activePrivatePeerName == null ||
+        _activePrivatePeerName!.startsWith('node_')) {
+      if (!peerDisplayName.startsWith('node_')) {
+        _activePrivatePeerName = peerDisplayName;
+      }
+    }
 
     final privateMessages = service.messages.where((msg) {
       final isRecipientMe =
@@ -1303,6 +1442,66 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         ),
       ],
     );
+  }
+
+  /// ค้นหาและดึง MeshPeer ตาม peerId จากทั้ง live peers, known peers, และ trust store
+  MeshPeer? _resolveActivePeer(NearbyService service, String peerId) {
+    if (service.discoveredMeshPeers.containsKey(peerId)) {
+      return service.discoveredMeshPeers[peerId];
+    }
+    final allKnown = _getDiscoveredMeshPeers(service);
+    for (final p in allKnown) {
+      if (p.peerId == peerId) {
+        return p;
+      }
+    }
+    final trust = IdentityService.instance.getStoredTrust(peerId);
+    if (trust != null) {
+      return MeshPeer(
+        peerId: trust.peerId,
+        peerName: trust.displayName,
+        publicKeyHex: trust.publicKeyHex,
+        hopCount: 99,
+        lastSeen: trust.verifiedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+      );
+    }
+    return null;
+  }
+
+  /// แปลง Peer ID เป็น Display Name ที่เป็นมิตร (ไม่แสดง node_xxx หากมีชื่อเดิมที่เคยรู้จัก)
+  String _resolvePeerDisplayName(
+    NearbyService service,
+    String peerId, [
+    String? fallbackName,
+  ]) {
+    if (fallbackName != null &&
+        fallbackName.trim().isNotEmpty &&
+        !fallbackName.startsWith('node_')) {
+      return fallbackName.trim();
+    }
+    final resolvedPeer = _resolveActivePeer(service, peerId);
+    if (resolvedPeer != null &&
+        resolvedPeer.peerName.trim().isNotEmpty &&
+        !resolvedPeer.peerName.startsWith('node_')) {
+      return resolvedPeer.peerName.trim();
+    }
+    for (final msg in service.messages.reversed) {
+      if (msg.senderId == peerId &&
+          msg.senderName.trim().isNotEmpty &&
+          !msg.senderName.startsWith('node_')) {
+        return msg.senderName.trim();
+      }
+      if (msg.recipientId == peerId &&
+          msg.recipientName != null &&
+          msg.recipientName!.trim().isNotEmpty &&
+          !msg.recipientName!.startsWith('node_')) {
+        return msg.recipientName!.trim();
+      }
+    }
+    if (fallbackName != null && fallbackName.trim().isNotEmpty) {
+      return fallbackName.trim();
+    }
+    return peerId;
   }
 
   List<MeshPeer> _getDiscoveredMeshPeers(NearbyService service) {
@@ -1685,7 +1884,11 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                           context,
                           listen: false,
                         );
-                        _showPeerProfileForName(msg.senderName, service);
+                        _showPeerProfileForName(
+                          msg.senderName,
+                          service,
+                          peerId: msg.senderId,
+                        );
                       },
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2035,7 +2238,63 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         ],
       );
     } else if (status == 'DELIVERED') {
-      return const Icon(Icons.done_rounded, size: 12, color: Colors.white70);
+      return const Icon(Icons.done_all_rounded, size: 12, color: Colors.white70);
+    } else if (status == 'CARRIED') {
+      return Container(
+        margin: const EdgeInsets.only(left: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: Colors.purpleAccent.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Colors.purpleAccent.withValues(alpha: 0.4),
+            width: 0.5,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('🎒', style: TextStyle(fontSize: 8)),
+            SizedBox(width: 2),
+            Text(
+              'ฝากคนเดินสาร',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.purpleAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (status == 'PENDING') {
+      return Container(
+        margin: const EdgeInsets.only(left: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: Colors.amberAccent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Colors.amberAccent.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.hourglass_top_rounded, size: 9, color: Colors.amberAccent),
+            SizedBox(width: 2),
+            Text(
+              'รอสัญญาณ',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.amberAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
     } else {
       return const Icon(
         Icons.access_time_rounded,

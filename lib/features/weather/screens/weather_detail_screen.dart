@@ -1,9 +1,12 @@
 // ============================================================================
-// 🌤️ BANTAWAN Weather & PM2.5 Tactical Dashboard: WeatherDetailScreen
+// 🌤️ BANTAWAN Weather & Tactical Environmental Dashboard: WeatherDetailScreen
 // 
-// หน้าจอรายละเอียดสภาพอากาศและมลพิษ (Weather & Air Quality Detail Screen)
-// แสดงกราฟแนวโน้มมลพิษ PM2.5 ตลอด 24 ชั่วโมง พร้อมแอนิเมชันอนุภาคฝุ่นลอย
-// คำแนะนำด้านสุขภาพสำหรับกลุ่มเสี่ยง และคำเตือนดัชนี UV
+// หน้าจอแดชบอร์ดสภาพอากาศ คาดการณ์ล่วงหน้า และคุณภาพอากาศแบบครบวงจร
+// - พยากรณ์รายชั่วโมง 24 ชั่วโมงข้างหน้า (Hourly Forecast)
+// - คาดการณ์สภาพอากาศ 7 วันล่วงหน้า (7-Day Daily Forecast)
+// - ข้อมูลบรรยากาศเชิงลึก (ความชื้น, ลม, ความกดอากาศ, รังสี UV, พระอาทิตย์ขึ้น/ตก)
+// - มลพิษ PM2.5, PM10, CO, NO2, O3 และกราฟแนวโน้ม 24 ชั่วโมง
+// - คำแนะนำด้านสุขภาพและการเอาชีวิตรอดในสภาพแวดล้อม
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -11,7 +14,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../services/weather_service.dart';
 import '../widgets/weather_painter.dart';
 
-/// 🌤️ หน้าจอแดชบอร์ดสภาพอากาศและระดับมลพิษ PM2.5 เชิงลึก (Weather Detail Screen)
+/// 🌤️ หน้าจอแดชบอร์ดสภาพอากาศและระดับมลพิษ PM2.5 เชิงลึก
 class WeatherDetailScreen extends StatefulWidget {
   final WeatherData weatherData;
 
@@ -21,7 +24,6 @@ class WeatherDetailScreen extends StatefulWidget {
   State<WeatherDetailScreen> createState() => _WeatherDetailScreenState();
 }
 
-/// 🌫️ State ควบคุมรอบแอนิเมชันอนุภาคฝุ่น PM2.5 และการวาดกราฟ fl_chart
 class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -50,20 +52,20 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background Gradient
+          // Background Gradient ตอบสนองต่อสภาพอากาศและมลพิษ
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: _getBackgroundColors(weatherData.pm25),
+                  colors: _getBackgroundColors(weatherData),
                 ),
               ),
             ),
           ),
 
-          // Dynamic Particles
+          // Dynamic Atmospheric Particles
           Positioned.fill(
             child: AnimatedBuilder(
               animation: _controller,
@@ -72,9 +74,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
                   painter: WeatherParticlePainter(
                     particles: _particles,
                     animationValue: _controller.value,
-                    baseColor: weatherData.pm25 > 50
-                        ? Colors.redAccent
-                        : Colors.blueAccent,
+                    baseColor: _getParticleColor(weatherData),
                   ),
                 );
               },
@@ -83,32 +83,76 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(context),
-                  const SizedBox(height: 30),
-
-                  // Main Radar Display
-                  Center(child: _buildMainRadar(weatherData)),
-
-                  const SizedBox(height: 40),
-                  _buildSectionLabel('ENVIRONMENTAL MONITORING'),
-                  const SizedBox(height: 16),
-                  _buildPollutantsGrid(weatherData),
-
-                  const SizedBox(height: 40),
-                  _buildSectionLabel('PM 2.5 TRENDS (24H)'),
                   const SizedBox(height: 20),
+
+                  // Hero Weather Display
+                  Center(child: _buildMainRadar(weatherData)),
+                  const SizedBox(height: 32),
+
+                  // ⏱️ Section: พยากรณ์อากาศ 24 ชั่วโมงข้างหน้า
+                  _buildSectionHeader(
+                    title: 'พยากรณ์อากาศ 24 ชั่วโมง',
+                    subtitle: 'HOURLY FORECAST',
+                    icon: Icons.access_time_rounded,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildHourlyForecastList(weatherData),
+                  const SizedBox(height: 32),
+
+                  // 📅 Section: คาดการณ์สภาพอากาศ 7 วันล่วงหน้า
+                  _buildSectionHeader(
+                    title: 'คาดการณ์สภาพอากาศ 7 วัน',
+                    subtitle: '7-DAY WEATHER FORECAST',
+                    icon: Icons.calendar_month_rounded,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildDailyForecastList(weatherData),
+                  const SizedBox(height: 32),
+
+                  // 🌍 Section: สภาพบรรยากาศเชิงลึก (6 Metrics)
+                  _buildSectionHeader(
+                    title: 'ข้อมูลบรรยากาศและสิ่งแวดล้อม',
+                    subtitle: 'ATMOSPHERIC METRICS',
+                    icon: Icons.speed_rounded,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildAtmosphereGrid(weatherData),
+                  const SizedBox(height: 32),
+
+                  // 🌫️ Section: ตรวจวัดมลพิษในอากาศ (Air Pollutants)
+                  _buildSectionHeader(
+                    title: 'ระดับมลพิษในอากาศ',
+                    subtitle: 'AIR POLLUTANTS (WHO STANDARD)',
+                    icon: Icons.air_rounded,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildPollutantsGrid(weatherData),
+                  const SizedBox(height: 32),
+
+                  // 📊 Section: กราฟแนวโน้ม PM2.5 (24H)
+                  _buildSectionHeader(
+                    title: 'แนวโน้มฝุ่น PM 2.5 (24 ชม.)',
+                    subtitle: 'PM 2.5 TREND GRAPH',
+                    icon: Icons.auto_graph_rounded,
+                  ),
+                  const SizedBox(height: 14),
                   _buildTrendChart(weatherData),
+                  const SizedBox(height: 32),
 
-                  const SizedBox(height: 40),
-                  _buildSectionLabel('SURVIVAL RECOMMENDATIONS'),
-                  const SizedBox(height: 16),
+                  // 🛡️ Section: คำแนะนำด้านสุขภาพและการปฏิบัติตัว
+                  _buildSectionHeader(
+                    title: 'คำแนะนำด้านสุขภาพและความปลอดภัย',
+                    subtitle: 'SURVIVAL RECOMMENDATIONS',
+                    icon: Icons.health_and_safety_rounded,
+                  ),
+                  const SizedBox(height: 14),
                   _buildHealthRecommendations(weatherData),
-
                   const SizedBox(height: 40),
                 ],
               ),
@@ -119,131 +163,259 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     );
   }
 
-  List<Color> _getBackgroundColors(double pm25) {
-    if (pm25 > 50) {
-      return [const Color(0xFF3B0000), const Color(0xFF1A0505)]; // Dark Red
-    } else if (pm25 > 25) {
-      return [const Color(0xFF2E1C00), const Color(0xFF140D00)]; // Dark Orange
+  // ─── สีพื้นหลังและอนุภาคตอบสนองต่อสภาพอากาศ ───
+  List<Color> _getBackgroundColors(WeatherData data) {
+    if (data.pm25 > 50) {
+      return [const Color(0xFF3B0000), const Color(0xFF1A0505), const Color(0xFF0D0303)];
     }
-    return [
-      const Color(0xFF0F0F23),
-      const Color(0xFF050510),
-    ]; // Default Dark Blue
+    if (data.weatherCode >= 95) {
+      // พายุฝนฟ้าคะนอง: สีม่วงครามเข้ม
+      return [const Color(0xFF1E1035), const Color(0xFF0F0A1F), const Color(0xFF050510)];
+    }
+    if (data.weatherCode >= 51 && data.weatherCode <= 82) {
+      // ฝนตก: น้ำเงินอมเขียวขุ่น
+      return [const Color(0xFF0D2538), const Color(0xFF081522), const Color(0xFF03080E)];
+    }
+    if (data.pm25 > 25) {
+      return [const Color(0xFF2E1C00), const Color(0xFF140D00), const Color(0xFF0A0500)];
+    }
+    // ปกติ: น้ำเงินเทาทึบสไตล์ Cyberpunk
+    return [const Color(0xFF0F172A), const Color(0xFF0B1120), const Color(0xFF020617)];
   }
 
+  Color _getParticleColor(WeatherData data) {
+    if (data.pm25 > 50) return Colors.redAccent;
+    if (data.weatherCode >= 95) return Colors.purpleAccent;
+    if (data.weatherCode >= 51) return Colors.cyanAccent;
+    if (data.pm25 > 25) return Colors.orangeAccent;
+    return Colors.lightBlueAccent;
+  }
+
+  // ─── Header Navigation ───
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
         IconButton(
           onPressed: () => Navigator.pop(context),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            shape: const CircleBorder(),
+          ),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: Colors.white,
-            size: 20,
+            size: 18,
           ),
         ),
-        const Spacer(),
-        const Icon(Icons.location_on, color: Colors.white54, size: 16),
-        const SizedBox(width: 4),
-        const Text(
-          'สภาพอากาศวันนี้',
-          style: TextStyle(color: Colors.white54, fontSize: 14),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'เรดาร์สภาพอากาศ & สิ่งแวดล้อม',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Colors.greenAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'ข้อมูลดาวเทียม Open-Meteo สด',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        const Spacer(),
-        // Just for balance
-        const SizedBox(width: 44),
       ],
     );
   }
 
-  Widget _buildSectionLabel(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.3),
-        fontSize: 12,
-        letterSpacing: 2,
-        fontWeight: FontWeight.bold,
-      ),
+  // ─── Section Header ───
+  Widget _buildSectionHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.blueAccent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.3)),
+          ),
+          child: Icon(icon, color: Colors.blueAccent, size: 16),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.35),
+                fontSize: 10,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
+  // ─── Hero Radar Display ───
   Widget _buildMainRadar(WeatherData data) {
+    Color aqiColor = Colors.greenAccent;
+    if (data.pm25 > 50) {
+      aqiColor = Colors.redAccent;
+    } else if (data.pm25 > 35) {
+      aqiColor = Colors.orangeAccent;
+    } else if (data.pm25 > 25) {
+      aqiColor = Colors.amberAccent;
+    }
+
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Pulsing Rings
+        // Pulsing Wave Rings
         ...List.generate(3, (index) {
           return AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
               double val = (_controller.value + index / 3) % 1.0;
               return Container(
-                width: 200 + (val * 100),
-                height: 200 + (val * 100),
+                width: 210 + (val * 110),
+                height: 210 + (val * 110),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.blueAccent.withValues(
-                      alpha: (1.0 - val) * 0.2,
-                    ),
-                    width: 2,
+                    color: aqiColor.withValues(alpha: (1.0 - val) * 0.25),
+                    width: 1.5,
                   ),
                 ),
               );
             },
           );
         }),
-        // Main Core
+
+        // Main Core Display
         Container(
-          width: 220,
-          height: 220,
+          width: 230,
+          height: 230,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.05),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: aqiColor.withValues(alpha: 0.15),
+                blurRadius: 30,
+                spreadRadius: 2,
+              ),
+            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(data.weatherIcon, style: const TextStyle(fontSize: 48)),
-              const SizedBox(height: 8),
+              Text(data.weatherIcon, style: const TextStyle(fontSize: 44)),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.temperature.toStringAsFixed(0),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 54,
+                      fontWeight: FontWeight.bold,
+                      height: 1.0,
+                    ),
+                  ),
+                  const Text(
+                    '°C',
+                    style: TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
               Text(
-                '${data.temperature}°C',
+                data.weatherConditionTh,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 54,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 2),
               Text(
-                data.description,
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                'รู้สึกเหมือน ${data.apparentTemperature.toStringAsFixed(1)}°C',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11,
                 ),
               ),
               const SizedBox(height: 10),
+              // AQI Pill
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withValues(alpha: 0.1),
+                  color: aqiColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.greenAccent.withValues(alpha: 0.3),
-                  ),
+                  border: Border.all(color: aqiColor.withValues(alpha: 0.4)),
                 ),
-                child: Text(
-                  'AQI: ${data.aqiValue.toInt()}',
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: aqiColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'AQI: ${data.aqiValue.toInt()} • ${data.status}',
+                      style: TextStyle(
+                        color: aqiColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -253,31 +425,282 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     );
   }
 
-  Widget _buildPollutantsGrid(WeatherData weatherData) {
-    final items = [
+  // ─── ⏱️ พยากรณ์รายชั่วโมง (24 Hours Forecast) ───
+  Widget _buildHourlyForecastList(WeatherData data) {
+    if (data.hourlyForecast.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Text('ไม่มีข้อมูลพยากรณ์รายชั่วโมง', style: TextStyle(color: Colors.white54)),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 132,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: data.hourlyForecast.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = data.hourlyForecast[index];
+          final isNow = index == 0;
+          final timeStr = isNow
+              ? 'ตอนนี้'
+              : '${item.time.hour.toString().padLeft(2, '0')}:00';
+
+          return Container(
+            width: 76,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isNow
+                  ? Colors.blueAccent.withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isNow
+                    ? Colors.blueAccent.withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: isNow ? 1.5 : 1.0,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  timeStr,
+                  style: TextStyle(
+                    color: isNow ? Colors.blueAccent : Colors.white70,
+                    fontSize: 11,
+                    fontWeight: isNow ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                Text(item.weatherIcon, style: const TextStyle(fontSize: 22)),
+                Text(
+                  '${item.temperature.toStringAsFixed(0)}°',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                // Chance of rain
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.water_drop_rounded,
+                      size: 10,
+                      color: item.precipitationProbability > 20
+                          ? Colors.cyanAccent
+                          : Colors.white24,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${item.precipitationProbability}%',
+                      style: TextStyle(
+                        color: item.precipitationProbability > 20
+                            ? Colors.cyanAccent
+                            : Colors.white38,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ─── 📅 คาดการณ์สภาพอากาศ 7 วัน (7-Day Daily Forecast) ───
+  Widget _buildDailyForecastList(WeatherData data) {
+    if (data.dailyForecast.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Text('ไม่มีข้อมูลพยากรณ์ 7 วัน', style: TextStyle(color: Colors.white54)),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        children: data.dailyForecast.map((day) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                // Day name
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    day.dayNameTh,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // Weather Icon & Condition
+                SizedBox(
+                  width: 32,
+                  child: Text(day.weatherIcon, style: const TextStyle(fontSize: 20)),
+                ),
+                Expanded(
+                  child: Text(
+                    day.conditionTh,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Rain chance
+                if (day.precipitationProbability > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.cyanAccent.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.water_drop_rounded, size: 10, color: Colors.cyanAccent),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${day.precipitationProbability}%',
+                          style: const TextStyle(
+                            color: Colors.cyanAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Temperature Range
+                Text(
+                  '${day.minTemp.toStringAsFixed(0)}°',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Visual Temp Bar
+                Container(
+                  width: 46,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    gradient: const LinearGradient(
+                      colors: [Colors.blueAccent, Colors.orangeAccent],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${day.maxTemp.toStringAsFixed(0)}°',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ─── 🌍 สภาพบรรยากาศเชิงลึก (6 Tactical Metrics) ───
+  Widget _buildAtmosphereGrid(WeatherData data) {
+    String uvLevel = 'ปลอดภัย';
+    Color uvColor = Colors.greenAccent;
+    if (data.uvIndex >= 11) {
+      uvLevel = 'อันตรายสูงสุด';
+      uvColor = Colors.purpleAccent;
+    } else if (data.uvIndex >= 8) {
+      uvLevel = 'สูงมาก';
+      uvColor = Colors.redAccent;
+    } else if (data.uvIndex >= 6) {
+      uvLevel = 'สูง';
+      uvColor = Colors.orangeAccent;
+    } else if (data.uvIndex >= 3) {
+      uvLevel = 'ปานกลาง';
+      uvColor = Colors.amberAccent;
+    }
+
+    final metrics = [
       {
-        'label': 'PM 2.5',
-        'value': weatherData.pm25,
-        'unit': 'µg/m³',
-        'color': Colors.orangeAccent,
-      },
-      {
-        'label': 'CO',
-        'value': weatherData.co,
-        'unit': 'µg/m³',
+        'title': 'ความชื้นสัมพัทธ์',
+        'value': '${data.humidity}%',
+        'subtitle': data.humidity > 80 ? 'ชื้นสูงมาก' : 'ระดับสบายตัว',
+        'icon': Icons.water_drop_outlined,
         'color': Colors.blueAccent,
       },
       {
-        'label': 'NO2',
-        'value': weatherData.no2,
-        'unit': 'µg/m³',
-        'color': Colors.greenAccent,
+        'title': 'ความเร็วลม',
+        'value': data.windSpeed.toStringAsFixed(1),
+        'unit': 'km/h',
+        'subtitle': data.windSpeed > 30 ? 'ลมแรง ระวังพายุ' : 'ลมสงบ',
+        'icon': Icons.air_rounded,
+        'color': Colors.cyanAccent,
       },
       {
-        'label': 'O3',
-        'value': weatherData.o3,
-        'unit': 'µg/m³',
-        'color': Colors.purpleAccent,
+        'title': 'ดัชนีรังสี UV',
+        'value': data.uvIndex.toStringAsFixed(1),
+        'subtitle': uvLevel,
+        'icon': Icons.wb_sunny_outlined,
+        'color': uvColor,
+      },
+      {
+        'title': 'ความกดอากาศ',
+        'value': data.surfacePressure.toStringAsFixed(0),
+        'unit': 'hPa',
+        'subtitle': data.surfacePressure < 1005 ? 'ความกดต่ำ (เสี่ยงฝน)' : 'เสถียร',
+        'icon': Icons.compress_rounded,
+        'color': Colors.indigoAccent,
+      },
+      {
+        'title': 'พระอาทิตย์ขึ้น',
+        'value': data.sunrise,
+        'subtitle': 'รุ่งเช้า',
+        'icon': Icons.wb_twilight_rounded,
+        'color': Colors.amberAccent,
+      },
+      {
+        'title': 'พระอาทิตย์ตก',
+        'value': data.sunset,
+        'subtitle': 'พลบค่ำ',
+        'icon': Icons.nights_stay_outlined,
+        'color': Colors.deepOrangeAccent,
       },
     ];
 
@@ -286,9 +709,134 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.4,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.5,
+      ),
+      itemCount: metrics.length,
+      itemBuilder: (context, index) {
+        final m = metrics[index];
+        final col = m['color'] as Color;
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    m['title'] as String,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Icon(m['icon'] as IconData, color: col, size: 16),
+                ],
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    m['value'] as String,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (m['unit'] != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      m['unit'] as String,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              Text(
+                m['subtitle'] as String,
+                style: TextStyle(
+                  color: col,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── 🌫️ ตารางมลพิษทางอากาศ (Pollutants Grid) ───
+  Widget _buildPollutantsGrid(WeatherData weatherData) {
+    final items = [
+      {
+        'label': 'PM 2.5',
+        'value': weatherData.pm25,
+        'unit': 'µg/m³',
+        'color': weatherData.pm25 > 35 ? Colors.redAccent : Colors.orangeAccent,
+        'threshold': 'มาตรฐาน: 15-37.5',
+      },
+      {
+        'label': 'PM 10',
+        'value': weatherData.pm10,
+        'unit': 'µg/m³',
+        'color': Colors.amberAccent,
+        'threshold': 'มาตรฐาน: < 50',
+      },
+      {
+        'label': 'CO (คาร์บอนฯ)',
+        'value': weatherData.co,
+        'unit': 'µg/m³',
+        'color': Colors.blueAccent,
+        'threshold': 'ปกติ: < 4000',
+      },
+      {
+        'label': 'NO2 (ไนโตรเจนฯ)',
+        'value': weatherData.no2,
+        'unit': 'µg/m³',
+        'color': Colors.greenAccent,
+        'threshold': 'ปกติ: < 40',
+      },
+      {
+        'label': 'O3 (โอโซน)',
+        'value': weatherData.o3,
+        'unit': 'µg/m³',
+        'color': Colors.purpleAccent,
+        'threshold': 'ปกติ: < 100',
+      },
+      {
+        'label': 'ฝนสะสม',
+        'value': weatherData.precipitation,
+        'unit': 'mm',
+        'color': Colors.cyanAccent,
+        'threshold': 'ปริมาณฝนปัจจุบัน',
+      },
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.5,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -298,15 +846,24 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
           value: item['value'] as double,
           unit: item['unit'] as String,
           color: item['color'] as Color,
+          threshold: item['threshold'] as String,
         );
       },
     );
   }
 
+  // ─── 📊 กราฟแนวโน้ม PM2.5 ───
   Widget _buildTrendChart(WeatherData weatherData) {
     if (weatherData.hourlyPm25.isEmpty) {
-      return const Center(
-        child: Text("ไม่มีข้อมูลกราฟ", style: TextStyle(color: Colors.white54)),
+      return Container(
+        height: 140,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: Text("ไม่มีข้อมูลกราฟแนวโน้ม", style: TextStyle(color: Colors.white54)),
+        ),
       );
     }
 
@@ -319,12 +876,12 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
         .toList();
 
     return Container(
-      height: 200,
-      padding: const EdgeInsets.all(20),
+      height: 210,
+      padding: const EdgeInsets.only(top: 20, right: 20, left: 10, bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: LineChart(
         LineChartData(
@@ -332,26 +889,51 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
             show: true,
             drawVerticalLine: false,
             getDrawingHorizontalLine: (value) => FlLine(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: Colors.white.withValues(alpha: 0.06),
               strokeWidth: 1,
             ),
           ),
-          titlesData: const FlTitlesData(
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 32,
+                getTitlesWidget: (val, meta) => Text(
+                  val.toInt().toString(),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 22,
+                interval: 6,
+                getTitlesWidget: (val, meta) => Text(
+                  '${val.toInt()}h',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    fontSize: 9,
+                  ),
+                ),
+              ),
+            ),
           ),
           borderData: FlBorderData(show: false),
           minX: 0,
-          maxX: 23,
+          maxX: (dataPoints.length - 1).toDouble(),
           minY: 0,
           lineBarsData: [
             LineChartBarData(
               spots: dataPoints,
               isCurved: true,
-              color: Colors.blueAccent,
-              barWidth: 4,
+              color: weatherData.pm25 > 35 ? Colors.redAccent : Colors.cyanAccent,
+              barWidth: 3,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: false),
               belowBarData: BarAreaData(
@@ -360,7 +942,8 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.blueAccent.withValues(alpha: 0.2),
+                    (weatherData.pm25 > 35 ? Colors.redAccent : Colors.cyanAccent)
+                        .withValues(alpha: 0.25),
                     Colors.transparent,
                   ],
                 ),
@@ -372,46 +955,99 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     );
   }
 
+  // ─── 🛡️ คำแนะนำด้านสุขภาพและการปฏิบัติตัว ───
   Widget _buildHealthRecommendations(WeatherData weatherData) {
     List<Map<String, String>> recommendations = [];
+
+    // แนะนำด้านมลพิษฝุ่น
     if (weatherData.pm25 > 50) {
-      recommendations = [
-        {'icon': '😷', 'text': 'สวมหน้ากาก N95 ทันทีเมื่อออกนอกอาคาร'},
-        {'icon': '🏠', 'text': 'ใช้เครื่องฟอกอากาศและปิดประตูหน้าต่าง'},
-      ];
+      recommendations.add({
+        'icon': '😷',
+        'title': 'เตือนภัยฝุ่นระดับวิกฤต',
+        'text': 'สวมหน้ากาก N95 ทันทีเมื่อออกนอกอาคาร และงดกิจกรรมกลางแจ้งทุกชนิด',
+      });
+      recommendations.add({
+        'icon': '🏠',
+        'title': 'ปิดผนึกพื้นที่อาศัย',
+        'text': 'เปิดเครื่องฟอกอากาศและปิดประตูหน้าต่างให้มิดชิดเพื่อป้องกันฝุ่นเข้า',
+      });
     } else if (weatherData.pm25 > 25) {
-      recommendations = [
-        {'icon': '😷', 'text': 'กลุ่มเสี่ยงควรสวมหน้ากากอนามัย'},
-        {'icon': '⏲️', 'text': 'ลดเวลาทำกิจกรรมกลางแจ้ง'},
-      ];
-    } else {
-      recommendations = [
-        {'icon': '☘️', 'text': 'อากาศบริสุทธิ์ เหมาะสำหรับกิจกรรมทุกประเภท'},
-      ];
+      recommendations.add({
+        'icon': '😷',
+        'title': 'กลุ่มเสี่ยงควรระวัง',
+        'text': 'เด็ก คนชรา และผู้มีโรคทางเดินหายใจควรสวมหน้ากากอนามัย',
+      });
+    }
+
+    // แนะนำด้านสภาพอากาศ (แดด / ฝน / พายุ)
+    if (weatherData.weatherCode >= 95) {
+      recommendations.add({
+        'icon': '⚡',
+        'title': 'พายุฝนฟ้าคะนองรุนแรง',
+        'text': 'หลีกเลี่ยงที่โล่งแจ้ง ใต้ต้นไม้ใหญ่ ป้ายโฆษณา และระวังฟ้าผ่า',
+      });
+    } else if (weatherData.weatherCode >= 51) {
+      recommendations.add({
+        'icon': '☔',
+        'title': 'เตรียมร่มและเสื้อกันฝน',
+        'text': 'มีฝนตกในพื้นที่ ระมัดระวังถนนลื่นในการเดินทางและขับขี่',
+      });
+    }
+
+    // แนะนำด้าน UV
+    if (weatherData.uvIndex >= 8) {
+      recommendations.add({
+        'icon': '🧴',
+        'title': 'รังสี UV สูงมาก',
+        'text': 'ทาครีมกันแดด SPF30+, สวมแว่นกันแดด และหลีกเลี่ยงแดดช่วง 10:00-15:00 น.',
+      });
+    }
+
+    if (recommendations.isEmpty) {
+      recommendations.add({
+        'icon': '☘️',
+        'title': 'สภาพแวดล้อมปลอดภัย',
+        'text': 'อากาศบริสุทธิ์และแจ่มใส เหมาะสำหรับกิจกรรมทุกประเภท',
+      });
     }
 
     return Column(
       children: recommendations.map((item) {
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(item['icon']!, style: const TextStyle(fontSize: 24)),
-              const SizedBox(width: 16),
+              Text(item['icon']!, style: const TextStyle(fontSize: 26)),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  item['text']!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['title']!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item['text']!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -422,30 +1058,34 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
   }
 }
 
+// ─── Gauge Card Widget ───
 class _TacticalGauge extends StatelessWidget {
   final String label;
   final double value;
   final String unit;
   final Color color;
+  final String threshold;
 
   const _TacticalGauge({
     required this.label,
     required this.value,
     required this.unit,
     required this.color,
+    required this.threshold,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -453,29 +1093,44 @@ class _TacticalGauge extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Icon(Icons.analytics_outlined, color: color, size: 14),
             ],
           ),
-          const Spacer(),
-          Text(
-            value.toStringAsFixed(1),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
           Text(
-            unit,
+            threshold,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.3),
-              fontSize: 10,
+              color: color.withValues(alpha: 0.8),
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

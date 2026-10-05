@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter1/models/medical_facility.dart';
 import 'package:flutter1/providers/map_provider.dart';
+import 'package:flutter1/core/utils/medical_facility_classifier.dart';
 
 /// แผงแสดงรายชื่อสถานพยาบาลและการค้นหาแบบครบวงจร
 class FacilityListPanel extends StatefulWidget {
@@ -632,9 +633,6 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
   }
 
   static bool _checkIsOpen(MedicalFacility facility) {
-    if (facility.isOpen24Hours) return true;
-    if (facility.openingHours == null) return true;
-    final lower = facility.openingHours!.toLowerCase();
-    return lower.contains('open') || lower.contains('24');
+    return MedicalFacilityClassifier.isFacilityOpen(facility);
   }
 }

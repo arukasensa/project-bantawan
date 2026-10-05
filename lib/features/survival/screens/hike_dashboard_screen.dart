@@ -1,17 +1,21 @@
 // หน้าจอแดชบอร์ดติดตามการเดินป่า (Hike Dashboard Screen)
-// แสดงแผนที่รอยทางเดินย้อนกลับ (Breadcrumbs), สถิติระยะทางกิโลเมตร,
-// เวลาที่ใช้เดิน, และปุ่มกดค้างเพื่อหยุดการบันทึกอย่างปลอดภัย
+// แสดงแผนที่รอยทางเดินย้อนกลับ (Breadcrumbs), สถิติระยะทาง, เวลา, ความสูงจริง,
+// ระบบเข็มทิศนำทางย้อนรอย (Backtrack Compass), และการยืนยันสิ้นสุดการเดินป่า
 
 import 'dart:ui';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/hike_service.dart';
-import 'package:flutter1/features/emergency/services/call_service.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:path_provider/path_provider.dart';
+import '../services/hike_service.dart';
+import '../widgets/hike_summary_dialog.dart';
+import 'package:flutter1/features/emergency/services/call_service.dart';
 
 /// หน้าจอแสดงผลและบันทึกสถิติการเดินป่า
 class HikeDashboardScreen extends StatefulWidget {
@@ -22,7 +26,7 @@ class HikeDashboardScreen extends StatefulWidget {
   State<HikeDashboardScreen> createState() => _HikeDashboardScreenState();
 }
 
-/// State ควบคุมการคำนวณระยะทาง เวลา และการเรนเดอร์เส้นทางเดินป่า
+/// State ควบคุมการคำนวณระยะทาง เวลา เข็มทิศย้อนรอย และการเรนเดอร์เส้นทาง
 class _HikeDashboardScreenState extends State<HikeDashboardScreen>
     with TickerProviderStateMixin {
   final MapController _mapController = MapController();
@@ -31,11 +35,13 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
   late AnimationController _heartbeatController;
   late AnimationController _stopHoldController;
 
-  // Real stats (placeholders for elevation)
   double _distanceKm = 0.0;
   String _durationStr = "00:00:00";
   Timer? _statTimer;
   DateTime? _hikeStartTime;
+
+  StreamSubscription<CompassEvent>? _compassSubscription;
+  double _currentHeading = 0.0;
 
   @override
   void initState() {
@@ -45,7 +51,6 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
     }
     _initLocalPath();
     _getCurrentLocation();
-    _hikeStartTime = DateTime.now();
     _startStatTimer();
 
     _heartbeatController = AnimationController(
@@ -57,19 +62,31 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
+
+    // ดักฟังเซนเซอร์เข็มทิศสำหรับ Backtrack Navigation
+    _compassSubscription = FlutterCompass.events?.listen((event) {
+      if (mounted && event.heading != null) {
+        setState(() {
+          _currentHeading = (event.heading! + 360) % 360;
+        });
+      }
+    });
   }
 
   void _startStatTimer() {
     _statTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
+        final service = Provider.of<HikeService>(context, listen: false);
+        _hikeStartTime ??= service.hikeStartTime ?? DateTime.now();
+
         final now = DateTime.now();
         final diff = now.difference(_hikeStartTime!);
         setState(() {
           _durationStr = _formatDuration(diff);
-          // In a real app, distance would be calculated from breadcrumbs
-          final service = Provider.of<HikeService>(context, listen: false);
           if (service.breadcrumbs.length > 1) {
-            _distanceKm = _calculateTotalDistance(service.breadcrumbs);
+            _distanceKm = service.totalDistanceKm > 0
+                ? service.totalDistanceKm
+                : _calculateTotalDistance(service.breadcrumbs);
           }
         });
       }
@@ -102,31 +119,56 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
   }
 
   Future<void> _getCurrentLocation() async {
-    final position = await Geolocator.getCurrentPosition();
-    setState(() {
-      _currentPosition = LatLng(position.latitude, position.longitude);
-      _mapController.move(_currentPosition, 16);
-    });
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = LatLng(position.latitude, position.longitude);
+        _mapController.move(_currentPosition, 16);
+      });
+      final service = Provider.of<HikeService>(context, listen: false);
+      service.updateCurrentPosition(_currentPosition, altitude: position.altitude);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _statTimer?.cancel();
+    _compassSubscription?.cancel();
     _heartbeatController.dispose();
     _stopHoldController.dispose();
     super.dispose();
   }
 
+  /// ดักจับการกดย้อนกลับ (Back Button) เพื่อแสดงตัวเลือกระหว่างย่อหน้าต่างกับสิ้นสุดการเดิน
+  void _handleBackPress() {
+    HapticFeedback.lightImpact();
+    final service = Provider.of<HikeService>(context, listen: false);
+    if (!service.isHikeActive) {
+      Navigator.pop(context);
+      return;
+    }
+    _showExitOptionsDialog();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          _buildMap(),
-          _buildCockpitHeader(),
-          _buildBottomControlBar(),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPress();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            _buildMap(),
+            _buildCockpitHeader(),
+            _buildBacktrackOverlay(),
+            _buildBottomControlBar(),
+          ],
+        ),
       ),
     );
   }
@@ -149,14 +191,18 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               ),
 
-            // Polyline with Glow
+            // Polyline เส้นทางรอยเท้าเรืองแสง
             PolylineLayer(
               polylines: [
                 Polyline(
                   points: hikeService.breadcrumbs,
                   strokeWidth: 5,
-                  color: Colors.blueAccent.withValues(alpha: 0.8),
-                  borderColor: Colors.blueAccent.withValues(alpha: 0.3),
+                  color: hikeService.isBacktrackActive
+                      ? Colors.orangeAccent.withValues(alpha: 0.9)
+                      : Colors.blueAccent.withValues(alpha: 0.8),
+                  borderColor: hikeService.isBacktrackActive
+                      ? Colors.orangeAccent.withValues(alpha: 0.4)
+                      : Colors.blueAccent.withValues(alpha: 0.3),
                   borderStrokeWidth: 8,
                 ),
               ],
@@ -164,24 +210,38 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
 
             MarkerLayer(
               markers: [
-                // Start Point
+                // จุดเริ่มต้น (Basecamp ธงเขียว)
                 if (hikeService.breadcrumbs.isNotEmpty)
                   Marker(
                     point: hikeService.breadcrumbs.first,
-                    width: 40,
-                    height: 40,
-                    child: const Icon(
-                      Icons.flag_circle_rounded,
-                      color: Colors.greenAccent,
-                      size: 30,
+                    width: 44,
+                    height: 44,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.8),
+                        border: Border.all(color: Colors.greenAccent, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.greenAccent.withValues(alpha: 0.4),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.flag_circle_rounded,
+                        color: Colors.greenAccent,
+                        size: 26,
+                      ),
                     ),
                   ),
-                // Current Location with Pulse
+
+                // ตำแหน่งปัจจุบันพร้อมเรดาร์กระพริบ
                 Marker(
                   point: _currentPosition,
                   width: 80,
                   height: 80,
-                  child: _buildPulsingMarker(),
+                  child: _buildPulsingMarker(hikeService.isBacktrackActive),
                 ),
               ],
             ),
@@ -191,7 +251,9 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
     );
   }
 
-  Widget _buildPulsingMarker() {
+  Widget _buildPulsingMarker(bool isBacktrack) {
+    final color = isBacktrack ? Colors.orangeAccent : Colors.blueAccent;
+
     return AnimatedBuilder(
       animation: _heartbeatController,
       builder: (context, child) {
@@ -203,7 +265,7 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
               height: 30 * (1 + _heartbeatController.value * 1.5),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blueAccent.withValues(
+                color: color.withValues(
                   alpha: 1 - _heartbeatController.value,
                 ),
               ),
@@ -211,11 +273,11 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
             Container(
               width: 14,
               height: 14,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
                 boxShadow: [
-                  BoxShadow(color: Colors.blueAccent, blurRadius: 10),
+                  BoxShadow(color: color, blurRadius: 10),
                 ],
               ),
             ),
@@ -236,7 +298,7 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
               children: [
                 _buildCircularButton(
                   Icons.arrow_back_ios_new_rounded,
-                  () => Navigator.pop(context),
+                  _handleBackPress,
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: _buildHeartbeatBanner()),
@@ -277,79 +339,103 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
   }
 
   Widget _buildHeartbeatBanner() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.greenAccent.withValues(alpha: 0.3),
+    return Consumer<HikeService>(
+      builder: (context, hikeService, _) {
+        final isBacktrack = hikeService.isBacktrackActive;
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isBacktrack
+                      ? Colors.orangeAccent.withValues(alpha: 0.6)
+                      : Colors.greenAccent.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  _buildSimplePulseIndicator(isBacktrack),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isBacktrack ? 'BACKTRACK ACTIVE' : 'HIKE RECORDING',
+                          style: TextStyle(
+                            color: isBacktrack ? Colors.orangeAccent : Colors.greenAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        Text(
+                          isBacktrack ? 'กำลังนำทางกลับจุดเริ่มต้น' : 'กำลังบันทึกรอยทางออฟไลน์',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ปุ่มกดสลับโหมด Backtrack Compass
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      hikeService.toggleBacktrack();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isBacktrack
+                            ? Colors.orangeAccent
+                            : Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isBacktrack
+                              ? Colors.orangeAccent
+                              : Colors.white24,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.explore_rounded,
+                            size: 13,
+                            color: isBacktrack ? Colors.black : Colors.orangeAccent,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isBacktrack ? 'ย้อนรอยอยู่' : 'ย้อนรอย',
+                            style: TextStyle(
+                              color: isBacktrack ? Colors.black : Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              _buildSimplePulseIndicator(),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'HIKE HEARTBEAT',
-                      style: TextStyle(
-                        color: Colors.greenAccent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    Text(
-                      'เส้นทางถูกบันทึกเรียบร้อย',
-                      style: TextStyle(color: Colors.white70, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.greenAccent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.greenAccent.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.wifi_off_rounded,
-                      color: Colors.greenAccent,
-                      size: 12,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'OFFLINE',
-                      style: TextStyle(
-                        color: Colors.greenAccent,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSimplePulseIndicator() {
+  Widget _buildSimplePulseIndicator(bool isBacktrack) {
+    final color = isBacktrack ? Colors.orangeAccent : Colors.greenAccent;
+
     return AnimatedBuilder(
       animation: _heartbeatController,
       builder: (_, _) => Container(
@@ -357,10 +443,10 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
         height: 10,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.greenAccent,
+          color: color,
           boxShadow: [
             BoxShadow(
-              color: Colors.greenAccent.withValues(alpha: 0.5),
+              color: color.withValues(alpha: 0.5),
               blurRadius: 10 * _heartbeatController.value,
               spreadRadius: 5 * _heartbeatController.value,
             ),
@@ -371,29 +457,36 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
   }
 
   Widget _buildStatsDashboard() {
-    return Row(
-      children: [
-        _buildStatItem(
-          'DISTANCE',
-          '${_distanceKm.toStringAsFixed(2)} KM',
-          Icons.route_rounded,
-          Colors.cyanAccent,
-        ),
-        const SizedBox(width: 10),
-        _buildStatItem(
-          'DURATION',
-          _durationStr,
-          Icons.timer_outlined,
-          Colors.orangeAccent,
-        ),
-        const SizedBox(width: 10),
-        _buildStatItem(
-          'ELEVATION',
-          '245 m',
-          Icons.landscape_rounded,
-          const Color(0xFF10B981),
-        ),
-      ],
+    return Consumer<HikeService>(
+      builder: (context, hikeService, _) {
+        final alt = hikeService.currentAltitude;
+        final altStr = alt != null ? '${alt.toStringAsFixed(0)} m' : '-- m';
+
+        return Row(
+          children: [
+            _buildStatItem(
+              'DISTANCE',
+              '${_distanceKm.toStringAsFixed(2)} KM',
+              Icons.route_rounded,
+              Colors.cyanAccent,
+            ),
+            const SizedBox(width: 10),
+            _buildStatItem(
+              'DURATION',
+              _durationStr,
+              Icons.timer_outlined,
+              Colors.orangeAccent,
+            ),
+            const SizedBox(width: 10),
+            _buildStatItem(
+              'ELEVATION',
+              altStr,
+              Icons.landscape_rounded,
+              const Color(0xFF10B981),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -441,6 +534,186 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
     );
   }
 
+  /// 🧭 แผงเข็มทิศนำทางย้อนรอย (Backtrack Compass HUD)
+  Widget _buildBacktrackOverlay() {
+    return Consumer<HikeService>(
+      builder: (context, hikeService, _) {
+        if (!hikeService.isBacktrackActive) return const SizedBox.shrink();
+
+        final distMeters = hikeService.getDistanceToStartMeters() ?? 0.0;
+        final bearing = hikeService.getBearingToStartDegrees() ?? 0.0;
+
+        // คำนวณมุมหมุนของลูกศรเข็มทิศ: ทิศเป้าหมาย - ทิศที่เครื่องหัน
+        final relativeAngle = (bearing - _currentHeading) * (math.pi / 180.0);
+        final isNearStart = distMeters < 30 && distMeters > 0;
+
+        String distStr = distMeters >= 1000
+            ? '${(distMeters / 1000).toStringAsFixed(2)} กม.'
+            : '${distMeters.toStringAsFixed(0)} ม.';
+
+        return Positioned(
+          bottom: 110,
+          left: 20,
+          right: 20,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF1E293B).withValues(alpha: 0.92),
+                      const Color(0xFF0F172A).withValues(alpha: 0.96),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isNearStart
+                        ? Colors.greenAccent
+                        : Colors.orangeAccent.withValues(alpha: 0.6),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isNearStart ? Colors.greenAccent : Colors.orangeAccent)
+                          .withValues(alpha: 0.25),
+                      blurRadius: 20,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // ลูกศรเข็มทิศหมุนตามมุมจริง
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.4),
+                        border: Border.all(
+                          color: isNearStart
+                              ? Colors.greenAccent
+                              : Colors.orangeAccent.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Center(
+                        child: isNearStart
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: Colors.greenAccent,
+                                size: 30,
+                              )
+                            : Transform.rotate(
+                                angle: relativeAngle,
+                                child: const Icon(
+                                  Icons.navigation_rounded,
+                                  color: Colors.orangeAccent,
+                                  size: 32,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // ข้อมูลระยะทางและคำแนะนำ
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  isNearStart
+                                      ? '🎉 ถึงจุดเริ่มต้นแล้ว!'
+                                      : 'จุดเริ่มต้น (Basecamp ⛳)',
+                                  style: TextStyle(
+                                    color: isNearStart
+                                        ? Colors.greenAccent
+                                        : Colors.orangeAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white12,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '${bearing.toStringAsFixed(0)}° ${_getCardinalDirection(bearing)}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            isNearStart
+                                ? 'คุณอยู่ในรัศมีจุดเริ่มต้นเรียบร้อย'
+                                : 'ห่างอีก $distStr',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'เดินมุ่งหน้าตามลูกศรและรอยเส้นสีส้ม',
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    // ปุ่มปิดโหมด Backtrack
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => hikeService.toggleBacktrack(false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _getCardinalDirection(double angle) {
+    if (angle >= 337.5 || angle < 22.5) return 'N (เหนือ)';
+    if (angle >= 22.5 && angle < 67.5) return 'NE';
+    if (angle >= 67.5 && angle < 112.5) return 'E';
+    if (angle >= 112.5 && angle < 157.5) return 'SE';
+    if (angle >= 157.5 && angle < 202.5) return 'S';
+    if (angle >= 202.5 && angle < 247.5) return 'SW';
+    if (angle >= 247.5 && angle < 292.5) return 'W';
+    return 'NW';
+  }
+
   Widget _buildBottomControlBar() {
     return Positioned(
       bottom: 30,
@@ -466,15 +739,15 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
         ),
-        child: Row(
+        child: const Row(
           children: [
-            const Icon(
+            Icon(
               Icons.phone_in_talk_rounded,
               color: Colors.redAccent,
               size: 28,
             ),
-            const SizedBox(width: 8),
-            const Text(
+            SizedBox(width: 8),
+            Text(
               '1669',
               style: TextStyle(
                 color: Colors.redAccent,
@@ -505,8 +778,8 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
-            child: Center(
-              child: const Text(
+            child: const Center(
+              child: Text(
                 'HOLD TO END',
                 style: TextStyle(
                   color: Colors.white,
@@ -546,10 +819,107 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
     );
   }
 
+  /// เปิดหน้าต่างสรุปผลเมื่อสิ้นสุดการเดินป่า
   void _confirmEndHike() {
     _stopHoldController.reset();
     final service = Provider.of<HikeService>(context, listen: false);
-    service.stopHike();
-    Navigator.pop(context);
+    final summary = service.endHike();
+
+    if (summary != null) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => HikeSummaryDialog(
+          summary: summary,
+          onDismiss: () => Navigator.pop(context),
+        ),
+      );
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  /// แสดงตัวเลือกเมื่อกดย้อนกลับ: ย่อหน้าต่าง หรือ สิ้นสุดการเดินป่า
+  void _showExitOptionsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.hiking_rounded, color: Colors.greenAccent, size: 28),
+            SizedBox(width: 10),
+            Text('ออกจากหน้าเดินป่า?', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: const Text(
+          'กิจกรรมการเดินป่ากำลังบันทึกอยู่ คุณต้องการทำรายการใด?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          // 1. ปุ่มย่อหน้าต่าง (บันทึกต่อในพื้นหลัง)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.greenAccent,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Colors.greenAccent, width: 1.2),
+                ),
+              ),
+              icon: const Icon(Icons.picture_in_picture_alt_rounded),
+              label: const Text(
+                'ย่อหน้าจอ (บันทึกต่อในพื้นหลัง)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx); // ปิด Dialog
+                Navigator.pop(context); // ออกไปหน้าหลัก (Hike ยังรันอยู่)
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // 2. ปุ่มสิ้นสุดการเดินป่า
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                foregroundColor: Colors.redAccent,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Colors.redAccent, width: 1.2),
+                ),
+              ),
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text(
+                'สิ้นสุดการเดินป่า (End Hike)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx); // ปิด Dialog
+                _confirmEndHike(); // สรุปผลและจบกิจกรรม
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
+
+          // 3. ปุ่มยกเลิก/เดินต่อ
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('เดินป่าต่อ', style: TextStyle(color: Colors.white54)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

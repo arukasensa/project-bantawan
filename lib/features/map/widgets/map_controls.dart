@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui';
 import 'package:flutter1/providers/map_provider.dart';
+import 'package:flutter1/features/survival/services/hike_service.dart';
 
 /// วิดเจ็ตแถบเครื่องมือควบคุมแผนที่ด้านข้าง
 class MapControls extends StatelessWidget {
@@ -31,13 +32,15 @@ class MapControls extends StatelessWidget {
         label: 'แผนที่',
       ),
       _buildControlItem(
-        icon: provider.followMode != 'none' ? Icons.gps_fixed_rounded : Icons.gps_not_fixed_rounded,
+        icon: provider.followMode != 'none'
+            ? Icons.gps_fixed_rounded
+            : Icons.gps_not_fixed_rounded,
         onTap: onToggleFollow,
         label: 'ใกล้ฉัน',
         isActive: provider.followMode != 'none',
       ),
       const Divider(color: Colors.white10, height: 16, indent: 8, endIndent: 8),
-      
+
       // Category Filters
       _buildControlItem(
         icon: Icons.medical_services_rounded,
@@ -63,13 +66,13 @@ class MapControls extends StatelessWidget {
         label: 'ร้านยา',
         isActive: provider.selectedFilter == 'pharmacy',
       ),
-      
+
       const Divider(color: Colors.white10, height: 16, indent: 8, endIndent: 8),
-      
+
       _buildControlItem(
         icon: Icons.refresh_rounded,
         onTap: () => provider.loadFacilities(forceRefresh: true),
-        label: 'โหลดแมพ',
+        label: 'โหลด',
         isActive: provider.isLoading,
         isSpinning: provider.isLoading,
       ),
@@ -77,6 +80,7 @@ class MapControls extends StatelessWidget {
         icon: Icons.hiking_rounded,
         onTap: onToggleHike,
         label: 'เดินป่า',
+        isActive: Provider.of<HikeService>(context).isHikeActive,
       ),
     ]);
   }
@@ -120,7 +124,9 @@ class MapControls extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isActive ? highlightColor.withValues(alpha: 0.18) : Colors.transparent,
+                color: isActive
+                    ? highlightColor.withValues(alpha: 0.18)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: isSpinning
