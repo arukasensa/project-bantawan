@@ -1,13 +1,13 @@
 # BANTAWAN - Map & Navigation Module Documentation
 
 **มอดูล**: ระบบแผนที่นำทางและค้นหาพิกัดสถานพยาบาลยุทธศาสตร์  
-**ไฟล์หลัก**: `lib/screens/map_screen.dart`, `lib/providers/map_provider.dart`, `lib/repositories/poi_repository_impl.dart`, `lib/repositories/routing_repository_impl.dart`, `lib/widgets/map/google_facility_sheet.dart`  
+**ไฟล์หลัก**: `lib/features/map/screens/map_screen.dart`, `lib/providers/map_provider.dart`, `lib/features/map/services/map_offline_service.dart`, `lib/features/map/widgets/`  
 
 ---
 
 ## 1. ภาพรวมของมอดูล (Module Overview)
 
-มอดูลแผนที่ของ **BANTAWAN** ออกแบบมาเพื่อให้ผู้ประสบภัยและทีมกู้ภัยสามารถระบุตำแหน่ง ค้นหาจุดพยาบาล และคำนวณเส้นทางนำทางได้ทั้งในภาวะปกติและภาวะอินเทอร์เน็ตล่ม โดยทำงานร่วมกับเอ็นจิน `flutter_map` (OpenStreetMap Vector/Raster Renderer)
+มอดูลแผนที่ของ **BANTAWAN** ออกแบบมาเพื่อให้ผู้ประสบภัยและทีมกู้ภัยสามารถระบุตำแหน่ง ค้นหาจุดพยาบาล และคำนวณเส้นทางนำทางได้ทั้งในภาวะปกติและภาวะอินเทอร์เน็ตล่ม โดยทำงานร่วมกับเอ็นจิน `flutter_map` (OpenStreetMap Vector/Raster Renderer) พร้อมระบบแคชแผ่นแผนที่ออฟไลน์ในตัว
 
 ---
 
@@ -23,15 +23,21 @@
          ┌──────────────────────────┼──────────────────────────┐
          ▼                          ▼                          ▼
     'dark' Mode               'satellite' Mode           'traffic' Mode
-CartoDB Dark Matter        ArcGIS World Imagery       CartoDB Voyager Map
-(สบายตา ถนอมแบตเตอรี่)      (ภาพถ่ายดาวเทียมความละเอียดสูง)   + Longdo Real-time Traffic Overlay
+OSM Standard / Offline Cache   ArcGIS World Imagery     OSM Standard Map
+(แผนที่ออฟไลน์จากเครื่อง)     (ภาพถ่ายดาวเทียมความละเอียดสูง)  + Longdo Real-time Traffic Overlay
 ```
 
-| สไตล์แผนที่ | Endpoint URL | วัตถุประสงค์การใช้งาน |
+| สไตล์แผนที่ | แหล่งข้อมูล | วัตถุประสงค์การใช้งาน |
 |---|---|---|
-| **Dark Mode** | `https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png` | แผนที่ธีมมืด สบายตา ถนอมแบตเตอรี่เวลากลางคืน |
+| **Dark / Standard Mode** | `OfflineFallbackTileProvider`<br>(แคชในเครื่อง `${directory.path}/map_tiles/{z}/{x}/{y}.png` สลับเป็น OSM Network) | แสดงผลได้ 100% แม้ไร้เน็ต สบายตา ถนอมแบตเตอรี่ |
 | **Satellite Mode** | `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}` | ภาพถ่ายดาวเทียมสำหรับดูสภาพภูมิประเทศจริง |
-| **Traffic Mode** | `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`<br>+ `https://ms.longdo.com/mmmap/tile.php?zoom={z}&x={x}&y={y}&key=...&proj=epsg3857&HD=1&layer=traffic` | แผนที่สว่างซ้อนทับด้วยเส้นสีการจราจรเรียลไทม์ (เขียว/เหลือง/แดง) |
+| **Traffic Mode** | `https://tile.openstreetmap.org/{z}/{x}/{y}.png`<br>+ `https://ms.longdo.com/mmmap/tile.php?zoom={z}&x={x}&y={y}&key=...&layer=traffic` | แผนที่ซ้อนทับด้วยเส้นสีการจราจรเรียลไทม์ (เขียว/เหลือง/แดง) |
+
+### 2.1 ระบบแสดงผลแผนที่ออฟไลน์อัตโนมัติ (OfflineFallbackTileProvider Engine)
+* **กลไกการทำงาน**:
+  1. ตัว Provider จะค้นหาว่ามีไฟล์ไทล์พิกัด `(z, x, y)` เก็บอยู่ในเครื่องจากที่เคยดาวน์โหลดไว้ผ่าน `MapOfflineService` หรือไม่
+  2. **กรณีมีไฟล์**: โหลดภาพจาก Local Disk ด้วย `FileImage` ทันที 0ms ไร้เน็ต 100%
+  3. **กรณีไม่มีไฟล์**: สลับไปดึงภาพจาก OpenStreetMap ผ่าน `NetworkImage` อัตโนมัติเมื่อมีสัญญาณอินเทอร์เน็ต
 
 ---
 

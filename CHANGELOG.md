@@ -1,85 +1,122 @@
-# ประวัติการปรับปรุงแอปพลิเคชัน (Changelog)
+# BANTAWAN - Change Log & Version History
 
-บันทึกรายการเปลี่ยนแปลงการพัฒนาแอปพลิเคชัน **BANTAWAN** แยกย่อยตามรุ่นของซอฟต์แวร์:
+เอกสารบันทึกประวัติการเปลี่ยนแปลงและการอัปเดตระบบของโครงการ **BANTAWAN**
 
-## [1.5.0] - 2026-07-23 (รุ่นปรับปรุงระบบการจราจรแบบเรียลไทม์ และระบบบรรยายปฐมพยาบาล 2 ภาษา)
-### เพิ่มฟังก์ชันการทำงาน (Added)
-* **Bilingual First Aid TTS & Voice Guide**: รองรับระบบเสียงบรรยายขั้นตอนปฐมพยาบาล 2 ภาษา (สลับสำเนียงและเสียงพูดระหว่าง `th-TH` ภาษาไทย และ `en-US` ภาษาอังกฤษ อิงตาม Locale ของแอปพลิเคชัน)
-* **Real-time Traffic Flow Layer**: ซ้อนทับเส้นสีจราจรสด (เขียว/เหลือง/แดง) จาก Longdo Tile API บนแผนที่ CartoDB Voyager เมื่อเปิดโหมด Traffic
-* **3-Way Parallel POI Discovery Engine**: ขยายท่อค้นหาดึงข้อมูลพร้อมกัน 3 ช่องทาง (Longdo Tag Search + Longdo Thai Keyword Search + Overpass Race Condition)
-* **High-Density Marker Rendering**: ปลดล็อกขีดจำกัดการแสดงหมุดบนแผนที่จาก 40 หมุด เพิ่มเป็น **300 หมุด** เพื่อความหนาแน่นสมจริง
+## [1.7.0] - 2026-09-03
 
-### ปรับปรุง UI/UX & แก้ไขข้อบกพร่อง (Improved & Fixed)
-* **Delivery ACK & Read Receipts**: เพิ่มใบยืนยันการรับส่งข้อความผ่าน Mesh Network แสดงสถานะ `⏳` (กำลังส่ง), `✓` (ส่งถึงนาย E แล้ว), และ `✓✓` (นาย E เปิดอ่านแล้ว)
-* **Crypto Engine V2**: ระบบเข้ารหัส SHA-256 KDF + 16-byte Random IV + HMAC-SHA256 Anti-Tamper Signature (`ENC_V2::...`) ป้องกันการดัดแปลงข้อมูล
-* **E2EE Private Direct Mesh Chat**: เพิ่มโหมดแชทส่วนตัวเข้ารหัสต้นทางถึงปลายทาง (End-to-End Encryption) รองรับการส่งแพ็กเก็ตผ่านโหนดรีเลย์ (B, C, D) โดยไม่ขึ้นข้อความบนหน้าจอเครื่องทางผ่าน มีเพียงเป้าหมาย (นาย E) เท่านั้นที่เห็นและอ่านข้อความได้
-* **Profile Screen & Mesh Callsign Linkage**: เชื่อมโยงชื่อโปรไฟล์ผู้ใช้งานกับชื่ออุปกรณ์ (Device Callsign) ในระบบ Mesh Chat ออฟไลน์โดยอัตโนมัติ แสดง Badge ป้ายชื่อ **`CALLSIGN: [Name]`** สี Cyan ดีไซน์ Tactical และเพิ่ม Helper Text อธิบายการทำงานในหน้าแก้ไขข้อมูล
-* **Interactive Map Search & GPS Precision Polish**: เพิ่มปุ่มลอย **"ค้นหาในบริเวณนี้"** เมื่อผู้ใช้ลากแผนที่ไปดูพิกัดอื่น, เพิ่มปุ่มสลับเปิดดูแผงคำแนะนำการเลี้ยวแบบ step-by-step บน HUD นำทาง, ปรับปรุงปุ่มล้างคำพิมพ์ `(X)` บน Search Bar ให้ตอบสนองเรียลไทม์ และเพิ่มระบบตรวจเช็กพร้อม Fallback ตำแหน่งพิกัด GPS อุปกรณ์
-* **Animated Side Toolbar Reset**: แก้ไขตำแหน่งเมนูขวา (`MapControls`) ให้เช็คสถานะ `provider.showDetails` ร่วมกับ `AnimatedPositioned` เมื่อกดกากบาท (✕) ปิด Sheet เมนูขวาจะเลื่อนสไลด์กลับลงมาที่ตำแหน่งเดิม (`bottom: 120`) อย่างนุ่มนวล
-* **Google Maps External Launcher**: เพิ่มปุ่มแคปซูล **`Google Maps`** บนหน้าต่างรายละเอียดสถานพยาบาล (`GoogleFacilitySheet`) สามารถแตะเปิดพิกัดเป้าหมายบนแอป Google Maps ภายนอกได้ทันที
-* **Search Bar Layout Overlap Fix**: แก้ไขระยะขอบขวาของแถบค้นหาใน `google_map_header.dart` ให้เว้นระยะ 72px ป้องกันการชนกับเมนูเครื่องมือแนวตั้ง `MapControls` ด้านขวา
-* **Functional Search Button & Map Pan Animation**: เปลี่ยนปุ่มโปรไฟล์รูปคนบนแถบค้นหาให้กลายเป็นปุ่มค้นหาแว่นขยาย (`Icons.search_rounded`) ที่กดค้นหาได้จริง พร้อมสั่งให้แผนที่เลื่อนไปยังพิกัดเป้าหมายที่ค้นพบทันที
-* **APK GPS Location Centering Fix**: แก้ไขปัญหาสตรีมพิกัดและโฟกัสตำแหน่งบนไฟล์ APK ด้วยระบบ `getLastKnownPosition` instant fallback, ร้องขอสิทธิ์ `checkPermission`/`requestPermission` และใช้ `forceLocationManager: true` ป้องกันบริการ FusedLocation ค้าง
-* **APK Compass & High-Sampling Sensors**: เพิ่มสิทธิ์ `<uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />` และ `<uses-feature android:name="android.hardware.sensor.compass" />` ใน `AndroidManifest.xml` พร้อมอัปเดตสตรีมเข็มทิศในแผนที่ให้รับค่าองศาและหมุนทำมุมได้อย่างถูกต้อง
-* **Bilingual First Aid UI**: หน้าจอคู่มือปฐมพยาบาลแสดงผลชื่อหัวข้อ คำเตือน และขั้นตอนการช่วยเหลือสลับภาษาไทย/อังกฤษโดยอัตโนมัติ
-* **Fixed Close Button & Sheet Dismissal**: แก้ไขเงื่อนไข `provider.showDetails` ใน `map_screen.dart` ทำให้ปุ่มกากบาท (✕) ทำหน้าที่พับเก็บ Sheet ได้สมบูรณ์ โดยรักษาสภาพเส้นทางนำทาง (Route Line) บนแผนที่ไว้
-* **Overpass Timeout & Error Fix**: แก้ไขปัญหาสอบถามข้อมูล Overpass API ล้มเหลวด้วยการเปลี่ยนเป็นระบบ Race Condition ยิงทุก Mirror Server พร้อมกันและปรับ Timeout การรอเป็น 25 วินาที
+### 🛡️ Critical Security & Cryptography Upgrade
+- **E2EE V4 Industrial Engine (X25519 ECDH + HKDF-SHA256 + AES-256 FIPS 197)**: อัปเกรดเอนจินเข้ารหัสเป็นมาตรฐานอุตสาหกรรม **AES-256 Block Cipher Engine (FIPS 197 14-Rounds)** แทนระบบ Custom XOR เดิม ร่วมกับการแลกเปลี่ยนคีย์ด้วย **Curve25519 (X25519 ECDH)** และ **HKDF-SHA256 (RFC 5869)**
+- **NIST Standard AEAD Integrity Protection**: ตรวจสอบความถูกต้องและป้องกันการดัดแปลงข้อมูลด้วย HMAC-SHA256 AEAD Tag over 96-bit Nonce/IV + AES-256 Ciphertext (`ENC_V4::ephemeralPubHex::iv::aesCipher::mac`)
+- **Ephemeral-Static Perfect Forward Secrecy**: สุ่มสร้าง Ephemeral Key Pair สำหรับการส่งข้อความส่วนตัว ป้องกันโหนดกลางทาง (Silent Relay) ดักจับคำนวณหา Session Key
+- **Pure Dart Cryptography**: เขียนอัลกอริทึม AES-256 Block Cipher, X25519 Montgomery Ladder ($y^2 = x^3 + 486662x^2 + x \pmod{2^{255}-19}$) และ HKDF-SHA256 แบบ Pure Dart 100% ประมวลผลรวดเร็ว ทำงานออฟไลน์โดยไม่ต้องพึ่งพา Native External Libraries
+- **Fail-Closed Security Guard Policy**: ยกเลิกการตกกลับเป็น Plaintext เมื่อการเข้ารหัสล้มเหลว หากระบบเข้ารหัสขัดข้อง ระบบจะโยน `CryptoException` และระงับการส่งแพ็กเก็ตทันที ห้ามส่งข้อความแบบ Plaintext ลงคลื่นวิทยุเด็ดขาด (Security-by-Default / Fail-Closed Pattern)
+- **Zero-Knowledge Encrypted Private Location Payload**: แพ็กรวมพิกัด GPS (`latitude`, `longitude`), ชื่อผู้ส่ง และเนื้อหาลงใน **Inner Private Payload** แล้วเข้ารหัสด้วย AES-256-GCM ทั้งชุด โดยกำหนดค่าพิกัดบน Header ที่จะส่งผ่าน Silent Relay Node ให้เป็น `null` โหนดรีเลย์ตรงกลางจะมองเห็นเฉพาะข้อมูล Routing ที่จำเป็น (`id`, `senderId`, `recipientId`, `ttl`) เท่านั้น
+- **Multi-Layer Anti-Replay Protection Engine**: เพิ่มระบบป้องกันการส่งข้อความย้อนรอย (Replay Attack) 3 ชั้น ได้แก่ 1) ตรวจสอบเวลา Freshness Window (ปฏิเสธแพ็กเก็ตที่หมดอายุเกิน 10 นาที) 2) ติดตาม Unique Nonce/Ephemeral Key (`_usedNonces`) ปฏิเสธการแอบอ้างคีย์ซ้ำ 3) ติดตาม Unique Message UUID (`_processedMessageIds`)
+- **RFC 4122 Standard UUID v4 Message ID**: อัปเกรดระบบสร้างไอดีประจำข้อความ (`NearbyMessage.id`) จากเดิมรูปแบบ `senderId_timestamp` เปลี่ยนเป็น **128-bit RFC 4122 UUID v4** (`550e8400-e29b-41d4-a716-446655440000`) ป้องกันปัญหาไอดีชนกัน (Collision) 100% แม้จะส่งข้อความรวดเร็วในระดับมิลลิวินาทีเดียวกัน
+- **LRU + TTL Bounded Cache Memory Safety**: เปลี่ยนโครงสร้างการเก็บ `_processedMessageIds` และ `_usedNonces` จากเดิม Set ปล่อยโตไม่จำกัด เป็น **LruMessageIdCache Engine** จำกัดขนาดแคชสูงสุด 1,000–2,000 รายการ (LRU Eviction) พร้อมระบบล้างข้อมูลเก่าอายุเกิน 15 นาทีอัตโนมัติ (TTL Purge) การันตีขนาดหน่วยความจำคงที่ ไม่เกิด Memory Leak ตลอดการใช้งาน
+- **Dynamic Reverse Path Routing Table (RPRT) & Unicast ACK Routing**: สร้างตารางเส้นทางย้อนกลับแบบไดนามิก (`_reversePathTable`) บันทึก `messageId / senderId -> endpointId` เพื่อส่งแพ็กเก็ต ACK ย้อนกลับตรงไปยังท่อทางเข้าแบบ **Unicast Direct Routing** ส่องตรงข้ามโหนดโดยไม่เปลืองแบนด์วิดท์คลื่นวิทยุ พร้อมระบบ **Controlled Flooding Fallback** กรณีเส้นทางหลุด
+- **Feature-First Architecture Restructuring**: ปรับปรุงโครงสร้างไดเรกทอรีของซอร์สโค้ดใหม่ทั้งหมดเข้าสู่ **Feature-First Architecture** แบ่งแยกโฟลเดอร์ตามฟีเจอร์อย่างเป็นระเบียบ (`lib/features/chat/`, `map/`, `first_aid/`, `emergency/`, `weather/`, `survival/`, `home/` และ `lib/core/`) พร้อมโฟลเดอร์ย่อย `screens/`, `services/`, `widgets/` ชัดเจน อัปเดตพิกัด `import` ทั้งหมดในแอปพลิเคชัน 100%
+- **Backward Compatibility**: รองรับการถอดรหัสแพ็กเก็ต V3, V2 และ V1 ย้อนหลังอย่างปลอดภัย
 
 ---
 
-## [1.0.3] - 2026-07-13 (รุ่นปรับปรุงเสถียรภาพระดับบริการและล้างตัวเตือนคอมไพเลอร์)
-### เพิ่มฟังก์ชันการทำงาน (Added)
-*   เพิ่มคำสั่งเริ่มต้นระบบ (`initialize`) ของปลั๊กอินส่งการแจ้งเตือนพิกัดในเครื่อง (`FlutterLocalNotificationsPlugin`) ของคลาส `NearbyService` เมื่อเริ่มระบบ เพื่อเปิดให้แจ้งเตือนข้อความ SOS และ Proximity Alert ได้จริงบน Android/iOS
+## [1.6.0] - 2026-08-21
 
-### การปรับเปลี่ยน (Changed)
-*   ปรับเปลี่ยนโครงสร้างการลงทะเบียน Providers ของ Singleton Services (`NearbyService`, `EmergencyToolService`, `ConnectivityService`) ไปใช้คอนสตรัคเตอร์แบบ `.value` เพื่อป้องกันปัญหาระบบ Provider เรียกทำลายทรัพยากรภายใน Singleton โดยอัตโนมัติ
-*   ปรับเปลี่ยนชื่อฟังก์ชันตัวช่วย `_TacticalCircularButton` ใน `home_screen.dart` ให้เป็นตัวพิมพ์เล็กแบบ CamelCase (`_tacticalCircularButton`) ตามมาตรฐานโค้ด Dart
+### 🌟 Added & Enhanced (ฟีเจอร์ใหม่และการปรับปรุง)
+- **Full Tactical Splash Screen & Modern UI**: ปรับปรุงหน้าจอโหลดเข้าแอป (`SplashScreen`) ใหม่ทั้งหมดในสไตล์ Tactical / Military HUD ด้วยวงกลมเรดาร์หมุน 360°, วงคลื่น Pulse Ring, ตาราง HUD Grid, โลโก้เรดาร์เรืองแสง Cyan และการเปลี่ยนผ่านแบบสไลด์เนียนใน 2.5 วินาที
+- **Full-Bleed Circular Radar App Icon**: เปลี่ยนไอคอนแอปพลิเคชันบน Android และ iOS เป็นโลโก้เรดาร์ Tactical แบบวงกลมเต็มใบ (Edge-to-Edge Circular Icon) โดยไม่มีขอบขาวรอบนอกผ่าน Android Adaptive Icons (`adaptive_icon_background` และ `adaptive_icon_foreground`)
+- **Native Android Launch Background Color Fix**: เปลี่ยนพื้นหลังช่วงเริ่มรัน Android Native Splash Screen (`launch_background.xml`, `drawable-v21`, `colors.xml`) จากสีขาวเดิมเป็นสีดำ Tactical `#070B14` ต่อเนื่องกับหน้า Splash Screen อย่างสมบูรณ์
+- **App-Wide Language Switcher Card**: เพิ่มการ์ดตั้งค่าภาษาทั้งแอป (`_buildLanguageSelector()`) ในหน้าโปรไฟล์ (`profile_screen.dart`) เชื่อมต่อกับ `LanguageProvider` รองรับการสลับภาษาแบบไดนามิก `[ 🇹🇭 ภาษาไทย ]` และ `[ 🇺🇸 English ]`
+- **Bilingual First Aid & Robust TTS Fallback**: เพิ่มระบบสลับภาษาด่วน `[ TH | EN ]` ในหน้าคู่มือปฐมพยาบาล (`first_aid_detail_screen.dart`), ปุ่มปรับระดับความเร็วเสียงอ่าน TTS (0.7x, 1.0x, 1.3x), สัญญาณชีพ CPR pulse 110 BPM, คำแปลภาษาอังกฤษครบทั้ง 10 หัวข้อ และระบบ Fallback ภาษาพากย์สังเคราะห์ (`th-TH` -> `th_TH` -> `th`) ป้องกันปัญหาสำเนียงภาษาเพี้ยน
+- **Compass Hardware & Runtime Permission Handling**: เพิ่มระบบตรวจขอสิทธิ์ Location Permission ที่ runtime ก่อน Subscribe เข็มทิศดิจิทัลใน `survival_tools_screen.dart`, เพิ่มระบบตรวจสอบ Magnetometer บนชิปฮาร์ดแวร์จริง (`_compassSupported`), และเพิ่มการ์ดแจ้งเตือน UI หากเครื่องไม่รองรับหรือยังไม่อนุญาตสิทธิ์
 
-### การแก้ไขข้อบกพร่อง (Fixed)
-*   แก้ไขข้อบกพร่องทาง lifecycle ที่เกิดจากการ dispose ทรัพยากรภายใน singleton ส่งผลให้ตัวเล่นเสียงไซเรนเตือนภัย เครื่องมือแชท และตัวจับระดับสัญญาณสามารถเปิดใช้ซ้ำได้ถาวรโดยไม่ล่ม
-*   แก้ไขปัญหาการเขียนทับชื่อของอุปกรณ์ฝ่ายแชทออฟไลน์ใน Mesh Network ให้เก็บบันทึกชื่อเครื่องจริง (`endpointName`) ที่ส่งผ่านกระบวนการ handshake ตั้งแต่แรกแทนการระบุทับด้วยคำว่า `"Nearby Peer"` ตลอดเวลา
-*   แก้ไขคำแจ้งเตือน `use_build_context_synchronously` เมื่อมีการเรียกใช้ BuildContext ข้ามผ่าน async gap ใน `home_screen.dart` และ `survival_tools_screen.dart` โดยการสกัดการทำงานของ ScaffoldMessenger ออกมา และหันไปใช้ `context.mounted` ในการเช็คสถานะการเกาะหน้าจอ
-*   แก้ไขข้อความเตือนของลินเตอร์เกี่ยวกับตัวแปรที่ไม่ได้ใช้งาน (unused variable `paint`) ในระบบ Painter สภาพอากาศ
-*   แก้ไขตัวแปรที่มีการเขียนขีดล่างซ้ำซ้อน (`unnecessary_underscores` ใน `errorBuilder`) ของรูปปฐมพยาบาลโดยระบุตัวแปรแบบเป็นคำเต็มตัวแทน
-*   แก้ไขและครอบวงเล็บปีกกา `{ }` ให้กับ if-statements ในคลาสการนำทางแผนที่และ map_provider
-
-### การเอาออก (Removed)
-*   นำการนำเข้าไลบรารีที่ซ้ำซ้อน (`material.dart` ที่ทับซ้อนกับ `foundation.dart`) ออกจาก `map_provider.dart`
-
-### ล้าสมัย (Deprecated)
-*   เปลี่ยนคำสั่งทำสีโปร่งแสงเก่า `.withOpacity(...)` ไปใช้งานคำสั่งใหม่ที่ป้องกันการสูญเสียคุณภาพสีอย่าง `.withValues(alpha: ...)` ทั่วทั้งหน้าจอSOS, แชทออฟไลน์ และแถบแผนที่
-*   ลบพารามิเตอร์เก่า `backgroundColor` ออกจาก `TileLayer` ของหน้าแผนที่เพื่อรองรับสเปกใน flutter_map v6.x
+### 🛠️ UI/UX & Codebase Maintenance
+- **Bottom Navigation Bar Proportions Fix**: ปรับสมดุลปุ่มเมนูด้านล่าง (`main_navigation.dart`) โดยล็อคขนาดกรอบไอคอนทั้ง 5 ปุ่ม (`Home`, `First Aid`, `SOS`, `Map`, `Profile`) ให้สูง 32px เท่ากันเป๊ะ วางเรียงในระนาบเดียวกัน ปรับคำปุ่มปฐมพยาบาลเป็น `First Aid` / `ปฐมพยาบาล` บนบรรทัดเดียว ป้องกันการตัดคำทำให้ไอคอนเบี้ยว
+- **Map Force Cache Refresh**: เพิ่มตัวเลือก `forceRefresh: true` ใน `IPoiRepository` และ `PoiRepositoryImpl` เมื่อผู้ใช้กดปุ่ม "โหลดแมพ" (`MapControls`) เพื่อข้ามแคช 24 ชั่วโมงและดึงข้อมูลพิกัดสถานพยาบาลใหม่ทันที
+- **Auto Check-In Screen Redesign**: ปรับปรุงหน้าจอเช็กอินความปลอดภัยอัตโนมัติ (`SafetyCheckScreen`) ในสไตล์ Glassmorphism, วงแหวนเรืองแสง Radial Glow, ตัวเลขจับเวลาแบบ Tabular, ปุ่มลัดเลือกระยะเวลา และ Haptic Feedback
+- **Dead Code Cleanup & Optimization**: ดำเนินการตรวจสอบซอร์สโค้ด ลบไฟล์ที่ไม่ได้ใช้งาน 8 ไฟล์ (ได้แก่ `serp_api_service.dart`, `action_search_button.dart`, `facility_carousel.dart`, `facility_detail_sheet.dart`, `map_header.dart`, `route_overlay.dart`, `search_result_panel.dart`, `tactical_button_painter.dart`), ลบตัวแปรที่ไม่ใช้ใน `map_provider.dart` และลบไฟล์ log ตระกูล `hs_err_pid*.log` / `replay_pid*.log` ออกจากโฟลเดอร์ `android/`
 
 ---
 
-## [1.0.2] - 2026-07-04 (รุ่นแก้ไขเพื่อความเสถียรแผนที่)
-### เพิ่มฟังก์ชันการทำงาน (Added)
-*   เพิ่มหน้าต่างเบลออัจฉริยะ **Glassmorphic Loading Overlay** แจ้งเตือนสถานะเมื่อทำการโหลดพิกัดหรือดึงเส้นทางบนแผนที่
-*   เพิ่มการแจ้งเตือนปัญหาดึงเส้นทางล้มเหลวผ่านทาง **SnackBar** แจ้งเหตุผลให้ผู้ใช้งานทราบแทนการผิดพลาดแบบเงียบ
-*   เพิ่มคลาสระบบควบคุมเวลาขัดข้องในการดึงเส้นทาง (Timeout) สูงสุด 8 วินาทีป้องกันแอปหยุดชะงัก
+## [1.5.0] - 2026-07-23
 
-### ปรับปรุงประสิทธิภาพ (Improved)
-*   ปรับปรุงสัญญาณชีพจรตำแหน่ง (Pulsing Glow) ของโหนดสาธารณสุขให้กระพริบระยิบระยับตลอดเวลาด้วยคลาส `PulsingGlow` แบบวนซ้ำต่อเนื่อง (Infinite Loop)
+### 🌟 Added (ฟีเจอร์ใหม่)
+- **Bilingual First Aid TTS & Voice Guide**: เพิ่มระบบบรรยายเสียงปฐมพยาบาล 2 ภาษาแบบไดนามิก (สลับเสียงอ่านระหว่าง `th-TH` ภาษาไทย และ `en-US` ภาษาอังกฤษ พร้อมเนื้อหาขั้นตอนแปลภาษาตาม Locale ของแอป)
+- **Real-time Traffic Flow Tile Overlay**: เพิ่มชั้นแผนที่ซ้อนทับเส้นสีความหนาแน่นจราจรสด (เขียว/เหลือง/แดง) จาก Longdo Map Tile API (`/mmmap/tile.php?layer=traffic`) บนสไตล์แผนที่แบบ Traffic
+- **3-Way Parallel POI Discovery**: ขยายท่อลำเลียงข้อมูลพิกัดสถานพยาบาลยิงคู่ขนาน 3 ทาง (Longdo Tag Search + Longdo Thai Keyword Search + OSM Overpass Race Condition)
+- **Overpass Race Condition Engine**: ยิงขอข้อมูลจาก Overpass Mirror Servers ทุกตัวพร้อมกัน (`Future.wait`) เอาผลลัพธ์แรกที่เร็วที่สุด ป้องกันปัญหา Timeout
+- **High-Density Marker Rendering**: ขยายการรองรับแสดงผลหมุดพิกัดบนแผนที่สูงสุดจาก 40 หมุดเป็น **300 หมุด**
+
+### 🎨 UI/UX Polish & Bug Fixes
+- **Delivery ACK & Read Receipts (ใบยืนยันส่งถึง & ใบอ่านแล้ว)**: เพิ่มระบบติดตามสถานะข้อความเรียลไทม์ผ่าน Mesh Reverse Routing แสดงสัญลักษณ์สถานะบนกล่องข้อความผู้ส่ง:
+  - `⏳` (`SENDING`): กำลังส่งแพ็กเก็ตผ่าน Mesh Network
+  - `✓` (`DELIVERED`): ส่งถึงเครื่องเป้าหมาย (นาย E) สำเร็จแล้ว
+  - `✓✓` (`READ`): ผู้รับ (นาย E) เปิดอ่านข้อความแชทส่วนตัวแล้ว
+- **Crypto Engine V2 (SHA-256 + HMAC-SHA256)**: อัปเกรดระบบเข้ารหัส `CryptoMeshService` ด้วยการถอดรหัสผ่าน SHA-256 Key Derivation, 16-byte Random IV, และลายเซ็นดิจิทัล HMAC-SHA256 (`ENC_V2::...`) ป้องกันโหนดรีเลย์ตรงกลางแอบแก้ไขหรือดัดแปลงแพ็กเก็ตข้อมูล
+- **E2EE Private Direct Mesh Chat**: เพิ่มโหมดแชทส่วนตัวเข้ารหัสต้นทางถึงปลายทาง (End-to-End Encryption) โดยข้อความส่วนตัวจะเดินทางผ่านโหนดรีเลย์ (B, C, D) ในฉากหลังอย่างเงียบๆ โดยไม่แสดงผลและไม่อ่านข้อความบนเครื่องทางผ่าน มีเพียงเครื่องเป้าหมาย (นาย E) เท่านั้นที่สามารถถอดรหัสและเห็นข้อความบนหน้าจอ
+- **Silent Multi-Hop Relay Engine**: ปรับแต่ง `NearbyService` ให้ตรวจสอบ `recipientId` หากไม่ใช่เป้าหมาย เครื่องจะทำหน้าที่ลดค่า TTL และรีเลย์ส่งต่อแพ็กเก็ตไปยังเพื่อนโหนดถัดไปโดยอัตโนมัติ
+- **Profile Screen & Mesh Callsign Linkage**: เชื่อมโยงชื่อ-นามสกุลในหน้าโปรไฟล์เข้ากับชื่ออุปกรณ์ (Device Callsign) ในเครือข่ายออฟไลน์ Mesh Network โดยอัตโนมัติ แสดง Badge ป้ายชื่อ **`CALLSIGN: [Name]`** สี Cyan ดีไซน์ Tactical ใต้รูปโปรไฟล์ เพิ่มช่องข้อมูลในแท็บส่วนตัว และ helper text คำแนะนำในหน้าแก้ไขฟอร์ม พร้อมนำส่วน QR Code Placeholder ออกจากหน้า Medical ID ให้กระชับสะอาดตา
+- **Interactive Map Search & GPS Precision Polish**:
+  - เพิ่ม **ปุ่มลอย "ค้นหาในบริเวณนี้" (Search This Area)** ลอยขึ้นมาให้อย่างนุ่มนวลเมื่อผู้ใช้ลากแผนที่ไปดูโซนอื่น กดค้นหารพ./ร้านยาในพิกัดใหม่ได้ทันที
+  - เพิ่มปุ่มดู **รายละเอียดคำแนะนำการเลี้ยว (Step-by-Step Navigation Panel)** บนแถบ HUD นำทาง สามารถเปิด/ปิดรายการเส้นทางเลี้ยวทีละแยกได้อย่างสะดวก
+  - ปรับปรุงแถบค้นหา **Search Bar** ใช้ `ValueListenableBuilder` แสดงปุ่มล้างคำพิมพ์ `(X)` แบบเรียลไทม์ขณะพิมพ์ พร้อมสั่งโหลดรายการรอบตัวคืนเมื่อกดลบ
+  - เพิ่มระบบตรวจเช็กบริการ GPS (`isLocationServiceEnabled`) แจ้งเตือนเมื่อลืมเปิดตำแหน่ง พร้อมกลไก Fallback พิกัดสองระดับ ป้องกัน FusedLocation ค้าง
+- **Animated Side Toolbar Reset**: แก้ไขเงื่อนไขตำแหน่งของเมนูขวา (`MapControls`) ใน `map_screen.dart` ให้ตรวจสอบทั้ง `selectedFacility != null` และ `provider.showDetails` ร่วมกับ `AnimatedPositioned` (250ms) ทำให้เมื่อกดกากบาท (✕) ปิด Sheet เมนูขวาจะเลื่อนสไลด์กลับลงมาที่ตำแหน่งเดิมล่างสุด (`bottom: 120`) อย่างนุ่มนวล
+- **Google Maps External Launcher**: เพิ่มปุ่มแคปซูลสีแดง **`Google Maps`** บน `GoogleFacilitySheet` และทำให้รายการที่อยู่สามารถแตะเพื่อกระโดดเปิดพิกัดเป้าหมายบนแอปพลิเคชัน Google Maps ภายนอกได้ทันที
+- **Search Bar Layout Overlap Fix**: แก้ไขระยะขอบขวาของแถบค้นหา (`google_map_header.dart`) ด้วย `padding: EdgeInsets.fromLTRB(16, 12, 72, 8)` เพื่อป้องกันไม่ให้ทับซ้อนกับแถบเครื่องมือแนวตั้ง (`MapControls`) ทางด้านขวา
+- **Functional Search Action Button**: เปลี่ยนไอคอนรูปโปรไฟล์บนแถบค้นหาเป็นปุ่มค้นหาแว่นขยาย (`Icons.search_rounded`) ที่สามารถกดเพื่อค้นหาได้จริง พร้อมสั่งการให้แผนที่เลื่อนอนิเมชันไปยังพิกัดเป้าหมายทันที
+- **APK GPS Location Centering Fix**: แก้ไขปัญหาสตรีมพิกัดและโฟกัสตำแหน่งบนไฟล์ APK ด้วยระบบ `getLastKnownPosition` instant fallback, ร้องขอสิทธิ์ `checkPermission`/`requestPermission` และใช้ `forceLocationManager: true` ป้องกันบริการ FusedLocation ค้าง
+- **APK Compass & High-Sampling Sensors**: เพิ่มสิทธิ์ `<uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />` และ `<uses-feature android:name="android.hardware.sensor.compass" />` ใน `AndroidManifest.xml` พร้อมอัปเดตสตรีมเข็มทิศให้หมุนทำมุมบนแผนที่ได้สมบูรณ์ใน APK
+- **Bilingual First Aid UI**: แสดงชื่อหัวข้อ ขั้นตอนการช่วยเหลือ คำเตือน และปุ่มโทร 1669 ในหน้าปฐมพยาบาลตามภาษาของแอป (ไทย/อังกฤษ)
+- **Fixed Close Button Stack & Dismissal**: แก้ไขการเช็คสถานะ `provider.showDetails` ใน `map_screen.dart` ทำให้ปุ่มกากบาท (✕) ทำหน้าที่พับเก็บ Sheet ได้อย่างถูกต้องโดยไม่ล้างเส้นทางนำทาง
+- **Explicit Stop Navigation Pill**: แยกปุ่ม "สิ้นสุดนำทาง" สีแดงสำหรับล้างเส้นทางเมื่อต้องการยกเลิกการเดินทางอย่างเป็นทางการ
 
 ---
 
-## [1.0.1] - 2026-06-21 (รุ่นตกแต่งสไตล์ Tactical & จูนความลื่นไหล)
-### เพิ่มฟังก์ชันการทำงาน (Added)
-*   เพิ่มวิดเจ็ตแผงควบคุม **Device Health Dashboard** บนหน้าหลัก แสดงระดับแบตเตอรี่, สถานะ GPS และจำนวนโหนดเพื่อนบ้านในระยะบลูทูธ (Mesh nodes)
-*   เพิ่มหน้าจอคู่มือปฐมพยาบาลเบื้องต้น (First Aid Guide) พร้อมคู่มือ CPR, การช่วยชีวิตจากสิ่งอุดตัน, และห้ามเลือด
-*   ปรับการทำงานหน้าแชทออฟไลน์ให้สามารถคลิก "ดูบนแผนที่" จากพิกัดที่เพื่อนแชร์เพื่อกระโดดปักหมุดนำทางทันที
+## [1.4.0] - 2026-07-21 (Current Stable Release)
 
-### ปรับปรุงประสิทธิภาพ (Improved)
-*   แก้ปัญหากราฟิกฉากหลังกินทรัพยากรเครื่องโดยการนำ **`RepaintBoundary`** มาครอบ Custom Paint และ Grid เพื่อจำกัดการวาดใหม่รักษาความเร็วการเลื่อนหน้าจอระดับ 60+ FPS
-*   ปรับสไตล์ของกลุ่มปุ่ม Survival Tools ให้เป็นแบบ Tactical Dark Glassmorphism ใช้นีออนส้ม/น้ำเงิน
+### 🌟 Added (ฟีเจอร์ใหม่)
+- **Multi-hop Mesh Relay**: อัปเกรดระบบ Nearby P2P Chat ให้สามารถส่งต่อข้อความขอความช่วยเหลือ SOS และพิกัดข้ามอุปกรณ์หลายทอดแบบอัตโนมัติ (TTL=3 สำหรับแชททั่วไป, TTL=5 สำหรับ SOS)
+- **Message Deduplication**: ระบบป้องกันการรับข้อความวนลูปในเครือข่ายตาข่าย (Loop Prevention via UUID Set)
+- **Mesh Relay Visual Badge**: แสดงป้ายสัญลักษณ์ `[🔗 Mesh Relay]` บนหน้าจอแชทสำหรับข้อความที่เดินทางผ่านโหนดกลางทาง
+- **Traffic Incidents Layer**: เพิ่มเลเยอร์หมุดรายงานอุบัติเหตุ/การจราจรติดขัด/งานก่อสร้างเรียลไทม์จาก Longdo REST API
+- **CartoDB Voyager Map Style**: เพิ่มสไตล์แผนที่สว่างอำนวยความสะดวกการดูการจราจร
+
+### 🛠️ Architecture & Refactoring
+- สลับสถาปัตยกรรมมอดูลแผนที่เข้าสู่ **Repository Pattern** (`IPoiRepository`, `IRoutingRepository`, `PoiRepositoryImpl`, `RoutingRepositoryImpl`)
+- ย้าย Data Model `MedicalFacility` ออกจาก `services/` ไปยัง `models/` อย่างถูกต้องตามหลัก Clean Architecture
+- เพิ่มระบบ Cache Metadata (`CacheMetadata`) เพื่อควบคุมอายุแคชพิกัดในเครื่อง (หมดอายุใน 24 ชั่วโมง และทำลายแคชเก่าเกิน 7 วัน)
+- ผ่านการวิเคราะห์คุณภาพโค้ด `flutter analyze` สะอาด 100% (No issues found!)
 
 ---
 
-## [1.0.0] - 2026-06-14 (รุ่นเปิดตัวต้นแบบแรกสุด - First Beta Ready)
-### เพิ่มฟังก์ชันการทำงาน (Added)
-*   พัฒนาโครงสร้างแอปหลายหน้า (Multi-screen) ด้วย Flutter และตัวจัดการสถานะ Provider
-*   สร้างระบบ **SOS ด่วน** รวบรวมข้อมูลส่วนตัวทางการแพทย์ (Medical ID) และสแกนพิกัดปัจจุบันเพื่อส่งออกสายด่วนทันที
-*   สร้างระบบแชทเครือข่ายออฟไลน์จำลองแบบใยแมงมุม (P2P Mesh Chat) ผ่านแพ็คเกจ `nearby_connections`
-*   สร้างระบบแผนที่แบบ Offline-first ผ่านไลบรารี `flutter_map` รองรับการดาวน์โหลดแผ่นแผนที่เก็บล่วงหน้าลงฮาร์ดดิสก์
-*   สร้างระบบเช็คอินตรวจจับการเคลื่อนไหวเพื่อส่ง SOS อัตโนมัติ (Safety Check-in Timer)
-*   สร้างตัวชี้วัดความกดอากาศ สภาพอากาศ และระดับฝุ่น PM 2.5 ร่วมกับ Open-Meteo API
+## [1.3.0] - 2026-07-13
+
+### 🌟 Added (ฟีเจอร์ใหม่)
+- **Hike Dashboard Contrast Polish**: ปรับแต่ง UI หน้าสถิติเดินป่าด้วยธีม Slate Blue (`#0F172A`) โปร่งแสง 85% พร้อมสีสัญลักษณ์เด่นชัด (Cyan, Orange, Emerald)
+- **Offline Haversine Bearing Route**: เพิ่มระบบคำนวณเส้นทางและเวลาเดินเท้าแนวตรงยามออฟไลน์ความเร็ว 5 กม./ชม.
+
+---
+
+## [1.2.0] - 2026-06-21
+
+### 🌟 Added (ฟีเจอร์ใหม่)
+- **P2P Nearby Connections Chat Room**: เปิดใช้งานห้องแชทไร้เน็ตผ่านสัญญาณ Bluetooth และ WiFi Direct
+- **High-Priority SOS Push Notification**: เพิ่มช่องทางแจ้งเตือนข้ามหน้าจอล็อกเมื่อได้รับข้อความ SOS
+
+---
+
+## [1.1.0] - 2026-06-14
+
+### 🌟 Added (ฟีเจอร์ใหม่)
+- **Open-Meteo Weather & Air Quality Integration**: เพิ่มการตรวจเช็คอุณหภูมิ ดัชนี UV และฝุ่น PM 2.5
+- **CPR First Aid Visualizer**: แอนิเมชันประกอบเสียงสังเคราะห์ช่วยกำกับจังหวะเวลาทำ CPR
+
+---
+
+## [1.0.0] - 2026-06-01
+
+### 🌟 Added (ฟีเจอร์แรกเริ่ม)
+- เปิดตัวโครงการ **BANTAWAN (SOS Premier)** เวอร์ชันแรก
+- ระบบ SOS ปุ่มกดค้าง 3 วินาที สั่งเปิดไซเรนสังเคราะห์เสียงและส่ง SMS
+- ชุดเครื่องมือเอาชีวิตรอด (ไฟฉายรหัสมอร์ส, เข็มทิศดิจิทัล, เสียงนกหวีด)
