@@ -33,7 +33,9 @@ import '../models/peer_trust.dart';
 import '../widgets/peer_profile_sheet.dart';
 import '../widgets/notice_board_sheet.dart';
 import '../widgets/data_mule_sheet.dart';
-import 'peer_verification_screen.dart';
+import '../widgets/bantawan_settings_sheet.dart';
+import '../widgets/peer_qr_verification_sheet.dart';
+import 'package:flutter1/features/home/services/profile_service.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
@@ -129,9 +131,6 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 _buildHeader(context, nearbyService),
                 _buildConnectionStatus(nearbyService),
 
-                // Show Tab Bar only if not inside a specific private chat room
-                if (_currentTabIndex == 0 || _activePrivatePeer == null)
-                  _buildSegmentedTabBar(nearbyService),
 
                 // Main Content View
                 Expanded(
@@ -152,6 +151,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
   Widget _buildHeader(BuildContext context, NearbyService service) {
     final isInsidePrivateRoom =
         _currentTabIndex == 1 && _activePrivatePeer != null;
+    final isPeopleList =
+        _currentTabIndex == 1 && _activePrivatePeer == null;
     final activePeer = isInsidePrivateRoom
         ? _resolveActivePeer(service, _activePrivatePeer!)
         : null;
@@ -162,64 +163,135 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             activePeer?.peerName ?? _activePrivatePeerName,
           )
         : '';
+    final peersCount = _getDiscoveredMeshPeers(service).length;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              isInsidePrivateRoom
-                  ? Icons.arrow_back_rounded
-                  : Icons.arrow_back_ios_new_rounded,
-              color: Colors.white,
+    // ------------------------------------------------------------------------
+    // Mode 1: People / Discovered Peers List View (bitchat Screenshot 3)
+    // ------------------------------------------------------------------------
+    if (isPeopleList) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'people',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.sensors_rounded,
+                      color: Colors.cyanAccent,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '#mesh ($peersCount คนในระยะ)',
+                      style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            onPressed: () {
-              if (isInsidePrivateRoom) {
+            const Spacer(),
+            // [⛶] QR Code Button -> opens PeerQrVerificationSheet
+            IconButton(
+              icon: const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: Colors.cyanAccent,
+                size: 24,
+              ),
+              tooltip: 'สแกน / แสดง QR Code ยืนยันตัวตน',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                PeerQrVerificationSheet.show(context);
+              },
+            ),
+            // [✕] Close Button -> returns to #mesh public chat
+            IconButton(
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+              tooltip: 'กลับสู่ #mesh',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  _currentTabIndex = 0;
+                  _activePrivatePeer = null;
+                  _activePrivatePeerName = null;
+                });
+                service.activeChatPeerId = null;
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ------------------------------------------------------------------------
+    // Mode 2: Private 1-on-1 Chat Room (E2EE Chat)
+    // ------------------------------------------------------------------------
+    if (isInsidePrivateRoom) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () {
                 setState(() {
                   _activePrivatePeer = null;
                   _activePrivatePeerName = null;
                 });
                 service.activeChatPeerId = null;
-              } else {
-                service.activeChatPeerId = null;
-                Navigator.pop(context);
-              }
-            },
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: isInsidePrivateRoom
-                  ? () {
-                      if (activePeer != null) {
-                        _showPeerProfile(activePeer, service);
-                      } else {
-                        _showPeerProfileForName(_activePrivatePeer!, service);
-                      }
-                    }
-                  : null,
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          isInsidePrivateRoom
-                              ? '🔒 @$activeDisplayName'
-                              : '#mesh • แชทออฟไลน์',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.3,
+              },
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (activePeer != null) {
+                    _showPeerProfile(activePeer, service);
+                  } else {
+                    _showPeerProfileForName(_activePrivatePeer!, service);
+                  }
+                },
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '🔒 @$activeDisplayName',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (isInsidePrivateRoom) ...[
                         const SizedBox(width: 4),
                         const Icon(
                           Icons.info_outline_rounded,
@@ -227,93 +299,68 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                           color: Colors.purpleAccent,
                         ),
                       ],
-                    ],
-                  ),
-                  if (isInsidePrivateRoom)
-                    activePeer != null
-                        ? ListenableBuilder(
-                            listenable: IdentityService.instance,
-                            builder: (context, _) {
-                              final trustState = IdentityService.instance
-                                  .getTrustState(
-                                    activePeer.peerId,
-                                    activePeer.publicKeyHex,
-                                  );
-                              String text;
-                              Color color;
-                              if (trustState == PeerTrustState.verified) {
-                                text = '✓ Identity Verified';
-                                color = Colors.greenAccent;
-                              } else if (trustState == PeerTrustState.changed) {
-                                text = '⚠️ Key Changed!';
-                                color = Colors.orangeAccent;
-                              } else {
-                                text = '⚪ Not Verified (แตะเพื่อยืนยัน)';
-                                color = Colors.white70;
-                              }
-                              return Text(
-                                text,
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                    ),
+                    if (activePeer != null)
+                      ListenableBuilder(
+                        listenable: IdentityService.instance,
+                        builder: (context, _) {
+                          final trustState = IdentityService.instance
+                              .getTrustState(
+                                activePeer.peerId,
+                                activePeer.publicKeyHex,
                               );
-                            },
-                          )
-                        : const Text(
-                            'แตะเพื่อดูบัตรประจำตัวฉุกเฉิน (E2EE)',
+                          String text;
+                          Color color;
+                          if (trustState == PeerTrustState.verified) {
+                            text = '✓ Identity Verified';
+                            color = Colors.greenAccent;
+                          } else if (trustState == PeerTrustState.changed) {
+                            text = '⚠️ Key Changed!';
+                            color = Colors.orangeAccent;
+                          } else {
+                            text = '⚪ Not Verified (แตะเพื่อยืนยัน)';
+                            color = Colors.white70;
+                          }
+                          return Text(
+                            text,
                             style: TextStyle(
-                              color: Colors.purpleAccent,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
+                              color: color,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ),
-                ],
+                          );
+                        },
+                      )
+                    else
+                      const Text(
+                        'แตะเพื่อดูบัตรประจำตัวฉุกเฉิน (E2EE)',
+                        style: TextStyle(
+                          color: Colors.purpleAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (isInsidePrivateRoom && activePeer != null)
-            ListenableBuilder(
-              listenable: IdentityService.instance,
-              builder: (context, _) {
-                final trustState = IdentityService.instance.getTrustState(
-                  activePeer.peerId,
-                  activePeer.publicKeyHex,
-                );
-                Color iconColor;
-                IconData iconData;
-                switch (trustState) {
-                  case PeerTrustState.verified:
-                    iconColor = Colors.greenAccent;
-                    iconData = Icons.verified_user_rounded;
-                    break;
-                  case PeerTrustState.changed:
-                    iconColor = Colors.orangeAccent;
-                    iconData = Icons.warning_amber_rounded;
-                    break;
-                  case PeerTrustState.unverified:
-                  case PeerTrustState.unknown:
-                    iconColor = Colors.white54;
-                    iconData = Icons.shield_outlined;
-                    break;
-                }
-                return IconButton(
-                  icon: Icon(iconData, color: iconColor, size: 22),
-                  tooltip: 'ตรวจสอบ Cryptographic Fingerprint',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            PeerVerificationScreen(peer: activePeer),
-                      ),
-                    );
-                  },
+            // [⛶] QR Verify Button
+            IconButton(
+              icon: const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: Colors.purpleAccent,
+                size: 22,
+              ),
+              tooltip: 'สแกน QR ยืนยันตัวตน',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                PeerQrVerificationSheet.show(
+                  context,
+                  peerId: activePeer?.peerId ?? _activePrivatePeer,
                 );
               },
             ),
-          if (isInsidePrivateRoom)
+            // 🪪 Emergency Medical Profile Sheet Button
             IconButton(
               icon: const Icon(
                 Icons.badge_outlined,
@@ -328,67 +375,180 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 }
               },
             ),
+            // Trash Icon
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.white60,
+                size: 20,
+              ),
+              tooltip: 'ล้างประวัติแชทห้องนี้',
+              onPressed: () => _confirmClearChat(service, true),
+            ),
+          ],
+        ),
+      );
+    }
 
-          if (!isInsidePrivateRoom)
-            ListenableBuilder(
-              listenable: service,
-              builder: (context, _) {
-                final hasUrgent = service.notices.any((n) => n.isUrgent);
-                final noticeCount = service.notices.length;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.campaign_rounded,
-                        color: hasUrgent ? Colors.redAccent : Colors.cyanAccent,
-                        size: 24,
+    // ------------------------------------------------------------------------
+    // Mode 3: Public Mesh Chat View (bitchat Screenshot 1)
+    // ------------------------------------------------------------------------
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          // Back button to exit to previous screen
+          IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+            onPressed: () {
+              service.activeChatPeerId = null;
+              Navigator.pop(context);
+            },
+          ),
+
+          // Left: "bantawan/@callsign" (bitchat-style brand & callsign)
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Clickable "bantawan/" -> opens Settings & Info Sheet
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      BantawanSettingsSheet.show(context);
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Text(
+                        'bantawan/',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                      tooltip: 'ประกาศ @ #mesh',
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        NoticeBoardSheet.show(context, service);
-                      },
                     ),
-                    if (noticeCount > 0)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: hasUrgent
-                                ? Colors.redAccent
-                                : const Color(0xFF00ADB5),
-                            shape: BoxShape.circle,
+                  ),
+
+                  // Clickable "@callsign" -> opens Quick Rename Dialog
+                  InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _showChangeCallsignDialog(service);
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.cyanAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.cyanAccent.withValues(alpha: 0.35),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '@${service.deviceName}',
+                            style: const TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 13,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.edit_rounded,
+                            color: Colors.cyanAccent,
+                            size: 11,
                           ),
-                          child: Center(
-                            child: Text(
-                              noticeCount > 9 ? '9+' : '$noticeCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Right Controls: 📌 Notices, 🎒 Data Mule, #mesh, 👥 People
+          // 📌 Notice Board
+          ListenableBuilder(
+            listenable: service,
+            builder: (context, _) {
+              final hasUrgent = service.notices.any((n) => n.isUrgent);
+              final noticeCount = service.notices.length;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.push_pin_rounded,
+                      color: hasUrgent
+                          ? Colors.redAccent
+                          : (noticeCount > 0
+                              ? Colors.cyanAccent
+                              : Colors.white60),
+                      size: 20,
+                    ),
+                    tooltip: 'ประกาศ @ #mesh',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      NoticeBoardSheet.show(context, service);
+                    },
+                  ),
+                  if (noticeCount > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: hasUrgent
+                              ? Colors.redAccent
+                              : const Color(0xFF00ADB5),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 15,
+                          minHeight: 15,
+                        ),
+                        child: Center(
+                          child: Text(
+                            noticeCount > 9 ? '9+' : '$noticeCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ),
-                  ],
-                );
-              },
-            ),
+                    ),
+                ],
+              );
+            },
+          ),
 
-          // 🎒 ปุ่มเปิดแผงควบคุมระบบคนเดินสาร (Data Mule)
+          // 🎒 Data Mule Backpack
           ListenableBuilder(
             listenable: service,
             builder: (context, _) {
               final muleCount = service.carriedEnvelopes.length;
-              final hasUrgent = service.carriedEnvelopes.any((e) => e.isUrgentSOS);
+              final hasUrgent =
+                  service.carriedEnvelopes.any((e) => e.isUrgentSOS);
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -400,7 +560,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                           : (service.isDataMuleEnabled
                               ? Colors.purpleAccent.withValues(alpha: 0.7)
                               : Colors.white24),
-                      size: 22,
+                      size: 20,
                     ),
                     tooltip: 'คนเดินสาร (Data Mule)',
                     onPressed: () {
@@ -415,19 +575,21 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                       child: Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
-                          color: hasUrgent ? Colors.redAccent : Colors.purpleAccent,
+                          color: hasUrgent
+                              ? Colors.redAccent
+                              : Colors.purpleAccent,
                           shape: BoxShape.circle,
                         ),
                         constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
+                          minWidth: 15,
+                          minHeight: 15,
                         ),
                         child: Center(
                           child: Text(
                             muleCount > 9 ? '9+' : '$muleCount',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
+                              fontSize: 8.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -439,32 +601,166 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             },
           ),
 
-          IconButton(
-            icon: const Icon(
-              Icons.delete_outline_rounded,
-              color: Colors.white60,
-              size: 22,
+          // #mesh channel badge
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+            decoration: BoxDecoration(
+              color: Colors.blueAccent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
             ),
-            tooltip: isInsidePrivateRoom
-                ? 'ล้างประวัติแชทห้องนี้'
-                : 'ล้างประวัติแชทสาธารณะ',
-            onPressed: () => _confirmClearChat(service, isInsidePrivateRoom),
+            child: const Text(
+              '#mesh',
+              style: TextStyle(
+                color: Colors.blueAccent,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          IconButton(
-            icon: Icon(
-              service.isAdvertising
-                  ? Icons.bluetooth_connected
-                  : Icons.bluetooth_disabled,
-              color: service.isAdvertising ? Colors.blueAccent : Colors.white24,
-            ),
-            onPressed: () {
+
+          // 👥 [Count] People button -> switches to people view
+          InkWell(
+            onTap: () {
               HapticFeedback.selectionClick();
-              if (service.isAdvertising) {
-                service.stopEmergencyNetwork();
-              } else {
-                service.startEmergencyNetwork();
-              }
+              setState(() {
+                _currentTabIndex = 1;
+                _activePrivatePeer = null;
+                _activePrivatePeerName = null;
+              });
+              service.activeChatPeerId = null;
             },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: peersCount > 0
+                    ? Colors.purpleAccent.withValues(alpha: 0.22)
+                    : Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: peersCount > 0
+                      ? Colors.purpleAccent.withValues(alpha: 0.5)
+                      : Colors.white12,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.people_alt_rounded,
+                    size: 15,
+                    color: peersCount > 0
+                        ? Colors.purpleAccent
+                        : Colors.white60,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$peersCount',
+                    style: TextStyle(
+                      color: peersCount > 0 ? Colors.white : Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangeCallsignDialog(NearbyService service) {
+    final controller = TextEditingController(text: service.deviceName);
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.cyanAccent, width: 1),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.badge_rounded, color: Colors.cyanAccent, size: 22),
+            SizedBox(width: 8),
+            Text(
+              "เปลี่ยนนามเรียกขาน (@)",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "ชื่อนี้จะแสดงใน #mesh และระบุตัวตนในเครือข่ายออฟไลน์:",
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+              ),
+              maxLength: 18,
+              decoration: InputDecoration(
+                prefixText: "@ ",
+                prefixStyle: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.06),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.cyanAccent),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text("ยกเลิก", style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.cyanAccent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                final profile = await ProfileService.getProfile();
+                profile['name'] = newName;
+                await ProfileService.saveProfile(profile);
+                await service.updateProfileInfo();
+                if (mounted) setState(() {});
+              }
+              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+            },
+            child: const Text(
+              "บันทึกชื่อ",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -547,138 +843,6 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     );
   }
 
-  /// แถบสลับโหมด: แชทสาธารณะ (Public) VS แชทส่วนตัว (Private E2EE)
-  Widget _buildSegmentedTabBar(NearbyService service) {
-    final peersCount = _getDiscoveredMeshPeers(service).length;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          // Public Chat Tab
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _currentTabIndex = 0;
-                  _activePrivatePeer = null;
-                  _activePrivatePeerName = null;
-                });
-                service.activeChatPeerId = null;
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _currentTabIndex == 0
-                      ? Colors.blueAccent.withValues(alpha: 0.3)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _currentTabIndex == 0
-                        ? Colors.blueAccent.withValues(alpha: 0.6)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.hub_rounded, size: 16, color: Colors.blueAccent),
-                    SizedBox(width: 6),
-                    Text(
-                      '#mesh สาธารณะ',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Private Chat Tab
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  _currentTabIndex = 1;
-                  _activePrivatePeer = null;
-                  _activePrivatePeerName = null;
-                });
-                service.activeChatPeerId = null;
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _currentTabIndex == 1
-                      ? Colors.purpleAccent.withValues(alpha: 0.3)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _currentTabIndex == 1
-                        ? Colors.purpleAccent.withValues(alpha: 0.6)
-                        : Colors.transparent,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.alternate_email_rounded,
-                      size: 15,
-                      color: Colors.purpleAccent,
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'แชทส่วนตัว',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (peersCount > 0) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.purpleAccent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '$peersCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// แถบประกาศสำคัญแบบ Ticker สไตล์ bitchat @ #mesh
   Widget _buildNoticeTickerBanner(NearbyService service) {
@@ -790,22 +954,85 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     return Column(
       children: [
         _buildNoticeTickerBanner(service),
+
+        // 💬 bitchat-style intro banner
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "* คุณอยู่ใน #mesh — เข้าถึงคนในระยะ Bluetooth Mesh *",
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "* แตะ bantawan/ เพื่อดูวิธีใช้และตั้งค่า · แตะ @ เพื่อเปลี่ยนชื่อ *",
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+
         Expanded(
           child: publicMessages.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        color: Colors.white10,
-                        size: 80,
+                      // Ambient radar beacon matching bitchat screenshot 1
+                      AnimatedBuilder(
+                        animation: _radarController,
+                        builder: (context, child) {
+                          return Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.blueAccent.withValues(
+                                  alpha: 0.3 * (1 - _radarController.value),
+                                ),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.blueAccent.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.blueAccent.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 16),
                       Text(
                         AppLocalizations.of(context)!.noMessages,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white24),
+                        style: const TextStyle(color: Colors.white24, fontSize: 13),
                       ),
                     ],
                   ),
@@ -834,45 +1061,78 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     final peers = _getDiscoveredMeshPeers(service);
 
     if (peers.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.person_search_rounded,
-                  color: Colors.purpleAccent,
-                  size: 60,
-                ),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ไม่มีใครอยู่ใกล้...',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'ยังไม่มีประวัติแชทหรือโหนดใกล้เคียง',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+            ),
+            const SizedBox(height: 100),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _radarController,
+                    builder: (context, child) {
+                      return Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.purpleAccent.withValues(
+                              alpha: 0.35 * (1 - _radarController.value),
+                            ),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: Colors.purpleAccent.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.purpleAccent.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'กำลังสแกนหาอุปกรณ์ใกล้เคียงผ่าน Bluetooth Mesh...',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white24,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'เมื่อคุณค้นพบโหนดข้างเคียง หรือเคยสนทนากับเพื่อน รายชื่อจะปรากฏตรงนี้เพื่อให้คุณกดเปิดแชทส่วนตัวหรือฝากข้อความ E2EE ได้ทันที',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }

@@ -66,6 +66,8 @@ dependencies:
   longdo_maps_api3_flutter: ^1.12.4
   image_picker: ^1.2.3
   record: ^6.2.1
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.2
 
 dev_dependencies:
   flutter_test:
