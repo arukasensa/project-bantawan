@@ -2058,8 +2058,12 @@ class NearbyService extends ChangeNotifier {
     try {
       final file = File(imagePath);
       if (!await file.exists()) return 'ไม่พบไฟล์รูปภาพ';
-      _recordSendTimestamp(type: 'MEDIA');
       final bytes = await file.readAsBytes();
+      // 🛡️ ป้องกัน Payload Overrun บนคลื่น BLE (Nearby Connections BYTES payload จำกัดที่ 32KB)
+      if (bytes.lengthInBytes > 22000) {
+        return 'รูปภาพมีขนาดใหญ่เกินกว่าที่คลื่น BLE Mesh รองรับได้ (จำกัดไม่เกิน 22 KB)';
+      }
+      _recordSendTimestamp(type: 'MEDIA');
       final base64Str = base64Encode(bytes);
 
       if (recipientId != null && recipientId.isNotEmpty) {
@@ -2166,8 +2170,12 @@ class NearbyService extends ChangeNotifier {
     try {
       final file = File(audioPath);
       if (!await file.exists()) return 'ไม่พบไฟล์ข้อความเสียง';
-      _recordSendTimestamp(type: 'MEDIA');
       final bytes = await file.readAsBytes();
+      // 🛡️ ป้องกัน Payload Overrun บนคลื่น BLE (Nearby Connections BYTES payload จำกัดที่ 32KB)
+      if (bytes.lengthInBytes > 22000) {
+        return 'ข้อความเสียงมีขนาดยาวเกินกว่าที่คลื่น BLE Mesh รองรับได้ (จำกัดไม่เกิน 6 วินาที)';
+      }
+      _recordSendTimestamp(type: 'MEDIA');
       final base64Str = base64Encode(bytes);
 
       if (recipientId != null && recipientId.isNotEmpty) {

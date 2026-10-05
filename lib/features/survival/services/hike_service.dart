@@ -67,14 +67,29 @@ class HikeService extends ChangeNotifier {
       _currentPosition = LatLng(currentPos.latitude, currentPos.longitude);
     } catch (_) {}
 
-    // เริ่มต้นดักจับตำแหน่งแบบต่อเนื่องทุก 50 เมตร
+    // เริ่มต้นดักจับตำแหน่งแบบต่อเนื่องทุก 50 เมตร (รองรับ Background Tracking แม้ล็อกหน้าจอ)
     try {
       _positionSubscription?.cancel();
-      _positionSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
+      LocationSettings locationSettings;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        locationSettings = AndroidSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 50, // หยอดจุดไข่ปลาทุก 50 เมตร
-        ),
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationTitle: "กำลังบันทึกเส้นทางเดินป่า (Hike Tracker)",
+            notificationText: "BANTAWAN กำลังบันทึกจุดรอยทางเดินเพื่อความปลอดภัยของคุณ",
+            enableWakeLock: true,
+          ),
+        );
+      } else {
+        locationSettings = const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 50,
+        );
+      }
+
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
       ).listen((Position position) {
         if (_isHikeActive) {
           final newPoint = LatLng(position.latitude, position.longitude);

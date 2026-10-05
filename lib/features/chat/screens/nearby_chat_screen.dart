@@ -1614,8 +1614,14 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         final filePath =
             '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
+        // ปรับ Audio Quality ให้เหมาะกับช่องสัญญาณ BLE วิทยุ (16kHz Mono เพื่อให้ไฟล์มีขนาดเล็กเพียง 8-15KB)
         await _audioRecorder.start(
-          const RecordConfig(encoder: AudioEncoder.aacLc),
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 16000,
+            sampleRate: 16000,
+            numChannels: 1,
+          ),
           path: filePath,
         );
 
@@ -1630,6 +1636,16 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             setState(() {
               _recordSeconds++;
             });
+            // 🎙️ จำกัดความยาวเสียงไม่เกิน 6 วินาที เพื่อป้องกัน Payload เกินเพดาน 32KB ของ Nearby Connections
+            if (_recordSeconds >= 6) {
+              final service = context.read<NearbyService>();
+              _stopAndSendRecording(
+                service,
+                isPrivate: _currentTabIndex == 1,
+                targetPeerId: _activePrivatePeer,
+                targetPeerName: _activePrivatePeerName,
+              );
+            }
           }
         });
       }
@@ -1658,12 +1674,20 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       });
 
       if (path != null && duration > 0) {
-        await service.sendVoiceMessage(
+        final err = await service.sendVoiceMessage(
           audioPath: path,
           durationSeconds: duration,
           recipientId: isPrivate ? targetPeerId : null,
           recipientName: isPrivate ? targetPeerName : null,
         );
+        if (err != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error stopping audio recording: $e');
@@ -1686,7 +1710,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     });
   }
 
-  /// 📷 เลือกรูปภาพจากกล้องหรือคลังและส่งผ่าน Mesh
+  /// 📷 เลือกรูปภาพจากกล้องหรือคลังและส่งผ่าน Mesh (บีบอัดเป็น Tactical Micro-Image ขนาด < 20KB สำหรับ BLE)
   Future<void> _pickAndSendImage(
     ImageSource source,
     NearbyService service, {
@@ -1698,17 +1722,25 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
         source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 80,
+        maxWidth: 360,
+        maxHeight: 360,
+        imageQuality: 40,
       );
 
       if (pickedFile != null) {
-        await service.sendImageMessage(
+        final err = await service.sendImageMessage(
           imagePath: pickedFile.path,
           recipientId: isPrivate ? targetPeerId : null,
           recipientName: isPrivate ? targetPeerName : null,
         );
+        if (err != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(err),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
@@ -2329,7 +2361,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             ),
             const SizedBox(width: 8),
             Text(
-              'กำลังบันทึกเสียง... $minutes:$seconds',
+              'กำลังบันทึกเสียง... $minutes:$seconds (สูงสุด 6 วิ)',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,

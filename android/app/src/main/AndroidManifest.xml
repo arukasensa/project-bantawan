@@ -22,6 +22,23 @@
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" />
     
+    <!-- การแจ้งเตือนฉุกเฉินสำหรับ Android 13+ (API 33+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- ไมโครโฟนสำหรับส่งข้อความเสียงสั้นในห้องแชทออฟไลน์ -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- การสั่นสำหรับระบบ CPR Metronome และสัญญาณ SOS สั่น -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- การรักษาสถานะเมื่อหน้าจอดับลง (เสียงไซเรน, ไฟฉายกระพริบ, และบลูทูธ) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- บริการทำงานเบื้องหลังสำหรับการติดตามตำแหน่ง Hike Tracker และบลูทูธ Mesh -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    
     <application
         android:label="BANTAWAN"
         android:name="${applicationName}"

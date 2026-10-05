@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'dart:async';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter1/providers/map_provider.dart';
 import '../services/map_offline_service.dart';
@@ -49,6 +50,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<CompassEvent>? _compassSubscription;
   bool _showStepByStepPanel = false;
+  String? _localTilesPath;
 
   void _openMobileFacilityList(BuildContext context, MapProvider provider) {
     showModalBottomSheet(
@@ -88,6 +90,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _initLocalTilesPath();
     _initStreams();
     _initialFocus();
 
@@ -97,6 +100,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           context.read<MapProvider>().setSharedPosition(widget.initialPosition);
         }
       });
+    }
+  }
+
+  Future<void> _initLocalTilesPath() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      if (mounted) {
+        setState(() {
+          _localTilesPath = '${directory.path}/map_tiles';
+        });
+      }
+    } catch (e) {
+      debugPrint('[MAP] Failed to resolve local map_tiles directory: $e');
     }
   }
 
@@ -407,15 +423,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             },
           ),
           children: [
-            // Base Map Tile
+            // Base Map Tile (รองรับทั้งภาพถ่ายดาวเทียม และแผนที่ออฟไลน์จากเครื่อง)
             TileLayer(
               urlTemplate: provider.mapStyle == 'satellite'
                   ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
                   : provider.mapStyle == 'traffic'
                   // OSM Standard: แผนที่สว่างชัดเจน เหมาะสำหรับโหมดจราจร (ฟรี ไม่ต้อง API Key)
                   ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                  // OSM via Waymarked: Dark-styled map (ฟรี ไม่ต้อง API Key)
+                  // OSM Standard / Offline Cached Tiles
                   : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              tileProvider: (_localTilesPath != null && provider.mapStyle != 'satellite')
+                  ? OfflineFallbackTileProvider(localTilesPath: _localTilesPath!)
+                  : NetworkTileProvider(),
               userAgentPackageName: 'com.bantawan.app',
               retinaMode: RetinaMode.isHighDensity(context),
             ),

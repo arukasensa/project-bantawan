@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>SOS Premier</string>
+	<string>BANTAWAN</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>SOS Premier</string>
+	<string>BANTAWAN</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -36,6 +36,12 @@
 	<string>เราต้องการใช้ Bluetooth เพื่อให้ผู้อื่นสามารถตรวจพบคุณและเข้าช่วยเหลือในกรณีฉุกเฉิน</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>เราใช้เครือข่ายท้องถิ่นเพื่อส่งข้อความขอความช่วยเหลือไปยังอุปกรณ์ใกล้เคียงแบบออฟไลน์</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>เราต้องการเข้าถึงไมโครโฟนเพื่อส่งข้อความเสียงสั้นในกรณีฉุกเฉินและระบบสื่อสารออฟไลน์</string>
+	<key>NSCameraUsageDescription</key>
+	<string>เราต้องการเข้าถึงกล้องเพื่อถ่ายภาพสถานการณ์ฉุกเฉินและส่งผ่านเครือข่ายออฟไลน์</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>เราต้องการเข้าถึงคลังภาพเพื่อเลือกรูปภาพส่งผ่านเครือข่ายออฟไลน์</string>
 	
 	<key>NSBonjourServices</key>
 	<array>

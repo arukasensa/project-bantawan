@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter1/features/home/services/connectivity_service.dart';
@@ -173,3 +174,25 @@ class MapTile {
   final int z;
   MapTile(this.x, this.y, this.z);
 }
+
+/// 🗺️ Tile Provider อัจฉริยะ: ตรวจสอบหาไฟล์แผ่นแผนที่ออฟไลน์ในเครื่องก่อน
+/// หากมีไฟล์แคชที่ดาวน์โหลดไว้แล้ว จะแสดงผลจากหน่วยความจำเครื่องทันที (ออฟไลน์ 100%)
+/// หากยังไม่มีไฟล์ จะดึงข้อมูลจาก OpenStreetMap เซิร์ฟเวอร์ผ่านเครือข่ายอัตโนมัติ
+class OfflineFallbackTileProvider extends TileProvider {
+  final String localTilesPath;
+
+  OfflineFallbackTileProvider({required this.localTilesPath});
+
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) {
+    final localFile = File(
+      '$localTilesPath/${coordinates.z}/${coordinates.x}/${coordinates.y}.png',
+    );
+    if (localFile.existsSync()) {
+      return FileImage(localFile);
+    }
+    final url = getTileUrl(coordinates, options);
+    return NetworkImage(url, headers: headers);
+  }
+}
+
