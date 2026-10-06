@@ -343,52 +343,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
 
         const SizedBox(height: 20),
 
-        // 3. หมวดคนเดินสาร (Data Mule)
-        _buildSectionHeader("ระบบคนเดินสาร (Data Mule Protocol)"),
-        _buildCardContainer(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "หิ้วซองจดหมายเข้ารหัส (Store & Forward)",
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        "ฝากข้อความไว้ในเครื่อง และส่งต่ออัตโนมัติเมื่อเดินเข้าไปใกล้โหนดปลายทาง",
-                        style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.3),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: service.isDataMuleEnabled,
-                  onChanged: (val) {
-                    HapticFeedback.selectionClick();
-                    service.toggleDataMule(val);
-                  },
-                  activeThumbColor: Colors.purpleAccent,
-                  activeTrackColor: Colors.purpleAccent.withValues(alpha: 0.25),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.white10, height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("ซองจดหมายที่หิ้วอยู่ขณะนี้", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                Text("${service.carriedEnvelopes.length} ซอง", style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
-        ),
 
-        const SizedBox(height: 20),
 
         // 4. หมวดความปลอดภัยและการเข้ารหัส (E2EE)
         _buildSectionHeader("กุญแจและความปลอดภัย (E2EE Cryptography)"),
@@ -565,8 +520,8 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
         ),
         _buildLayerCard(
           layerNumber: "5",
-          title: "Storage & Data Mule Engine",
-          description: "ระบบคนเดินสาร Store-and-Forward หิ้วซองจดหมายข้ามพื้นที่ขาดสัญญาณ และ SQLite เก็บประวัติ",
+          title: "Local Database & Storage Layer",
+          description: "ระบบจัดเก็บประวัติการสื่อสารและความปลอดภัยแบบกระจายศูนย์ผ่าน SQLite ท้องถิ่น",
           color: Colors.orangeAccent,
         ),
       ],

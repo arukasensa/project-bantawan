@@ -231,15 +231,6 @@ class NotificationService extends ChangeNotifier {
         actionRoute: 'weather',
       ),
       AppNotification(
-        id: 'seed_mule_1',
-        title: '🎒 ระบบคนเดินสาร (Data Mule) พร้อมทำงาน',
-        body: 'คุณสามารถเป็นจิตอาสาช่วยรับฝากข้อความกู้ชีพข้ามพื้นที่ออฟไลน์ได้โดยเปิดฟังก์ชันคนเดินสาร',
-        category: NotificationCategory.mule,
-        timestamp: now.subtract(const Duration(hours: 3)),
-        isRead: false,
-        actionRoute: 'data_mule',
-      ),
-      AppNotification(
         id: 'seed_shelter_1',
         title: '⛺ จุดพักพิงและศูนย์อพยพพร้อมรองรับ',
         body: 'เปิดศูนย์อพยพชั่วคราว ณ โรงเรียนเทศบาล 1 มีสิ่งอำนวยความสะดวกและจุดปฐมพยาบาล',

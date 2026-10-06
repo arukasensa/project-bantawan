@@ -14,7 +14,6 @@ import '../models/mule_envelope.dart';
 import 'crypto_mesh_service.dart';
 import 'identity_service.dart';
 import 'chat_database_helper.dart';
-import 'package:flutter1/features/notifications/services/notification_service.dart';
 
 /// ============================================================================
 /// 🏗️ BANTAWAN Layered Network & Security Architecture
@@ -359,24 +358,11 @@ class NearbyService extends ChangeNotifier {
   /// 💬 ห้องแชทส่วนตัวที่กำลังเปิดอยู่ในขณะนี้ (peerId) เพื่อไม่ให้แจ้งเตือนซ้ำหากกำลังคุยกันอยู่
   String? activeChatPeerId;
 
-  // --- 🎒 Data Mule (Store-Carry-and-Forward Mesh Carrier) ---
-  /// ธงเปิด/ปิดโหมดอาสาสมัครคนเดินสาร (รับฝากซองจดหมายและนำส่งเมื่อพบสัญญาณ)
-  bool isDataMuleEnabled = true;
-
-  /// รายการซองจดหมายที่กำลังช่วยถืออยู่ในเครื่องขณะนี้
+  // --- 🎒 Data Mule (Deprecated / Disabled in favor of Direct & Multi-hop Mesh) ---
+  bool isDataMuleEnabled = false;
   List<MuleEnvelope> carriedEnvelopes = [];
-
-  /// 🎒 โหลดรายการซองจดหมายคนเดินสารที่จัดเก็บอยู่ในเครื่อง
-  Future<void> loadCarriedEnvelopes() async {
-    carriedEnvelopes = await ChatDatabaseHelper.instance.getAllCarriedEnvelopes();
-    notifyListeners();
-  }
-
-  /// 🔄 สลับการเปิด/ปิดโหมดอาสาสมัครคนเดินสาร
-  void toggleDataMule(bool enabled) {
-    isDataMuleEnabled = enabled;
-    notifyListeners();
-  }
+  Future<void> loadCarriedEnvelopes() async {}
+  void toggleDataMule(bool enabled) {}
 
   /// 🐕 Watchdog Timer สำหรับตรวจสอบและฟื้นฟู Discovery หากไม่พบโหนดนานผิดปกติ
   Timer? _discoveryWatchdogTimer;
@@ -515,8 +501,6 @@ class NearbyService extends ChangeNotifier {
     ChatDatabaseHelper.instance.purgeExpiredProcessedPackets();
     await ChatDatabaseHelper.instance.purgeExpiredNotices();
     await loadNotices();
-    await ChatDatabaseHelper.instance.purgeExpiredMuleEnvelopes();
-    await loadCarriedEnvelopes();
   }
 
   /// 👤 ดึงข้อมูลชื่อผู้ใช้จาก ProfileService เพื่อตั้งเป็น Callsign และอัปเดตข้อมูลทางการแพทย์ในเครือข่าย Mesh
@@ -689,7 +673,6 @@ class NearbyService extends ChangeNotifier {
                     .firstOrNull;
                 if (peerNodeId != null) {
                   _deliverPendingMessages(id, peerNodeId);
-                  _handoverMuleEnvelopes(id, peerNodeId);
                 }
                 notifyListeners();
               } else {
@@ -805,7 +788,6 @@ class NearbyService extends ChangeNotifier {
                             .firstOrNull;
                         if (peerNodeId != null) {
                           _deliverPendingMessages(connResultId, peerNodeId);
-                          _handoverMuleEnvelopes(connResultId, peerNodeId);
                         }
                       });
                       notifyListeners();
@@ -1018,12 +1000,6 @@ class NearbyService extends ChangeNotifier {
               return;
             }
 
-            // 🎒 ตรวจสอบว่าเป็นแพ็กเก็ตระบบคนเดินสาร (Data Mule Mesh Envelope / Handover / Receipt) หรือไม่
-            if (json is Map<String, dynamic> && json['isMulePacket'] == true) {
-              await _handleIncomingMulePacket(json, endpointId);
-              return;
-            }
-
             final msg = NearbyMessage.fromJson(json);
 
             // ------------------------------------------------------------------
@@ -1144,12 +1120,12 @@ class NearbyService extends ChangeNotifier {
                 msg.recipientId == deviceName ||
                 msg.senderId == nodeId ||
                 msg.senderId == deviceName;
+            final bool isPrivateToMe =
+                msg.recipientId == nodeId || msg.recipientId == deviceName;
 
             if (isForMe) {
               // หากเป็นข้อความแชทส่วนตัวที่ถูกเข้ารหัส (E2EE) ให้ทำการถอดรหัสและ Unpack ข้อมูลลับเฉพาะ
               NearbyMessage processedMsg = msg;
-              final bool isPrivateToMe =
-                  msg.recipientId == nodeId || msg.recipientId == deviceName;
 
               if (msg.isEncrypted && isPrivateToMe) {
                 final decryptedContent = CryptoMeshService.decryptPayload(
@@ -1239,37 +1215,40 @@ class NearbyService extends ChangeNotifier {
             // ------------------------------------------------------------------
             // 🔄 4. Multi-hop Silent Relay Engine (กระบวนการรีเลย์ข้อมูลด้วย TTL Sanitization)
             // ------------------------------------------------------------------
-            // จำกัดเพดาน TTL ไม่เกิน 5 ทอด (Max TTL Ceiling = 5) ป้องกัน Broadcast Storm
-            final effectiveTtl = min(msg.ttl, 5);
-            if (effectiveTtl > 1) {
-              final relayedMsg = msg.copyWith(
-                ttl: effectiveTtl - 1,
-                isRelayed: true,
-              );
-              final relayBytes = utf8.encode(jsonEncode(relayedMsg.toJson()));
+            // หากข้อความส่วนตัวนี้ส่งถึงเราโดยตรง (ปลายทางคือเรา) ไม่จำเป็นต้องรีเลย์ต่อ
+            // รีเลย์เฉพาะข้อความที่ส่งถึงคนอื่น หรือข้อความ Broadcast / SOS สาธารณะ
+            if (!isPrivateToMe) {
+              final effectiveTtl = min(msg.ttl, 5);
+              if (effectiveTtl > 1) {
+                final relayedMsg = msg.copyWith(
+                  ttl: effectiveTtl - 1,
+                  isRelayed: true,
+                );
+                final relayBytes = utf8.encode(jsonEncode(relayedMsg.toJson()));
 
-              // 🎯 Smart Routing: หากเป็นข้อความส่วนตัว และมี Reverse Path ชี้ไปยังเป้าหมาย ให้ส่งตรงแบบ Unicast
-              final nextHopForRecipient = (msg.recipientId != null && msg.recipientId != 'ALL')
-                  ? _reversePathTable[msg.recipientId]
-                  : null;
+                // 🎯 Smart Routing: หากเป็นข้อความส่วนตัว และมี Reverse Path ชี้ไปยังเป้าหมาย ให้ส่งตรงแบบ Unicast
+                final nextHopForRecipient = (msg.recipientId != null && msg.recipientId != 'ALL')
+                    ? _reversePathTable[msg.recipientId]
+                    : null;
 
-              if (nextHopForRecipient != null &&
-                  connectedDevices.containsKey(nextHopForRecipient) &&
-                  nextHopForRecipient != endpointId) {
-                try {
-                  debugPrint('[SILENT RELAY UNICAST] Relaying message ${msg.id} directly to $nextHopForRecipient for ${msg.recipientId}');
-                  await Nearby().sendBytesPayload(nextHopForRecipient, relayBytes);
-                } catch (e) {
-                  debugPrint('[SILENT RELAY UNICAST] Error forwarding payload to $nextHopForRecipient: $e');
-                }
-              } else {
-                // 🔄 Flooding Relay: ส่งต่อไปยังทุกโหนดที่เชื่อมต่ออยู่ ยกเว้นโหนดที่เพิ่งส่งมา
-                for (var otherEndpointId in connectedDevices.keys.toList()) {
-                  if (otherEndpointId != endpointId) {
-                    try {
-                      await Nearby().sendBytesPayload(otherEndpointId, relayBytes);
-                    } catch (e) {
-                      debugPrint('[SILENT RELAY FLOOD] Error forwarding payload to $otherEndpointId: $e');
+                if (nextHopForRecipient != null &&
+                    connectedDevices.containsKey(nextHopForRecipient) &&
+                    nextHopForRecipient != endpointId) {
+                  try {
+                    debugPrint('[SILENT RELAY UNICAST] Relaying message ${msg.id} directly to $nextHopForRecipient for ${msg.recipientId}');
+                    await Nearby().sendBytesPayload(nextHopForRecipient, relayBytes);
+                  } catch (e) {
+                    debugPrint('[SILENT RELAY UNICAST] Error forwarding payload to $nextHopForRecipient: $e');
+                  }
+                } else {
+                  // 🔄 Flooding Relay: ส่งต่อไปยังทุกโหนดที่เชื่อมต่ออยู่ ยกเว้นโหนดที่เพิ่งส่งมา
+                  for (var otherEndpointId in connectedDevices.keys.toList()) {
+                    if (otherEndpointId != endpointId) {
+                      try {
+                        await Nearby().sendBytesPayload(otherEndpointId, relayBytes);
+                      } catch (e) {
+                        debugPrint('[SILENT RELAY FLOOD] Error forwarding payload to $otherEndpointId: $e');
+                      }
                     }
                   }
                 }
@@ -1375,9 +1354,6 @@ class NearbyService extends ChangeNotifier {
 
     // 📬 ส่งข้อความส่วนตัวที่ฝากไว้ในคิว (Store-and-Forward) ให้โหนดนี้ทันทีที่ค้นพบ
     _deliverPendingMessages(fromEndpointId, msg.senderId);
-
-    // 🎒 ส่งมอบซองจดหมายคนเดินสาร (Data Mule Handover) ให้โหนดนี้ทันทีที่ค้นพบ
-    _handoverMuleEnvelopes(fromEndpointId, msg.senderId);
 
     // 3. Multi-hop Silent Relay Engine (คำนวณ TTL Sanitization ป้องกันวนลูป)
     final effectiveTtl = min(msg.ttl, 5);
@@ -1578,6 +1554,19 @@ class NearbyService extends ChangeNotifier {
     final json = jsonEncode(ackMsg.toJson());
     final bytes = utf8.encode(json);
 
+    // 🎯 Unicast Smart Routing: ส่งย้อนกลับทาง Reverse Path ถ้ามี
+    final targetEndpoint = _reversePathTable[ackMessageId] ?? _reversePathTable[recipientId];
+    if (targetEndpoint != null && connectedDevices.containsKey(targetEndpoint)) {
+      try {
+        await Nearby().sendBytesPayload(targetEndpoint, bytes);
+        debugPrint('[Ack] 🎯 Sent $ackType ACK directly to $targetEndpoint for $recipientId');
+        return;
+      } catch (e) {
+        debugPrint('[Ack] ⚠️ Failed direct ACK to $targetEndpoint: $e');
+      }
+    }
+
+    // Fallback: Flooding
     for (var endpointId in connectedDevices.keys.toList()) {
       try {
         await Nearby().sendBytesPayload(endpointId, bytes);
@@ -1776,34 +1765,6 @@ class NearbyService extends ChangeNotifier {
         }
       }
 
-      // 🎒 หากมีอุปกรณ์คนกลางเชื่อมต่ออยู่รอบตัว ให้ฝากซองจดหมายคนเดินสาร (Data Mule) ไปด้วย
-      // เพื่อให้คนกลางช่วยแบกข้ามพื้นที่ไปส่งมอบให้ผู้รับ แม้ผู้รับจะอยู่นอกระยะ Multi-hop
-      if (connectedDevices.isNotEmpty) {
-        final muleEnvelope = MuleEnvelope(
-          envelopeId: msg.id,
-          senderNodeId: nodeId,
-          senderCallsign: deviceName,
-          recipientNodeId: targetNodeId,
-          encryptedPayload: encryptedContent,
-          payloadIv: '',
-          payloadAuthTag: '',
-          senderSignature: '',
-          isUrgentSOS: msg.isSOS,
-          createdAt: msg.timestamp,
-          expiresAt: DateTime.now().add(const Duration(hours: 72)),
-        );
-        final mulePacket = {
-          'isMulePacket': true,
-          'muleType': 'DEPOSIT',
-          'envelope': muleEnvelope.toJson(),
-        };
-        final muleBytes = utf8.encode(jsonEncode(mulePacket));
-        for (var endpointId in connectedDevices.keys.toList()) {
-          try {
-            await Nearby().sendBytesPayload(endpointId, muleBytes);
-          } catch (_) {}
-        }
-      }
 
       if (!sent) {
         // ❌ Peer ไม่ได้อยู่ในเครือข่ายตอนนี้ — ฝากข้อความไว้ในคิว (Store-and-Forward)
@@ -2557,395 +2518,9 @@ class NearbyService extends ChangeNotifier {
       details,
     );
   }
-
-  /// 🗑️ ลบประกาศออกจากระบบ
   Future<void> deleteNotice(String noticeId) async {
     notices.removeWhere((n) => n.id == noticeId);
     await ChatDatabaseHelper.instance.deleteNotice(noticeId);
     notifyListeners();
-  }
-
-  // ==========================================================================
-  // 🎒 ระบบคนเดินสาร (Data Mule: Store-Carry-and-Forward Mesh Protocol)
-  // ==========================================================================
-
-  /// 🎒 จัดการแพ็กเก็ตระบบคนเดินสารที่ได้รับเข้ามาผ่านเครือข่ายบลูทูธ/Wi-Fi
-  Future<void> _handleIncomingMulePacket(Map<String, dynamic> json, String fromEndpointId) async {
-    try {
-      final String muleType = json['muleType'] as String? ?? '';
-
-      switch (muleType) {
-        case 'DEPOSIT':
-          // 📥 1. มีผู้ส่งต้นทาง (A) ฝากซองจดหมายเข้ารหัสให้เรา (B) ช่วยแบกไปส่ง
-          if (!isDataMuleEnabled) {
-            debugPrint('[Data Mule] ℹ️ ข้ามการรับฝาก เนื่องจากปิดโหมดอาสาสมัครคนเดินสาร');
-            return;
-          }
-          final envelopeMap = json['envelope'] as Map<String, dynamic>?;
-          if (envelopeMap == null) return;
-          final envelope = MuleEnvelope.fromJson(envelopeMap);
-
-          final saved = await ChatDatabaseHelper.instance.insertMuleEnvelope(envelope);
-          if (saved) {
-            await loadCarriedEnvelopes();
-
-            // ส่งใบตอบรับ DEPOSIT_ACK แจ้งผู้ส่ง A ว่ารับฝากเรียบร้อยแล้ว
-            final ackPacket = {
-              'isMulePacket': true,
-              'muleType': 'DEPOSIT_ACK',
-              'envelopeId': envelope.envelopeId,
-              'carrierNodeId': nodeId,
-              'carrierName': deviceName,
-            };
-            try {
-              final bytes = utf8.encode(jsonEncode(ackPacket));
-              await Nearby().sendBytesPayload(fromEndpointId, bytes);
-            } catch (_) {}
-
-            if (envelope.isUrgentSOS) {
-              _showMuleCarrierAlert(
-                '🎒 รับฝากข้อความฉุกเฉิน (SOS)',
-                'กำลังช่วยนำส่งให้ ${envelope.recipientNodeId}',
-              );
-            }
-          }
-          break;
-
-        case 'DEPOSIT_ACK':
-          // 🎒 2. ผู้ส่ง (A) ได้รับการยืนยันว่าคนกลาง (B) รับฝากซองจดหมายแล้ว
-          final envelopeId = json['envelopeId'] as String?;
-          final carrierName = json['carrierName'] as String? ?? 'คนเดินสาร';
-          if (envelopeId != null) {
-            final idx = messages.indexWhere((m) => m.id == envelopeId);
-            if (idx != -1) {
-              messages[idx] = messages[idx].copyWith(status: 'CARRIED');
-              await ChatDatabaseHelper.instance.updateMessageStatus(envelopeId, 'CARRIED');
-              notifyListeners();
-            }
-            debugPrint('[Data Mule] 🎒 ซองจดหมาย $envelopeId ถูกรับฝากโดย $carrierName เรียบร้อยแล้ว');
-          }
-          break;
-
-        case 'HANDOVER':
-          // 📬 3. คนกลาง (B) เดินมาพบเรา (C หรือ D) และส่งมอบซองจดหมายให้เรา
-          final envelopeMap = json['envelope'] as Map<String, dynamic>?;
-          if (envelopeMap == null) return;
-          final envelope = MuleEnvelope.fromJson(envelopeMap);
-
-          // ตรวจสอบว่าซองนี้ส่งถึงเราจริง หรือเป็นข้อความขอความช่วยเหลือฉุกเฉิน (isUrgentSOS)
-          final bool isForMe = envelope.recipientNodeId == nodeId ||
-              envelope.recipientNodeId == deviceName ||
-              envelope.isUrgentSOS ||
-              envelope.recipientNodeId == '@RESCUE_TEAM' ||
-              envelope.recipientNodeId == '@PUBLIC_SOS';
-
-          if (isForMe) {
-            // ป้องกันรับซ้ำ (Deduplication Check)
-            if (_processedMessageIds.contains(envelope.envelopeId) ||
-                await ChatDatabaseHelper.instance.isPacketProcessed(envelope.envelopeId)) {
-              // แม้จะเคยรับแล้ว ก็ส่ง DELIVERY_RECEIPT ตอบกลับเพื่อให้คนกลางลบซองออกจากเครื่อง
-              await _sendDeliveryReceipt(fromEndpointId, envelope.envelopeId);
-              return;
-            }
-            _processedMessageIds.add(envelope.envelopeId);
-            await ChatDatabaseHelper.instance.markPacketProcessed(envelope.envelopeId);
-
-            // ถอดรหัสข้อความ E2EE ด้วย Private Key ของเรา (ถ้ามี)
-            String plainContent = envelope.encryptedPayload;
-            if (envelope.encryptedPayload.startsWith('ENC_')) {
-              try {
-                plainContent = CryptoMeshService.decryptPayload(
-                  cipherText: envelope.encryptedPayload,
-                  recipientId: nodeId,
-                  senderId: envelope.senderNodeId,
-                );
-              } catch (e) {
-                debugPrint('[Data Mule Error] E2EE Decrypt failed: $e');
-              }
-            }
-
-            final incomingMsg = NearbyMessage(
-              id: envelope.envelopeId,
-              senderId: envelope.senderNodeId,
-              senderName: envelope.senderCallsign,
-              recipientId: nodeId,
-              recipientName: deviceName,
-              content: plainContent,
-              timestamp: envelope.createdAt,
-              isEncrypted: true,
-              isSOS: envelope.isUrgentSOS,
-              status: 'DELIVERED',
-            );
-
-            // บันทึกลง SQLite และแสดงผลในหน้าแชท
-            await ChatDatabaseHelper.instance.insertMessage(
-              incomingMsg,
-              myNodeId: nodeId,
-              myDeviceName: deviceName,
-            );
-            messages.insert(0, incomingMsg);
-            notifyListeners();
-
-            // ส่ง DELIVERY_RECEIPT แจ้งคนกลาง B ให้ลบซองจดหมายออกจากเครื่อง
-            await _sendDeliveryReceipt(fromEndpointId, envelope.envelopeId);
-
-            // แจ้งเตือน Notification บนมือถือ
-            _showMuleDeliveredAlert(
-              envelope.senderCallsign,
-              plainContent,
-              envelope.isUrgentSOS,
-            );
-          } else if (isDataMuleEnabled && envelope.hopCarryCount < 3) {
-            // 🔄 3.1 Multi-Hop Relay (B ➔ C): ซองนี้ไม่ใช่ของเรา แต่เราเปิดโหมดคนเดินสารไว้
-            // ช่วยรับฝากซองนี้ติดกระเป๋าต่อไปส่งให้อีกทอดหนึ่ง (จำกัดไม่เกิน 3 ทอด)
-            final relayedEnvelope = envelope.copyWith(
-              hopCarryCount: envelope.hopCarryCount + 1,
-            );
-            final saved = await ChatDatabaseHelper.instance.insertMuleEnvelope(relayedEnvelope);
-            if (saved) {
-              await loadCarriedEnvelopes();
-              debugPrint('[Data Mule] 🔄 Multi-Hop Relay: รับฝากซอง ${envelope.envelopeId} ต่อ (Hop: ${relayedEnvelope.hopCarryCount})');
-            }
-          }
-          break;
-
-        case 'DELIVERY_RECEIPT':
-          // ✅ 4. คนกลาง (B) ได้รับใบเสร็จยืนยันว่าผู้รับปลายทาง (D) ได้รับข้อความแล้ว
-          final envelopeId = json['envelopeId'] as String?;
-          if (envelopeId != null) {
-            // ลบซองจดหมายออกจากเครื่องคนกลางทันทีเพื่อคืนพื้นที่หน่วยความจำ
-            await ChatDatabaseHelper.instance.deleteMuleEnvelope(envelopeId);
-            await loadCarriedEnvelopes();
-
-            // หากเครื่องนี้เป็นผู้ส่งต้นทางด้วย ให้อัปเดตสถานะเป็น DELIVERED (✓✓)
-            final idx = messages.indexWhere((m) => m.id == envelopeId);
-            if (idx != -1) {
-              messages[idx] = messages[idx].copyWith(status: 'DELIVERED');
-              await ChatDatabaseHelper.instance.updateMessageStatus(envelopeId, 'DELIVERED');
-              notifyListeners();
-            }
-            debugPrint('[Data Mule] ✅ ซองจดหมาย $envelopeId ส่งมอบถึงมือผู้รับแล้ว! ลบออกจากเครื่องเรียบร้อย');
-          }
-          break;
-      }
-    } catch (e) {
-      debugPrint('[Data Mule Error] _handleIncomingMulePacket failed: $e');
-    }
-  }
-
-  /// 📬 ส่งมอบซองจดหมายคนเดินสาร (Data Mule Handover & Multi-Hop Relay) ให้โหนดที่เพิ่งเชื่อมต่อ
-  Future<void> _handoverMuleEnvelopes(String connectedEndpointId, String peerNodeId) async {
-    // 1. ส่งซองที่จ่าหน้าถึง peerNodeId หรือซองที่เป็นขอความช่วยเหลือฉุกเฉิน (SOS)
-    final directEnvelopes = await ChatDatabaseHelper.instance.getEnvelopesForRecipient(peerNodeId);
-    if (directEnvelopes.isNotEmpty) {
-      debugPrint('[Data Mule] 🎒 พบ ${directEnvelopes.length} ซองที่ส่งถึง $peerNodeId (หรือ SOS) กำลังส่งมอบ...');
-      for (final env in directEnvelopes) {
-        try {
-          final packet = {
-            'isMulePacket': true,
-            'muleType': 'HANDOVER',
-            'envelope': env.toJson(),
-          };
-          final bytes = utf8.encode(jsonEncode(packet));
-          await Nearby().sendBytesPayload(connectedEndpointId, bytes);
-          debugPrint('[Data Mule] 📤 Handed over envelope ${env.envelopeId} to $peerNodeId (Urgent: ${env.isUrgentSOS})');
-          await Future.delayed(const Duration(milliseconds: 100));
-        } catch (e) {
-          debugPrint('[Data Mule Error] Handover failed for envelope ${env.envelopeId}: $e');
-        }
-      }
-    }
-
-    // 2. หากเรามีซองอื่นที่ยังส่งต่อได้ (hopCarryCount < 3) ส่งต่อให้เพื่อนคนเดินสารช่วยกันถือ (Multi-Hop Relay)
-    final relayEnvelopes = await ChatDatabaseHelper.instance.getEnvelopesForRelay(
-      peerNodeId: peerNodeId,
-      maxHops: 3,
-    );
-    if (relayEnvelopes.isNotEmpty) {
-      debugPrint('[Data Mule] 🔄 ส่งต่อ ${relayEnvelopes.length} ซองให้ $peerNodeId ช่วยแบกต่อ (Multi-Hop Relay)');
-      for (final env in relayEnvelopes) {
-        try {
-          final packet = {
-            'isMulePacket': true,
-            'muleType': 'HANDOVER',
-            'envelope': env.toJson(),
-          };
-          final bytes = utf8.encode(jsonEncode(packet));
-          await Nearby().sendBytesPayload(connectedEndpointId, bytes);
-          await Future.delayed(const Duration(milliseconds: 100));
-        } catch (e) {
-          debugPrint('[Data Mule Error] Relay handover failed: $e');
-        }
-      }
-    }
-  }
-
-  /// 🧾 ส่งใบเสร็จยืนยันการรับข้อความ (Delivery Receipt) กลับไปยังคนกลาง
-  Future<void> _sendDeliveryReceipt(String toEndpointId, String envelopeId) async {
-    try {
-      final receiptPacket = {
-        'isMulePacket': true,
-        'muleType': 'DELIVERY_RECEIPT',
-        'envelopeId': envelopeId,
-        'recipientNodeId': nodeId,
-        'deliveredAt': DateTime.now().toIso8601String(),
-      };
-      final bytes = utf8.encode(jsonEncode(receiptPacket));
-      await Nearby().sendBytesPayload(toEndpointId, bytes);
-    } catch (e) {
-      debugPrint('[Data Mule Error] Failed to send delivery receipt: $e');
-    }
-  }
-
-  /// 🎒 สร้างและฝากซองจดหมายคนเดินสาร (Data Mule Deposit)
-  /// นำข้อความไปฝากไว้กับโหนดรอบตัวที่เชื่อมต่ออยู่ เพื่อให้ช่วยแบกไปส่งผู้รับ
-  Future<bool> depositMuleEnvelope({
-    required String recipientNodeId,
-    required String recipientName,
-    required String content,
-    bool isUrgent = false,
-  }) async {
-    if (content.isEmpty) return false;
-
-    // 1. เข้ารหัสเนื้อหาแบบ E2EE สำหรับผู้รับ
-    String cipherText = content;
-    final hasRecipientKey = CryptoMeshService.hasPeerPublicKey(recipientNodeId);
-    if (hasRecipientKey) {
-      cipherText = CryptoMeshService.encryptPayload(
-        plainText: content,
-        recipientId: recipientNodeId,
-        senderId: nodeId,
-      );
-    }
-
-    // 2. สร้างซองจดหมาย
-    final envelope = MuleEnvelope(
-      senderNodeId: nodeId,
-      senderCallsign: deviceName,
-      recipientNodeId: recipientNodeId,
-      encryptedPayload: cipherText,
-      payloadIv: '',
-      payloadAuthTag: '',
-      senderSignature: '',
-      isUrgentSOS: isUrgent,
-      createdAt: DateTime.now(),
-      expiresAt: DateTime.now().add(const Duration(hours: 72)),
-    );
-
-    // 3. กระจายซองจดหมาย (MULE_DEPOSIT) ให้ทุกโหนดที่ต่อตรงอยู่ในขณะนี้
-    final packet = {
-      'isMulePacket': true,
-      'muleType': 'DEPOSIT',
-      'envelope': envelope.toJson(),
-    };
-    final packetBytes = utf8.encode(jsonEncode(packet));
-
-    bool sentAny = false;
-    for (final endpointId in connectedDevices.keys.toList()) {
-      try {
-        await Nearby().sendBytesPayload(endpointId, packetBytes);
-        sentAny = true;
-      } catch (e) {
-        debugPrint('[Data Mule Error] Failed to deposit envelope to $endpointId: $e');
-      }
-    }
-
-    // 4. บันทึกสำเนาลงข้อความแชทในเครื่องตนเอง
-    final localMsg = NearbyMessage(
-      id: envelope.envelopeId,
-      senderId: nodeId,
-      senderName: deviceName,
-      recipientId: recipientNodeId,
-      recipientName: recipientName,
-      content: content,
-      timestamp: envelope.createdAt,
-      isEncrypted: hasRecipientKey,
-      isSOS: isUrgent,
-      status: sentAny ? 'CARRIED' : 'PENDING',
-    );
-
-    _processedMessageIds.add(envelope.envelopeId);
-    messages.insert(0, localMsg);
-    await ChatDatabaseHelper.instance.insertMessage(
-      localMsg,
-      myNodeId: nodeId,
-      myDeviceName: deviceName,
-    );
-
-    if (!sentAny) {
-      // หากไม่มีใครต่ออยู่เลย ให้เก็บเข้าคิว Pending เพื่อรอฝากเมื่อเจอคนแรก
-      await ChatDatabaseHelper.instance.insertPendingMessage(
-        id: envelope.envelopeId,
-        recipientNodeId: recipientNodeId,
-        payload: jsonEncode(packet),
-      );
-    }
-
-    notifyListeners();
-    return sentAny;
-  }
-
-  /// 🚨 แจ้งเตือนเมื่อรับฝากข้อความฉุกเฉิน (SOS) ในฐานะคนเดินสาร
-  Future<void> _showMuleCarrierAlert(String title, String body) async {
-    // 1. บันทึกลง Notification Center ภายในแอป
-    NotificationService.instance.notifyMuleUpdate(
-      title: title,
-      message: body,
-    );
-
-    // 2. แจ้งเตือนผ่าน System Notification
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'mule_carrier_channel',
-      'Data Mule Carrier Alerts',
-      channelDescription: 'Alerts when carrying emergency mesh envelopes',
-      importance: Importance.high,
-      priority: Priority.high,
-      color: Color(0xFFBA68C8),
-      enableLights: true,
-      enableVibration: true,
-    );
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
-    await _notifications.show(
-      Random().nextInt(100000),
-      title,
-      body,
-      details,
-    );
-  }
-
-  /// 📬 แจ้งเตือนเมื่อได้รับข้อความส่งมอบผ่านคนเดินสาร
-  Future<void> _showMuleDeliveredAlert(String sender, String body, bool isSOS) async {
-    // 1. บันทึกลง Notification Center ภายในแอป
-    if (isSOS) {
-      NotificationService.instance.notifySosAlert(
-        senderName: sender,
-        distanceText: 'ส่งผ่านคนเดินสาร',
-        details: body,
-      );
-    } else {
-      NotificationService.instance.notifyMuleUpdate(
-        title: '📬 ได้รับข้อความจากคนเดินสาร',
-        message: 'จาก $sender: "$body"',
-      );
-    }
-
-    // 2. แจ้งเตือนผ่าน System Notification
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'mule_delivered_channel',
-      'Data Mule Delivered Messages',
-      channelDescription: 'Messages delivered via offline carrier mesh',
-      importance: isSOS ? Importance.max : Importance.high,
-      priority: isSOS ? Priority.max : Priority.high,
-      color: isSOS ? const Color(0xFFFF5252) : const Color(0xFFAB47BC),
-      enableLights: true,
-      enableVibration: true,
-    );
-    final NotificationDetails details = NotificationDetails(android: androidDetails);
-    await _notifications.show(
-      Random().nextInt(100000),
-      isSOS ? '🚨 [SOS ฉุกเฉินผ่านคนเดินสาร] จาก $sender' : '🎒 [ข้อความผ่านคนเดินสาร] จาก $sender',
-      body,
-      details,
-    );
   }
 }

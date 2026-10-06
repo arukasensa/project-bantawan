@@ -32,7 +32,6 @@ import '../models/mesh_peer.dart';
 import '../models/peer_trust.dart';
 import '../widgets/peer_profile_sheet.dart';
 import '../widgets/notice_board_sheet.dart';
-import '../widgets/data_mule_sheet.dart';
 import '../widgets/bantawan_settings_sheet.dart';
 import '../widgets/peer_qr_verification_sheet.dart';
 import 'package:flutter1/features/home/services/profile_service.dart';
@@ -565,66 +564,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             },
           ),
 
-          // 🎒 Data Mule Backpack
-          ListenableBuilder(
-            listenable: service,
-            builder: (context, _) {
-              final muleCount = service.carriedEnvelopes.length;
-              final hasUrgent =
-                  service.carriedEnvelopes.any((e) => e.isUrgentSOS);
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-                    icon: Icon(
-                      Icons.backpack_rounded,
-                      color: muleCount > 0
-                          ? (hasUrgent ? Colors.redAccent : Colors.purpleAccent)
-                          : (service.isDataMuleEnabled
-                              ? Colors.purpleAccent.withValues(alpha: 0.7)
-                              : Colors.white24),
-                      size: 20,
-                    ),
-                    tooltip: 'คนเดินสาร (Data Mule)',
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      DataMuleSheet.show(context, service);
-                    },
-                  ),
-                  if (muleCount > 0)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: hasUrgent
-                              ? Colors.redAccent
-                              : Colors.purpleAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 15,
-                          minHeight: 15,
-                        ),
-                        child: Center(
-                          child: Text(
-                            muleCount > 9 ? '9+' : '$muleCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
+
 
           // #mesh channel badge
           Container(
@@ -1391,7 +1331,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             title: 'ผู้ติดต่อที่เคยบันทึกไว้ / อยู่นอกระยะ',
             badgeText: '${offlinePeers.length} คน',
             badgeColor: Colors.amberAccent,
-            subtitle: 'เคยแลกเปลี่ยน Key แล้ว • สามารถฝากข้อความผ่านคนเดินสาร (Data Mule) ได้',
+            subtitle: 'เคยแลกเปลี่ยน Key แล้ว • อยู่นอกระยะการส่งสัญญาณ (ออฟไลน์)',
           ),
           const SizedBox(height: 8),
           ..._buildPeerTileList(service, offlinePeers),
@@ -2855,34 +2795,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       );
     } else if (status == 'DELIVERED') {
       return const Icon(Icons.done_all_rounded, size: 12, color: Colors.white70);
-    } else if (status == 'CARRIED') {
-      return Container(
-        margin: const EdgeInsets.only(left: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-        decoration: BoxDecoration(
-          color: Colors.purpleAccent.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: Colors.purpleAccent.withValues(alpha: 0.4),
-            width: 0.5,
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('🎒', style: TextStyle(fontSize: 8)),
-            SizedBox(width: 2),
-            Text(
-              'ฝากคนเดินสาร',
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.purpleAccent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      );
+
     } else if (status == 'PENDING') {
       return Container(
         margin: const EdgeInsets.only(left: 2),

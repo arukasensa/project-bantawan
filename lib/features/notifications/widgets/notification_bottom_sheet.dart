@@ -6,8 +6,6 @@ import '../models/app_notification.dart';
 import '../services/notification_service.dart';
 import 'package:flutter1/core/navigation/main_navigation.dart';
 import 'package:flutter1/features/chat/screens/nearby_chat_screen.dart';
-import 'package:flutter1/features/chat/widgets/data_mule_sheet.dart';
-import 'package:flutter1/features/chat/services/nearby_service.dart';
 import 'package:flutter1/features/weather/screens/weather_detail_screen.dart';
 import 'package:flutter1/features/weather/services/weather_service.dart';
 
@@ -499,15 +497,7 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
           ),
         );
       }
-    } else if (route == 'data_mule') {
-      // เปิดหน้าจอ Data Mule Sheet
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) => DataMuleSheet(service: NearbyService()),
-      );
-    } else if (route == 'chat') {
+    } else if (route == 'data_mule' || route == 'chat') {
       // ไปหน้าห้องแชทออฟไลน์เมช
       Navigator.push(
         context,
