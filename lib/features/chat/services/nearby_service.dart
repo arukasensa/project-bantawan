@@ -683,21 +683,7 @@ class NearbyService extends ChangeNotifier {
               }
             },
             onDisconnected: (id) {
-              _pendingConnectionEndpoints.remove(id);
-              connectedDevices.remove(id);
-              for (final entry in discoveredMeshPeers.entries.toList()) {
-                if (entry.value.directEndpoint == id) {
-                  discoveredMeshPeers[entry.key] = entry.value.copyWith(
-                    hopCount: 99,
-                    directEndpoint: null,
-                    lastSeen: DateTime.fromMillisecondsSinceEpoch(0),
-                  );
-                }
-              }
-              _reversePathTable.removeWhere((_, endpoint) => endpoint == id);
-              debugPrint('[Nearby Advertiser] 🔌 Disconnected: $id');
-              notifyListeners();
-              _triggerFastDiscoveryRestart();
+              _handleEndpointDisconnected(id, source: 'Advertiser');
             },
             serviceId: "com.bantawan.emergency",
           );
@@ -800,21 +786,7 @@ class NearbyService extends ChangeNotifier {
                   }
                 },
                 onDisconnected: (discId) {
-                  _pendingConnectionEndpoints.remove(discId);
-                  connectedDevices.remove(discId);
-                  for (final entry in discoveredMeshPeers.entries.toList()) {
-                    if (entry.value.directEndpoint == discId) {
-                      discoveredMeshPeers[entry.key] = entry.value.copyWith(
-                        hopCount: 99,
-                        directEndpoint: null,
-                        lastSeen: DateTime.fromMillisecondsSinceEpoch(0),
-                      );
-                    }
-                  }
-                  _reversePathTable.removeWhere((_, endpoint) => endpoint == discId);
-                  debugPrint('[Nearby Discovery] 🔌 Disconnected: $discId');
-                  notifyListeners();
-                  _triggerFastDiscoveryRestart();
+                  _handleEndpointDisconnected(discId, source: 'Discovery');
                 },
               ).catchError((e) {
                 _pendingConnectionEndpoints.remove(id);
@@ -872,6 +844,37 @@ class NearbyService extends ChangeNotifier {
         }
       }
     }
+  }
+
+  /// 🔌 จัดการเมื่อการเชื่อมต่อกับ Endpoint ขาดหาย (Fast Topology Reconvergence)
+  Future<void> _handleEndpointDisconnected(String endpointId, {String source = 'Nearby'}) async {
+    _pendingConnectionEndpoints.remove(endpointId);
+    connectedDevices.remove(endpointId);
+
+    // 1. ปรับสถานะโหนดที่เคยต่อตรงผ่าน endpoint นี้เป็น Offline (hopCount = 99)
+    for (final entry in discoveredMeshPeers.entries.toList()) {
+      if (entry.value.directEndpoint == endpointId) {
+        discoveredMeshPeers[entry.key] = entry.value.copyWith(
+          hopCount: 99,
+          directEndpoint: null,
+          lastSeen: DateTime.fromMillisecondsSinceEpoch(0),
+        );
+      }
+    }
+    _reversePathTable.removeWhere((_, endpoint) => endpoint == endpointId);
+    debugPrint('[Nearby $source] 🔌 Disconnected: $endpointId');
+    notifyListeners();
+
+    // 2. ⚡ Fast Mesh Reconvergence: หากยังมีอุปกรณ์อื่นเชื่อมต่ออยู่
+    // ให้กระจายสัญญาณประกาศตนเองและซิงก์บริดจ์ทันทีโดยไม่ต้องรอรอบ Timer
+    if (connectedDevices.isNotEmpty) {
+      debugPrint('[Nearby $source] ⚡ Remaining active connections: ${connectedDevices.length}. Triggering fast peer announce.');
+      await broadcastPeerAnnounce();
+      await syncBridgeAnnounces();
+    }
+
+    // 3. เริ่มสแกนค้นหาใหม่ทันทีเพื่อกู้คืนโหนดที่หลุด
+    _triggerFastDiscoveryRestart();
   }
 
   DateTime? _lastDiscoveryRestartTime;
@@ -1486,48 +1489,52 @@ class NearbyService extends ChangeNotifier {
   }
 
 
+  /// 🌉 Active Relay Bridge Sync: หากเครื่องเราเชื่อมต่อกับอุปกรณ์ตั้งแต่ 2 เครื่องขึ้นไป (ทำหน้าที่เป็น Node B / สะพานกลาง)
+  /// ให้ส่งประกาศบอกแต่ละฝั่งว่าอีกฝั่งยังเชื่อมต่ออยู่กับเราอย่างต่อเนื่อง เพื่อรักษาเส้นทาง 2-hop ไม่ให้หลุด
+  Future<void> syncBridgeAnnounces() async {
+    if (connectedDevices.length < 2) return;
+
+    for (final directPeer in discoveredMeshPeers.values) {
+      final isDirectlyConnected = directPeer.hopCount == 1 &&
+          directPeer.directEndpoint != null &&
+          connectedDevices.containsKey(directPeer.directEndpoint);
+
+      if (isDirectlyConnected && directPeer.peerId != nodeId) {
+        final bridgeAnnounce = NearbyMessage(
+          senderId: directPeer.peerId,
+          senderName: directPeer.peerName,
+          content: 'PEER_ANNOUNCE',
+          timestamp: DateTime.now(),
+          isPeerAnnounce: true,
+          peerPublicKey: directPeer.publicKeyHex,
+          hopCount: 2, // ฝั่งตรงข้ามจะเห็นเป็น 2 ทอดผ่านเครื่องเรา
+          profileData: directPeer.emergencyProfile,
+          ttl: 2,
+          isRelayed: true,
+        );
+        _processedMessageIds.add(bridgeAnnounce.id);
+        final bytes = utf8.encode(jsonEncode(bridgeAnnounce.toJson()));
+
+        // ส่งให้โหนดอื่นๆ ทั้งหมดยกเว้นโหนดที่เป็นเจ้าของประกาศนี้เอง
+        for (final otherEndpoint in connectedDevices.keys) {
+          if (otherEndpoint != directPeer.directEndpoint) {
+            try {
+              await Nearby().sendBytesPayload(otherEndpoint, bytes);
+            } catch (_) {}
+          }
+        }
+      }
+    }
+  }
+
   /// ⏱️ ตัวตั้งเวลาส่งสัญญาณประกาศตัวตนเป็นระยะเพื่อรักษา Heartbeat ของโหนดใน Mesh
   void _startPeerAnnounceTimer() {
     _peerAnnounceTimer?.cancel();
-    _peerAnnounceTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
+    // ⚡ ปรับเป็นทุก 6 วินาที เพื่อให้ Dynamic Mesh สลับ 1-hop / 2-hop ตอบสนองรวดเร็วในภาคสนาม
+    _peerAnnounceTimer = Timer.periodic(const Duration(seconds: 6), (_) async {
       if (isAdvertising || isDiscovering || connectedDevices.isNotEmpty) {
         await broadcastPeerAnnounce();
-
-        // 🌉 Active Relay Bridge Sync: หากเครื่องเราเชื่อมต่อกับอุปกรณ์ตั้งแต่ 2 เครื่องขึ้นไป (ทำหน้าที่เป็น Node B / สะพานกลาง)
-        // ให้ส่งประกาศบอกแต่ละฝั่งว่าอีกฝั่งยังเชื่อมต่ออยู่กับเราอย่างต่อเนื่อง เพื่อรักษาเส้นทาง 2-hop ไม่ให้หลุด
-        if (connectedDevices.length >= 2) {
-          for (final directPeer in discoveredMeshPeers.values) {
-            final isDirectlyConnected = directPeer.hopCount == 1 &&
-                directPeer.directEndpoint != null &&
-                connectedDevices.containsKey(directPeer.directEndpoint);
-
-            if (isDirectlyConnected && directPeer.peerId != nodeId) {
-              final bridgeAnnounce = NearbyMessage(
-                senderId: directPeer.peerId,
-                senderName: directPeer.peerName,
-                content: 'PEER_ANNOUNCE',
-                timestamp: DateTime.now(),
-                isPeerAnnounce: true,
-                peerPublicKey: directPeer.publicKeyHex,
-                hopCount: 2, // ฝั่งตรงข้ามจะเห็นเป็น 2 ทอดผ่านเครื่องเรา
-                profileData: directPeer.emergencyProfile,
-                ttl: 2,
-                isRelayed: true,
-              );
-              _processedMessageIds.add(bridgeAnnounce.id);
-              final bytes = utf8.encode(jsonEncode(bridgeAnnounce.toJson()));
-
-              // ส่งให้โหนดอื่นๆ ทั้งหมดยกเว้นโหนดที่เป็นเจ้าของประกาศนี้เอง
-              for (final otherEndpoint in connectedDevices.keys) {
-                if (otherEndpoint != directPeer.directEndpoint) {
-                  try {
-                    await Nearby().sendBytesPayload(otherEndpoint, bytes);
-                  } catch (_) {}
-                }
-              }
-            }
-          }
-        }
+        await syncBridgeAnnounces();
       }
     });
   }
