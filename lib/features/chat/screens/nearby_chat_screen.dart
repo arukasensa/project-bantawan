@@ -163,12 +163,33 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             activePeer?.peerName ?? _activePrivatePeerName,
           )
         : '';
-    final peersCount = _getDiscoveredMeshPeers(service).length;
+    final allPeers = _getDiscoveredMeshPeers(service);
+    final onlinePeers = allPeers
+        .where((p) =>
+            service.getPeerConnectionStatus(p) != PeerConnectionStatus.offline)
+        .toList();
+    final offlinePeers = allPeers
+        .where((p) =>
+            service.getPeerConnectionStatus(p) == PeerConnectionStatus.offline)
+        .toList();
+    final onlineCount = onlinePeers.length;
+    final offlineCount = offlinePeers.length;
 
     // ------------------------------------------------------------------------
     // Mode 1: People / Discovered Peers List View (bitchat Screenshot 3)
     // ------------------------------------------------------------------------
     if (isPeopleList) {
+      String subtitleText;
+      if (onlineCount > 0 && offlineCount > 0) {
+        subtitleText = '#mesh ($onlineCount คนในระยะ • $offlineCount อยู่นอกระยะ)';
+      } else if (onlineCount > 0) {
+        subtitleText = '#mesh ($onlineCount คนในระยะ)';
+      } else if (offlineCount > 0) {
+        subtitleText = '#mesh (0 คนในระยะ • บันทึกไว้ $offlineCount คน)';
+      } else {
+        subtitleText = '#mesh (0 คนในระยะ)';
+      }
+
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -188,16 +209,16 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.sensors_rounded,
-                      color: Colors.cyanAccent,
+                      color: onlineCount > 0 ? Colors.greenAccent : Colors.cyanAccent,
                       size: 13,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '#mesh ($peersCount คนในระยะ)',
-                      style: const TextStyle(
-                        color: Colors.cyanAccent,
+                      subtitleText,
+                      style: TextStyle(
+                        color: onlineCount > 0 ? Colors.greenAccent : Colors.cyanAccent,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -638,12 +659,12 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
-                color: peersCount > 0
+                color: onlineCount > 0
                     ? Colors.purpleAccent.withValues(alpha: 0.22)
                     : Colors.white.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: peersCount > 0
+                  color: onlineCount > 0
                       ? Colors.purpleAccent.withValues(alpha: 0.5)
                       : Colors.white12,
                 ),
@@ -654,15 +675,15 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                   Icon(
                     Icons.people_alt_rounded,
                     size: 15,
-                    color: peersCount > 0
+                    color: onlineCount > 0
                         ? Colors.purpleAccent
                         : Colors.white60,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '$peersCount',
+                    '$onlineCount',
                     style: TextStyle(
-                      color: peersCount > 0 ? Colors.white : Colors.white70,
+                      color: onlineCount > 0 ? Colors.white : Colors.white70,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1193,11 +1214,82 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     );
   }
 
+  Widget _buildPeerSectionHeader({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String badgeText,
+    required Color badgeColor,
+    String? subtitle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, right: 4, bottom: 4, top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: badgeColor.withValues(alpha: 0.4),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  badgeText,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.38),
+                fontSize: 10.5,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   /// View 2: รายชื่อผู้ใช้ใกล้เคียงและประวัติแชทส่วนตัว (Private Discovered Peers & Recent Contacts List View)
   Widget _buildPrivatePeersListView(NearbyService service) {
-    final peers = _getDiscoveredMeshPeers(service);
+    final allPeers = _getDiscoveredMeshPeers(service);
+    final onlinePeers = allPeers
+        .where((p) =>
+            service.getPeerConnectionStatus(p) != PeerConnectionStatus.offline)
+        .toList();
+    final offlinePeers = allPeers
+        .where((p) =>
+            service.getPeerConnectionStatus(p) == PeerConnectionStatus.offline)
+        .toList();
 
-    if (peers.isEmpty) {
+    if (allPeers.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
@@ -1276,7 +1368,35 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      children: _buildPeerTileList(service, peers),
+      children: [
+        // 🟢 โซนที่ 1: คนในระยะ MESH ตอนนี้ (In-Range / Active)
+        if (onlinePeers.isNotEmpty) ...[
+          _buildPeerSectionHeader(
+            icon: Icons.sensors_rounded,
+            iconColor: Colors.greenAccent,
+            title: 'คนในระยะ MESH ตอนนี้',
+            badgeText: '${onlinePeers.length} ออนไลน์',
+            badgeColor: Colors.greenAccent,
+          ),
+          const SizedBox(height: 8),
+          ..._buildPeerTileList(service, onlinePeers),
+          const SizedBox(height: 16),
+        ],
+
+        // ⚪ โซนที่ 2: ผู้ติดต่อที่เคยบันทึกไว้ / อยู่นอกระยะ (Known Contacts / Offline)
+        if (offlinePeers.isNotEmpty) ...[
+          _buildPeerSectionHeader(
+            icon: Icons.vpn_key_rounded,
+            iconColor: Colors.amberAccent,
+            title: 'ผู้ติดต่อที่เคยบันทึกไว้ / อยู่นอกระยะ',
+            badgeText: '${offlinePeers.length} คน',
+            badgeColor: Colors.amberAccent,
+            subtitle: 'เคยแลกเปลี่ยน Key แล้ว • สามารถฝากข้อความผ่านคนเดินสาร (Data Mule) ได้',
+          ),
+          const SizedBox(height: 8),
+          ..._buildPeerTileList(service, offlinePeers),
+        ],
+      ],
     );
   }
 
@@ -1285,6 +1405,10 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       final status = service.getPeerConnectionStatus(peer);
       final bool isDirect = status == PeerConnectionStatus.direct;
       final bool isOffline = status == PeerConnectionStatus.offline;
+      final storedTrust = IdentityService.instance.getStoredTrust(peer.peerId);
+      final bool isVerified = storedTrust?.trustState == PeerTrustState.verified;
+      final bool hasKey = peer.publicKeyHex.isNotEmpty || storedTrust != null;
+
       final Color statusColor = isDirect
           ? Colors.greenAccent
           : (status == PeerConnectionStatus.relayed
@@ -1294,7 +1418,11 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           ? 'เชื่อมต่อตรง (Direct BLE)'
           : (status == PeerConnectionStatus.relayed
                 ? 'ผ่าน Mesh Relay (${peer.hopCount} ทอด)'
-                : 'หลุดการติดต่อ (Offline • ฝากข้อความได้)');
+                : (isVerified
+                    ? 'อยู่นอกระยะ • ยืนยัน Key แล้ว'
+                    : (hasKey
+                        ? 'อยู่นอกระยะ • มี Key ในระบบ'
+                        : 'อยู่นอกระยะ • ฝากข้อความได้')));
 
       final pendingCount = service.messages
           .where((m) => m.recipientId == peer.peerId && m.status == 'PENDING')
@@ -1360,15 +1488,74 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           ),
           title: Row(
             children: [
-              Text(
-                peer.peerName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+              Flexible(
+                child: Text(
+                  peer.peerName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
+              if (isVerified)
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: Colors.greenAccent.withValues(alpha: 0.4),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_rounded, size: 10, color: Colors.greenAccent),
+                      SizedBox(width: 3),
+                      Text(
+                        'VERIFIED',
+                        style: TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (hasKey && isOffline)
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.cyanAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: Colors.cyanAccent.withValues(alpha: 0.3),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.vpn_key_rounded, size: 9, color: Colors.cyanAccent),
+                      SizedBox(width: 3),
+                      Text(
+                        'E2EE KEY',
+                        style: TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1430,15 +1617,15 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                   service.sendReadAckForPeer(peer.peerId);
                 },
                 icon: Icon(
-                  isOffline ? Icons.mail_outline_rounded : Icons.chat_rounded,
-                  size: 14,
+                  isOffline ? Icons.backpack_rounded : Icons.chat_rounded,
+                  size: 13,
                 ),
                 label: Text(buttonLabel),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isOffline
                       ? (pendingCount > 0
                             ? Colors.orangeAccent.withValues(alpha: 0.25)
-                            : Colors.amberAccent.withValues(alpha: 0.15))
+                            : Colors.amberAccent.withValues(alpha: 0.12))
                       : Colors.purpleAccent.withValues(alpha: 0.3),
                   foregroundColor: isOffline
                       ? (pendingCount > 0
@@ -1456,7 +1643,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                       color: isOffline
                           ? (pendingCount > 0
                                 ? Colors.orangeAccent
-                                : Colors.amberAccent.withValues(alpha: 0.6))
+                                : Colors.amberAccent.withValues(alpha: 0.5))
                           : Colors.purpleAccent,
                     ),
                   ),
