@@ -37,7 +37,6 @@ class BantawanSettingsSheet extends StatefulWidget {
 
 class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
   int _selectedTab = 1; // 0: ข้อมูล (Info), 1: ตั้งค่า (Settings)
-  int _themeIndex = 1; // 0: เมทริกซ์ (Matrix), 1: ลิควิดกลาส (Liquid Glass)
   String _selectedLanguage = 'ค่าเริ่มต้นของระบบ';
   bool _autoPlayVoice = true;
 
@@ -254,34 +253,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
             ),
             const Divider(color: Colors.white10, height: 24),
 
-            // Theme selector (เมทริกซ์ vs ลิควิดกลาส)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "ธีมหน้าจอ",
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildMiniSegmentItem("เมทริกซ์", _themeIndex == 0, () {
-                        setState(() => _themeIndex = 0);
-                      }),
-                      _buildMiniSegmentItem("ลิควิดกลาส", _themeIndex == 1, () {
-                        setState(() => _themeIndex = 1);
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.white10, height: 24),
+
 
             // Language
             Row(
@@ -635,29 +607,6 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
     );
   }
 
-  Widget _buildMiniSegmentItem(String title, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.cyanAccent.withValues(alpha: 0.25) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? Colors.cyanAccent : Colors.white60,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildLayerCard({
     required String layerNumber,
