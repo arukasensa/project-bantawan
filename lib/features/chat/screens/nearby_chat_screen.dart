@@ -563,8 +563,21 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               );
             },
           ),
-
-
+          // 🗑️ ปุ่มล้างประวัติแชทสาธารณะ
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.white60,
+              size: 20,
+            ),
+            tooltip: 'ล้างประวัติแชทสาธารณะ',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _confirmClearChat(service, false);
+            },
+          ),
 
           // #mesh channel badge
           Container(
@@ -1818,13 +1831,25 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         ),
         title: Row(
           children: [
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_sweep_rounded,
+                color: Colors.redAccent,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 title,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1917,39 +1942,27 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
 
     return Column(
       children: [
+        // 🛰️ แถบข้อมูลสถานะการเชื่อมต่อ Mesh และการเข้ารหัสลับ (Tactical Security Ribbon)
+        _buildPrivateChatSubHeader(service, peerId, peerDisplayName, peer),
+
+        // รายการข้อความแชท หรือหน้าจอเริ่มต้นความปลอดภัย
         Expanded(
           child: privateMessages.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.lock_person_rounded,
-                        color: Colors.purpleAccent,
-                        size: 60,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'เริ่มแชทส่วนตัวเข้ารหัสลับกับ $peerDisplayName',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'ข้อความทั้งหมดจะถูกเข้ารหัสแบบ E2EE ปลอดภัย 100%',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
-                    ],
-                  ),
+              ? _buildPrivateChatEmptyState(
+                  service,
+                  peerId,
+                  peerDisplayName,
+                  peer,
                 )
               : ListView.builder(
                   controller: _scrollController,
                   reverse: true,
-                  padding: const EdgeInsets.all(20),
-                  itemCount: privateMessages.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: privateMessages.length + 1,
                   itemBuilder: (context, index) {
+                    if (index == privateMessages.length) {
+                      return _buildPrivateChatSessionNotice(peerDisplayName);
+                    }
                     final msg = privateMessages[index];
                     final isMe =
                         msg.senderId == service.nodeId ||
@@ -1965,6 +1978,521 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           targetPeerName: peerDisplayName,
         ),
       ],
+    );
+  }
+
+  /// 🛰️ แถบข้อมูลสถานะการเชื่อมต่อ Mesh และการเข้ารหัสลับ (Private Chat Sub-Header Ribbon)
+  Widget _buildPrivateChatSubHeader(
+    NearbyService service,
+    String peerId,
+    String peerDisplayName,
+    MeshPeer? peer,
+  ) {
+    final status = peer != null
+        ? service.getPeerConnectionStatus(peer)
+        : PeerConnectionStatus.offline;
+    final bool isDirect = status == PeerConnectionStatus.direct;
+    final bool isRelayed = status == PeerConnectionStatus.relayed;
+
+    Color statusColor;
+    String statusLabel;
+    IconData statusIcon;
+
+    if (isDirect) {
+      statusColor = Colors.greenAccent;
+      statusLabel = 'เชื่อมต่อโดยตรง (1 ทอด)';
+      statusIcon = Icons.link_rounded;
+    } else if (isRelayed) {
+      statusColor = Colors.amberAccent;
+      statusLabel = 'รีเลย์ผ่านโครงข่าย (${peer?.hopCount ?? 2} ทอด)';
+      statusIcon = Icons.hub_rounded;
+    } else {
+      statusColor = Colors.white38;
+      statusLabel = 'อยู่นอกระยะสัญญาณ (รอส่งอัตโนมัติ)';
+      statusIcon = Icons.cloud_off_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D131F),
+        border: Border(
+          bottom: BorderSide(
+            color: isDirect
+                ? Colors.greenAccent.withValues(alpha: 0.18)
+                : isRelayed
+                    ? Colors.amberAccent.withValues(alpha: 0.18)
+                    : Colors.white10,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // จุดไฟสถานะเรืองแสง
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                if (isDirect || isRelayed)
+                  BoxShadow(
+                    color: statusColor.withValues(alpha: 0.7),
+                    blurRadius: 5,
+                    spreadRadius: 1,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 7),
+          Icon(statusIcon, size: 13, color: statusColor),
+          const SizedBox(width: 5),
+          Text(
+            statusLabel,
+            style: TextStyle(
+              color: statusColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          // ป้าย E2EE แบบกดเพื่อดู QR ได้
+          InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              PeerQrVerificationSheet.show(
+                context,
+                peerId: peer?.peerId ?? peerId,
+              );
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.purpleAccent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.purpleAccent.withValues(alpha: 0.35),
+                  width: 0.8,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.lock_rounded,
+                    size: 11,
+                    color: Colors.purpleAccent,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'E2EE • X25519',
+                    style: TextStyle(
+                      color: Colors.purpleAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🔒 แถบแจ้งเตือนระดับการเข้ารหัสในห้องแชท (Chat Stream Session Notice)
+  Widget _buildPrivateChatSessionNotice(String peerDisplayName) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 20, left: 16, right: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131A2A).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.purpleAccent.withValues(alpha: 0.25),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.lock_rounded,
+            color: Colors.purpleAccent,
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'การสนทนานี้เข้ารหัสแบบ E2EE ด้วย X25519 ระหว่างคุณและ @$peerDisplayName ข้อมูลปลอดภัย 100%',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10.5,
+                height: 1.35,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🛡️ หน้าจอเริ่มต้นเมื่อยังไม่มีข้อความ (Tactical Cybersecurity Empty State)
+  Widget _buildPrivateChatEmptyState(
+    NearbyService service,
+    String peerId,
+    String peerDisplayName,
+    MeshPeer? peer,
+  ) {
+    final hasEmergencyProfile = peer?.emergencyProfile != null &&
+        peer!.emergencyProfile!.values.any((v) => v.trim().isNotEmpty);
+    final medData = peer?.emergencyProfile ?? {};
+
+    final status = peer != null
+        ? service.getPeerConnectionStatus(peer)
+        : PeerConnectionStatus.offline;
+    final bool isDirect = status == PeerConnectionStatus.direct;
+    final bool isRelayed = status == PeerConnectionStatus.relayed;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // โลโก้โล่ไซเบอร์เรืองแสง (Cyberpunk Glowing Tactical Shield)
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          Colors.purpleAccent.withValues(alpha: 0.25),
+                          Colors.cyanAccent.withValues(alpha: 0.05),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF131A2A),
+                      border: Border.all(
+                        color: Colors.purpleAccent.withValues(alpha: 0.5),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.purpleAccent.withValues(alpha: 0.25),
+                          blurRadius: 18,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.lock_rounded,
+                        color: Colors.purpleAccent,
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // ชื่อคู่สนทนา
+              Text(
+                '@$peerDisplayName',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+
+              // ป้ายสถานะการเชื่อมต่อ
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: (isDirect
+                              ? Colors.greenAccent
+                              : isRelayed
+                                  ? Colors.amberAccent
+                                  : Colors.white24)
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: (isDirect
+                                ? Colors.greenAccent
+                                : isRelayed
+                                    ? Colors.amberAccent
+                                    : Colors.white24)
+                            .withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isDirect
+                              ? Icons.wifi_tethering_rounded
+                              : isRelayed
+                                  ? Icons.hub_rounded
+                                  : Icons.cloud_off_rounded,
+                          size: 12,
+                          color: isDirect
+                              ? Colors.greenAccent
+                              : isRelayed
+                                  ? Colors.amberAccent
+                                  : Colors.white60,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          isDirect
+                              ? 'เชื่อมต่อโดยตรง (1 Hop)'
+                              : isRelayed
+                                  ? 'รีเลย์ผ่านโครงข่าย (${peer?.hopCount ?? 2} Hops)'
+                                  : 'อยู่นอกระยะ (Store-and-Forward)',
+                          style: TextStyle(
+                            color: isDirect
+                                ? Colors.greenAccent
+                                : isRelayed
+                                    ? Colors.amberAccent
+                                    : Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // การ์ดรับรองความปลอดภัยระดับสูง E2EE
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF131A2A).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.purpleAccent.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.purpleAccent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.security_rounded,
+                            color: Colors.purpleAccent,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'การสื่อสารส่วนตัวเข้ารหัสลับ E2EE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'ข้อความ รูปภาพ และเสียงทั้งหมดถูกเข้ารหัสบนเครื่องของคุณด้วยโปรโตคอล X25519 ECDH และ AES-256-GCM ปลายทางเท่านั้นที่สามารถถอดรหัสได้ แม้โหนดกลางทางใน Mesh จะช่วยส่งต่อ แต่ไม่สามารถอ่านข้อมูลได้',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // การ์ดพรีวิวข้อมูลทางการแพทย์ฉุกเฉิน ICE (หากมี)
+              if (hasEmergencyProfile) ...[
+                const SizedBox(height: 14),
+                InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    _showPeerProfile(peer, service);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1326).withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.pinkAccent.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.pinkAccent.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.medical_services_rounded,
+                            color: Colors.pinkAccent,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'ข้อมูลการแพทย์ฉุกเฉิน (ICE)',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Spacer(),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Colors.white38,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                medData['blood_type']?.isNotEmpty == true
+                                    ? 'กรุ๊ปเลือด: ${medData['blood_type']} • แตะเพื่อดูประวัติฉุกเฉิน'
+                                    : 'แตะเพื่อเปิดดูข้อมูลทางการแพทย์และเบอร์ติดต่อญาติ',
+                                style: TextStyle(
+                                  color: Colors.pinkAccent.shade100,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 18),
+
+              // ชิปการดำเนินการด่วน (Quick Action Chips)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  ActionChip(
+                    backgroundColor: const Color(0xFF131A2A),
+                    side: BorderSide(
+                      color: Colors.cyanAccent.withValues(alpha: 0.3),
+                    ),
+                    avatar: const Icon(
+                      Icons.my_location_rounded,
+                      size: 14,
+                      color: Colors.cyanAccent,
+                    ),
+                    label: const Text(
+                      'แชร์พิกัดของฉัน',
+                      style: TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () {
+                      _shareCurrentLocation(
+                        service,
+                        isPrivate: true,
+                        targetPeerId: peerId,
+                        targetPeerName: peerDisplayName,
+                      );
+                    },
+                  ),
+                  ActionChip(
+                    backgroundColor: const Color(0xFF131A2A),
+                    side: BorderSide(
+                      color: Colors.purpleAccent.withValues(alpha: 0.3),
+                    ),
+                    avatar: const Icon(
+                      Icons.badge_outlined,
+                      size: 14,
+                      color: Colors.purpleAccent,
+                    ),
+                    label: const Text(
+                      'ดูข้อมูลฉุกเฉิน',
+                      style: TextStyle(
+                        color: Colors.purpleAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      if (peer != null) {
+                        _showPeerProfile(peer, service);
+                      } else {
+                        _showPeerProfileForName(peerId, service);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -2833,6 +3361,50 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     }
   }
 
+  /// 📍 ฟังก์ชันแชร์พิกัด GPS ปัจจุบัน (รองรับทั้งสาธารณะและส่วนตัว)
+  Future<void> _shareCurrentLocation(
+    NearbyService service, {
+    bool isPrivate = false,
+    String? targetPeerId,
+    String? targetPeerName,
+  }) async {
+    HapticFeedback.lightImpact();
+    setState(() => _isLocationPressed = true);
+    Future.delayed(
+      const Duration(milliseconds: 100),
+      () {
+        if (mounted) {
+          setState(() => _isLocationPressed = false);
+        }
+      },
+    );
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      if (isPrivate && targetPeerId != null) {
+        await service.sendPrivateLocation(
+          recipientId: targetPeerId,
+          recipientName: targetPeerName ?? targetPeerId,
+          lat: pos.latitude,
+          lng: pos.longitude,
+        );
+      } else {
+        await service.sendLocation(
+          pos.latitude,
+          pos.longitude,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.locationError,
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _buildInputArea(
     NearbyService service, {
     required bool isPrivate,
@@ -2907,8 +3479,16 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        border: const Border(top: BorderSide(color: Colors.white10)),
+        color: isPrivate
+            ? const Color(0xFF0F172A).withValues(alpha: 0.95)
+            : Colors.white.withValues(alpha: 0.05),
+        border: Border(
+          top: BorderSide(
+            color: isPrivate
+                ? Colors.purpleAccent.withValues(alpha: 0.25)
+                : Colors.white10,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -2982,47 +3562,12 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                                   : Colors.blueAccent,
                             ),
                             tooltip: 'แชร์ตำแหน่งที่ตั้ง GPS',
-                            onPressed: () async {
-                              HapticFeedback.lightImpact();
-                              setState(() => _isLocationPressed = true);
-                              Future.delayed(
-                                const Duration(milliseconds: 100),
-                                () {
-                                  if (mounted) {
-                                    setState(() => _isLocationPressed = false);
-                                  }
-                                },
-                              );
-                              try {
-                                final pos =
-                                    await Geolocator.getCurrentPosition();
-                                if (isPrivate && targetPeerId != null) {
-                                  await service.sendPrivateLocation(
-                                    recipientId: targetPeerId,
-                                    recipientName:
-                                        targetPeerName ?? targetPeerId,
-                                    lat: pos.latitude,
-                                    lng: pos.longitude,
-                                  );
-                                } else {
-                                  await service.sendLocation(
-                                    pos.latitude,
-                                    pos.longitude,
-                                  );
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      AppLocalizations.of(
-                                        context,
-                                      )!.locationError,
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
+                            onPressed: () => _shareCurrentLocation(
+                              service,
+                              isPrivate: isPrivate,
+                              targetPeerId: targetPeerId,
+                              targetPeerName: targetPeerName,
+                            ),
                           ),
                         ),
                       ],

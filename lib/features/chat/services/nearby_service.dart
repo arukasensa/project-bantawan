@@ -2352,11 +2352,24 @@ class NearbyService extends ChangeNotifier {
   Future<void> clearPrivateChat(String peerIdOrName) async {
     final convId = 'PEER_$peerIdOrName';
     await ChatDatabaseHelper.instance.clearConversation(convId);
+    final peer = discoveredMeshPeers[peerIdOrName];
+    if (peer != null) {
+      if (peer.peerId != peerIdOrName) {
+        await ChatDatabaseHelper.instance.clearConversation('PEER_${peer.peerId}');
+      }
+      if (peer.peerName != peerIdOrName) {
+        await ChatDatabaseHelper.instance.clearConversation('PEER_${peer.peerName}');
+      }
+    }
     messages.removeWhere((m) {
       final isRecipientPeer =
-          m.recipientId == peerIdOrName || m.recipientName == peerIdOrName;
+          m.recipientId == peerIdOrName ||
+          m.recipientName == peerIdOrName ||
+          (peer != null && (m.recipientId == peer.peerId || m.recipientName == peer.peerName));
       final isSenderPeer =
-          m.senderId == peerIdOrName || m.senderName == peerIdOrName;
+          m.senderId == peerIdOrName ||
+          m.senderName == peerIdOrName ||
+          (peer != null && (m.senderId == peer.peerId || m.senderName == peer.peerName));
       return isRecipientPeer || isSenderPeer;
     });
     notifyListeners();
