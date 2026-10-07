@@ -1,6 +1,24 @@
+// ============================================================================
+// 📍 BANTAWAN Tactical Map Facility Marker Builder: TacticalFacilityMarker
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical GIS Map & Medical POIs)            │
+// ├─────────────────────────────────────────────────────────┤
+// │               TacticalFacilityMarker                    │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Medical Classification│     Glow Aura Animation   │  │
+// │  │  (Hospital/Clinic/Phar)│  (Active Selection Halo)  │  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Color-Coded Badges   │     FlutterMap Marker     │  │
+// │  │  (Red / Cyan / Green) │  (Custom Layer Component) │  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
 // ตัวสร้างหมุดสถานพยาบาลบนแผนที่ (Map Markers Builder)
 // สร้างหมุด FlutterMap Marker แบบ Tactical มีแสงเรืองรอง (Glow) เมื่อถูกเลือก
 // แยกสีและไอคอนตามประเภท (โรงพยาบาล: แดง, คลินิก: ฟ้า, ร้านขายยา: เขียว)
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,9 +26,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter1/models/medical_facility.dart';
 import 'package:flutter1/core/utils/medical_facility_classifier.dart';
 
-/// คลาสตัวช่วยสร้างหมุดระบุพิกัดสถานพยาบาลบนแผนที่ (Tactical Marker)
+/// 📍 คลาสตัวช่วยสร้างหมุดระบุพิกัดสถานพยาบาลบนแผนที่ (Tactical Marker Builder)
 class TacticalFacilityMarker {
-  /// สร้างคอมโพเนนต์ Marker สำหรับวางบน FlutterMap Layer
+  /// 🎯 สร้างคอมโพเนนต์ Marker สำหรับวางบน FlutterMap Layer พร้อมเอฟเฟกต์ Glow และป้ายกำกับ
   static Marker build({
     required MedicalFacility facility,
     required bool isSelected,

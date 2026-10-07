@@ -30,10 +30,12 @@ import '../services/nearby_service.dart';
 import '../services/identity_service.dart';
 import '../models/mesh_peer.dart';
 import '../models/peer_trust.dart';
+import 'peer_verification_screen.dart';
 import '../widgets/peer_profile_sheet.dart';
 import '../widgets/notice_board_sheet.dart';
 import '../widgets/bantawan_settings_sheet.dart';
 import '../widgets/peer_qr_verification_sheet.dart';
+import '../widgets/data_mule_bag_sheet.dart';
 import 'package:flutter1/features/home/services/profile_service.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
 import 'dart:ui';
@@ -87,6 +89,11 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<NearbyService>(context, listen: false).checkHardwareReadiness();
+      }
+    });
   }
 
   @override
@@ -128,6 +135,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             child: Column(
               children: [
                 _buildHeader(context, nearbyService),
+                _buildHardwareWarningBanner(nearbyService),
                 _buildConnectionStatus(nearbyService),
 
 
@@ -178,15 +186,24 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     // Mode 1: People / Discovered Peers List View (bitchat Screenshot 3)
     // ------------------------------------------------------------------------
     if (isPeopleList) {
+      final isThai = Localizations.localeOf(context).languageCode == 'th';
       String subtitleText;
       if (onlineCount > 0 && offlineCount > 0) {
-        subtitleText = '#mesh ($onlineCount คนในระยะ • $offlineCount อยู่นอกระยะ)';
+        subtitleText = isThai
+            ? '#mesh ($onlineCount คนในระยะ • $offlineCount อยู่นอกระยะ)'
+            : '#mesh ($onlineCount nearby • $offlineCount out of range)';
       } else if (onlineCount > 0) {
-        subtitleText = '#mesh ($onlineCount คนในระยะ)';
+        subtitleText = isThai
+            ? '#mesh ($onlineCount คนในระยะ)'
+            : '#mesh ($onlineCount nearby)';
       } else if (offlineCount > 0) {
-        subtitleText = '#mesh (0 คนในระยะ • บันทึกไว้ $offlineCount คน)';
+        subtitleText = isThai
+            ? '#mesh (0 คนในระยะ • บันทึกไว้ $offlineCount คน)'
+            : '#mesh (0 nearby • $offlineCount saved)';
       } else {
-        subtitleText = '#mesh (0 คนในระยะ)';
+        subtitleText = isThai
+            ? '#mesh (0 คนในระยะ)'
+            : '#mesh (0 nearby)';
       }
 
       return Padding(
@@ -285,23 +302,23 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               },
             ),
             Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  if (activePeer != null) {
-                    _showPeerProfile(activePeer, service);
-                  } else {
-                    _showPeerProfileForName(_activePrivatePeer!, service);
-                  }
-                },
-                child: Column(
-                  children: [
-                    Row(
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (activePeer != null) {
+                        _showPeerProfile(activePeer, service);
+                      } else {
+                        _showPeerProfileForName(_activePrivatePeer!, service);
+                      }
+                    },
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Flexible(
                           child: Text(
-                            '🔒 @$activeDisplayName',
+                            '🔒 $activeDisplayName',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 17,
@@ -320,8 +337,17 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                         ),
                       ],
                     ),
-                    if (activePeer != null)
-                      ListenableBuilder(
+                  ),
+                  if (activePeer != null)
+                    GestureDetector(
+                      onTap: () {
+                        _showPeerVerification(
+                          service,
+                          peer: activePeer,
+                          peerId: activePeer.peerId,
+                        );
+                      },
+                      child: ListenableBuilder(
                         listenable: IdentityService.instance,
                         builder: (context, _) {
                           final trustState = IdentityService.instance
@@ -332,50 +358,83 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                           String text;
                           Color color;
                           if (trustState == PeerTrustState.verified) {
-                            text = '✓ Identity Verified';
+                            text = '✓ Verified (แตะดูสถานะ)';
                             color = Colors.greenAccent;
                           } else if (trustState == PeerTrustState.changed) {
-                            text = '⚠️ Key Changed!';
+                            text = '⚠️ Key Changed! (แตะกดยืนยัน)';
                             color = Colors.orangeAccent;
                           } else {
-                            text = '⚪ Not Verified (แตะเพื่อยืนยัน)';
+                            text = '⚪ Not Verified (แตะเพื่อกดยืนยัน)';
                             color = Colors.white70;
                           }
-                          return Text(
-                            text,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  text,
+                                  style: TextStyle(
+                                    color: color,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(Icons.chevron_right_rounded, size: 13, color: color),
+                              ],
                             ),
                           );
                         },
-                      )
-                    else
-                      const Text(
-                        'แตะเพื่อดูบัตรประจำตัวฉุกเฉิน (E2EE)',
-                        style: TextStyle(
-                          color: Colors.purpleAccent,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () {
+                        _showVerificationDialog(
+                          service,
+                          peerId: _activePrivatePeer,
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Text(
+                          'แตะเพื่อยืนยันตัวตน (E2EE)',
+                          style: TextStyle(
+                            color: Colors.purpleAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
-            // [⛶] QR Verify Button
+            // [🛡️] Verify / QR Button
             IconButton(
-              icon: const Icon(
-                Icons.qr_code_scanner_rounded,
-                color: Colors.purpleAccent,
-                size: 22,
+              icon: ListenableBuilder(
+                listenable: IdentityService.instance,
+                builder: (context, _) {
+                  final trustState = activePeer != null
+                      ? IdentityService.instance.getTrustState(
+                          activePeer.peerId,
+                          activePeer.publicKeyHex,
+                        )
+                      : PeerTrustState.unknown;
+                  final isVerified = trustState == PeerTrustState.verified;
+                  return Icon(
+                    isVerified ? Icons.verified_user_rounded : Icons.shield_outlined,
+                    color: isVerified ? Colors.greenAccent : Colors.purpleAccent,
+                    size: 22,
+                  );
+                },
               ),
-              tooltip: 'สแกน QR ยืนยันตัวตน',
+              tooltip: 'ตรวจสอบและกดยืนยันตัวตน',
               onPressed: () {
-                HapticFeedback.lightImpact();
-                PeerQrVerificationSheet.show(
-                  context,
+                _showVerificationDialog(
+                  service,
+                  peer: activePeer,
                   peerId: activePeer?.peerId ?? _activePrivatePeer,
                 );
               },
@@ -578,6 +637,58 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               _confirmClearChat(service, false);
             },
           ),
+          // 🎒 ปุ่มกระเป๋าคนส่งสาร (Data Mule Bag)
+          ListenableBuilder(
+            listenable: service,
+            builder: (context, _) {
+              final bagCount = service.carriedEnvelopes.length;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+                    icon: Icon(
+                      Icons.backpack_outlined,
+                      color: bagCount > 0 ? Colors.amberAccent : Colors.white60,
+                      size: 20,
+                    ),
+                    tooltip: 'กระเป๋าคนส่งสาร (Data Mule)',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      DataMuleBagSheet.show(context, service);
+                    },
+                  ),
+                  if (bagCount > 0)
+                    Positioned(
+                      top: 4,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.amberAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 15,
+                          minHeight: 15,
+                        ),
+                        child: Center(
+                          child: Text(
+                            bagCount > 9 ? '9+' : '$bagCount',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
 
           // #mesh channel badge
           Container(
@@ -652,6 +763,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
 
   void _showChangeCallsignDialog(NearbyService service) {
     final controller = TextEditingController(text: service.deviceName);
+    final l10n = AppLocalizations.of(context);
+    final isThai = Localizations.localeOf(context).languageCode == 'th';
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -660,13 +773,13 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: Colors.cyanAccent, width: 1),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.badge_rounded, color: Colors.cyanAccent, size: 22),
-            SizedBox(width: 8),
+            const Icon(Icons.badge_rounded, color: Colors.cyanAccent, size: 22),
+            const SizedBox(width: 8),
             Text(
-              "เปลี่ยนนามเรียกขาน (@)",
-              style: TextStyle(
+              l10n?.changeCallsign ?? (isThai ? "เปลี่ยนนามเรียกขาน (@)" : "Change Callsign (@)"),
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -678,9 +791,11 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "ชื่อนี้จะแสดงใน #mesh และระบุตัวตนในเครือข่ายออฟไลน์:",
-              style: TextStyle(color: Colors.white70, fontSize: 12),
+            Text(
+              isThai
+                  ? "ชื่อนี้จะแสดงใน #mesh และระบุตัวตนในเครือข่ายออฟไลน์:"
+                  : "This callsign is visible on #mesh and identifies your offline node:",
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -714,7 +829,10 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text("ยกเลิก", style: TextStyle(color: Colors.white54)),
+            child: Text(
+              l10n?.cancelButton ?? (isThai ? "ยกเลิก" : "Cancel"),
+              style: const TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -735,9 +853,74 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               }
               if (dialogCtx.mounted) Navigator.pop(dialogCtx);
             },
-            child: const Text(
-              "บันทึกชื่อ",
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Text(
+              isThai ? "บันทึกชื่อ" : "Save Callsign",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHardwareWarningBanner(NearbyService service) {
+    if (service.hardwareWarningMessage == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.location_off_rounded,
+            color: Color(0xFFFCA5A5),
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              service.hardwareWarningMessage!,
+              style: const TextStyle(
+                color: Color(0xFFFCA5A5),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () async {
+              HapticFeedback.lightImpact();
+              await Geolocator.openLocationSettings();
+              await service.checkHardwareReadiness();
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: Colors.redAccent.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              child: const Text(
+                'เปิดตั้งค่า',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],
@@ -823,6 +1006,18 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       );
     }
 
+    final isThai = Localizations.localeOf(context).languageCode == 'th';
+    String statusText;
+    if (service.isDiscoveryPaused && count >= 4) {
+      statusText = isThai
+          ? '⚡ เชื่อมต่อเต็ม 4 อุปกรณ์ (พักสแกนชั่วคราว)'
+          : '⚡ Max 4 devices connected (Scan paused)';
+    } else if (count > 0) {
+      statusText = AppLocalizations.of(context)!.connectedDevices(count);
+    } else {
+      statusText = AppLocalizations.of(context)!.searchingPeers;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -879,9 +1074,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               ),
             ),
           Text(
-            count > 0
-                ? AppLocalizations.of(context)!.connectedDevices(count)
-                : AppLocalizations.of(context)!.searchingPeers,
+            statusText,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.75),
               fontSize: 11,
@@ -889,6 +1082,37 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             ),
           ),
           const SizedBox(width: 8),
+          // 🔄 ปุ่มกระตุ้นการสแกนบลูทูธใหม่ (Force Rescan)
+          InkWell(
+            onTap: () async {
+              HapticFeedback.mediumImpact();
+              final ok = await service.forceRescan();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? '🔄 กำลังรีเฟรชการสแกนบลูทูธ...'
+                          : '⏳ กรุณารอสักครู่ก่อนรีเฟรชการสแกนซ้ำ (จำกัด 5 วิ)',
+                    ),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: const Color(0xFF1E293B),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.all(3.0),
+              child: Icon(
+                Icons.refresh_rounded,
+                size: 14,
+                color: Colors.cyanAccent.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           // ปุ่มปิดสัญญาณ Mesh เมื่อไม่ใช้งาน
           InkWell(
             onTap: () async {
@@ -897,10 +1121,10 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             },
             borderRadius: BorderRadius.circular(6),
             child: Padding(
-              padding: const EdgeInsets.all(2.0),
+              padding: const EdgeInsets.all(3.0),
               child: Icon(
                 Icons.power_settings_new_rounded,
-                size: 13,
+                size: 14,
                 color: Colors.white.withValues(alpha: 0.4),
               ),
             ),
@@ -1526,9 +1750,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                   style: TextStyle(
                     color: isDirect
                         ? Colors.blueAccent
-                        : (isOffline ? Colors.white38 : Colors.purpleAccent),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                        : (isOffline ? const Color(0xFF94A3B8) : Colors.purpleAccent),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -1623,6 +1847,189 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         ),
       );
     }).toList();
+  }
+
+  /// 🛡️ เปิดหน้าจอตรวจสอบ Fingerprint และกดยืนยันตัวตนคู่สนทนา (PeerVerificationScreen)
+  void _showPeerVerification(
+    NearbyService service, {
+    MeshPeer? peer,
+    String? peerId,
+    String? name,
+  }) {
+    HapticFeedback.selectionClick();
+    MeshPeer? targetPeer = peer;
+    final resolvedId = peer?.peerId ??
+        peerId ??
+        (name != null
+            ? (name.startsWith('node_') ? name : 'node_$name')
+            : null);
+    if (targetPeer == null && resolvedId != null) {
+      targetPeer = _resolveActivePeer(service, resolvedId);
+    }
+    final resolvedName = _resolvePeerDisplayName(
+      service,
+      resolvedId ?? '',
+      name ?? targetPeer?.peerName,
+    );
+
+    targetPeer ??= MeshPeer(
+      peerId: resolvedId ?? 'unknown_peer',
+      peerName: resolvedName,
+      publicKeyHex: '',
+      hopCount: 1,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PeerVerificationScreen(peer: targetPeer!),
+      ),
+    );
+  }
+
+  /// 🛡️ แสดงตัวเลือกการยืนยันตัวตน (สแกน QR Code หรือตรวจสอบ Fingerprint & กดยืนยันด้วยตนเอง)
+  void _showVerificationDialog(
+    NearbyService service, {
+    MeshPeer? peer,
+    String? peerId,
+  }) {
+    HapticFeedback.lightImpact();
+    final targetId = peer?.peerId ?? peerId ?? _activePrivatePeer;
+    final targetPeer = targetId != null
+        ? (peer ?? _resolveActivePeer(service, targetId))
+        : null;
+    final displayName = targetId != null
+        ? _resolvePeerDisplayName(
+            service,
+            targetId,
+            targetPeer?.peerName ?? _activePrivatePeerName,
+          )
+        : 'คู่สนทนา';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (bCtx) => Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.96),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: Colors.white12),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(
+                  Icons.verified_user_rounded,
+                  color: Colors.greenAccent,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'การยืนยันตัวตน: @$displayName',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: Colors.cyanAccent.withValues(alpha: 0.35),
+                ),
+              ),
+              tileColor: Colors.cyanAccent.withValues(alpha: 0.08),
+              leading: const CircleAvatar(
+                backgroundColor: Colors.cyanAccent,
+                foregroundColor: Colors.black,
+                child: Icon(Icons.fingerprint_rounded),
+              ),
+              title: const Text(
+                'ตรวจสอบ Fingerprint & กดยืนยันตัวตน',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: const Text(
+                'เปรียบเทียบรหัส Fingerprint กับเพื่อน แล้วกดยืนยันตัวตนด้วยตนเอง',
+                style: TextStyle(color: Colors.white60, fontSize: 11),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.cyanAccent,
+              ),
+              onTap: () {
+                Navigator.pop(bCtx);
+                _showPeerVerification(
+                  service,
+                  peer: targetPeer,
+                  peerId: targetId,
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: Colors.purpleAccent.withValues(alpha: 0.35),
+                ),
+              ),
+              tileColor: Colors.purpleAccent.withValues(alpha: 0.08),
+              leading: const CircleAvatar(
+                backgroundColor: Colors.purpleAccent,
+                foregroundColor: Colors.white,
+                child: Icon(Icons.qr_code_scanner_rounded),
+              ),
+              title: const Text(
+                'สแกน / แสดง QR Code ยืนยันตัวตน',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: const Text(
+                'ใช้กล้องสแกน QR เพื่อน หรือเปิด QR ให้เพื่อนสแกนผ่านกล้อง',
+                style: TextStyle(color: Colors.white60, fontSize: 11),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.purpleAccent,
+              ),
+              onTap: () {
+                Navigator.pop(bCtx);
+                PeerQrVerificationSheet.show(context, peerId: targetId);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// 🪪 เปิดหน้าต่างดูโปรไฟล์ฉุกเฉินและข้อมูลทางการแพทย์ของ Peer ในเครือข่ายออฟไลน์
@@ -1813,13 +2220,20 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           )
         : '';
 
+    final l10n = AppLocalizations.of(context);
+    final isThai = Localizations.localeOf(context).languageCode == 'th';
+
     final String title = isInsidePrivateRoom
-        ? 'ล้างแชทกับ $activeDisplayName?'
-        : 'ล้างประวัติแชทสาธารณะ?';
+        ? (isThai ? 'ล้างแชทกับ $activeDisplayName?' : 'Clear chat with $activeDisplayName?')
+        : (isThai ? 'ล้างประวัติแชทสาธารณะ?' : 'Clear public chat history?');
 
     final String message = isInsidePrivateRoom
-        ? 'ข้อความทั้งหมดในห้องแชทส่วนตัวนี้จะถูกลบออกจากฐานข้อมูลเครื่องของคุณอย่างถาวร'
-        : 'ข้อความแชทสาธารณะทั้งหมดในเครื่องจะถูกล้าง (ไม่รวมข้อความส่วนตัว)';
+        ? (isThai
+            ? 'ข้อความทั้งหมดในห้องแชทส่วนตัวนี้จะถูกลบออกจากฐานข้อมูลเครื่องของคุณอย่างถาวร'
+            : 'All messages in this private chat room will be permanently deleted from your local device.')
+        : (isThai
+            ? 'ข้อความแชทสาธารณะทั้งหมดในเครื่องจะถูกล้าง (ไม่รวมข้อความส่วนตัว)'
+            : 'All public mesh chat messages will be cleared (private chats excluded).');
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1863,9 +2277,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'ยกเลิก',
-              style: TextStyle(color: Colors.white54),
+            child: Text(
+              l10n?.cancelButton ?? (isThai ? 'ยกเลิก' : 'Cancel'),
+              style: const TextStyle(color: Colors.white54),
             ),
           ),
           ElevatedButton(
@@ -1877,9 +2291,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
-              'ล้างข้อความ',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            child: Text(
+              isThai ? 'ล้างข้อความ' : 'Clear Chat',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -1898,8 +2312,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           SnackBar(
             content: Text(
               isInsidePrivateRoom
-                  ? 'ล้างข้อความกับ $activeDisplayName เรียบร้อยแล้ว'
-                  : 'ล้างข้อความแชทสาธารณะเรียบร้อยแล้ว',
+                  ? (isThai ? 'ล้างข้อความกับ $activeDisplayName เรียบร้อยแล้ว' : 'Cleared chat with $activeDisplayName')
+                  : (isThai ? 'ล้างข้อความแชทสาธารณะเรียบร้อยแล้ว' : 'Public chat history cleared'),
             ),
             backgroundColor: Colors.redAccent.shade700,
             behavior: SnackBarBehavior.floating,
@@ -2057,12 +2471,13 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             ),
           ),
           const Spacer(),
-          // ป้าย E2EE แบบกดเพื่อดู QR ได้
+          // ป้าย E2EE แบบกดเพื่อดูตัวเลือกยืนยันตัวตนได้
           InkWell(
             onTap: () {
               HapticFeedback.lightImpact();
-              PeerQrVerificationSheet.show(
-                context,
+              _showVerificationDialog(
+                service,
+                peer: peer,
                 peerId: peer?.peerId ?? peerId,
               );
             },
@@ -2083,16 +2498,16 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                   Icon(
                     Icons.lock_rounded,
                     size: 11,
-                    color: Colors.purpleAccent,
+                    color: Color(0xFFC4B5FD),
                   ),
                   SizedBox(width: 4),
                   Text(
                     'E2EE • X25519',
                     style: TextStyle(
-                      color: Colors.purpleAccent,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.2,
+                      color: Color(0xFFE9D5FF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ],
@@ -2128,10 +2543,11 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'การสนทนานี้เข้ารหัสแบบ E2EE ด้วย X25519 ระหว่างคุณและ @$peerDisplayName ข้อมูลปลอดภัย 100%',
+              'การสนทนานี้เข้ารหัสแบบ E2EE (X25519 + AES-256) ระหว่างคุณและ @$peerDisplayName ข้อมูลปลอดภัย 100%',
               style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 10.5,
+                color: Color(0xFFF1F5F9),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
                 height: 1.35,
               ),
               textAlign: TextAlign.center,
@@ -2520,54 +2936,76 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     return null;
   }
 
-  /// แปลง Peer ID เป็น Display Name ที่เป็นมิตร (ไม่แสดง node_xxx หากมีชื่อเดิมที่เคยรู้จัก)
+  /// แปลง Peer ID เป็น Display Name ที่เป็นมิตรและเป็นระเบียบตามสไตล์ Tactical (ไม่แสดง node_xxx หรือ Survivor_xxxx เลขสุ่ม)
   String _resolvePeerDisplayName(
     NearbyService service,
     String peerId, [
     String? fallbackName,
   ]) {
-    if (fallbackName != null &&
-        fallbackName.trim().isNotEmpty &&
-        !fallbackName.startsWith('node_')) {
-      return fallbackName.trim();
+    bool isUglyName(String? name) {
+      if (name == null || name.trim().isEmpty) return true;
+      final trimmed = name.trim();
+      final lower = trimmed.toLowerCase();
+      if (lower.startsWith('node_')) return true;
+      if (lower == 'survivor') return true;
+      if (lower.startsWith('survivor_')) return true;
+      if (lower.startsWith('survivor ')) {
+        final remainder = lower.substring('survivor '.length).replaceAll(' ', '');
+        if (RegExp(r'^[0-9a-f]+$').hasMatch(remainder)) return true;
+      }
+      if (RegExp(r'^[0-9a-fA-F]{4,}$').hasMatch(trimmed.replaceAll(' ', ''))) return true;
+      return false;
+    }
+
+    if (!isUglyName(fallbackName)) {
+      return fallbackName!.trim();
     }
     final resolvedPeer = _resolveActivePeer(service, peerId);
-    if (resolvedPeer != null &&
-        resolvedPeer.peerName.trim().isNotEmpty &&
-        !resolvedPeer.peerName.startsWith('node_')) {
+    if (resolvedPeer != null && !isUglyName(resolvedPeer.peerName)) {
       return resolvedPeer.peerName.trim();
     }
     for (final msg in service.messages.reversed) {
-      if (msg.senderId == peerId &&
-          msg.senderName.trim().isNotEmpty &&
-          !msg.senderName.startsWith('node_')) {
+      if (msg.senderId == peerId && !isUglyName(msg.senderName)) {
         return msg.senderName.trim();
       }
-      if (msg.recipientId == peerId &&
-          msg.recipientName != null &&
-          msg.recipientName!.trim().isNotEmpty &&
-          !msg.recipientName!.startsWith('node_')) {
+      if (msg.recipientId == peerId && !isUglyName(msg.recipientName)) {
         return msg.recipientName!.trim();
       }
     }
-    if (fallbackName != null && fallbackName.trim().isNotEmpty) {
+    if (fallbackName != null && !isUglyName(fallbackName)) {
       return fallbackName.trim();
     }
-    return peerId;
+    return NearbyService.generateTacticalCallsign(peerId);
   }
 
   List<MeshPeer> _getDiscoveredMeshPeers(NearbyService service) {
     final map = Map<String, MeshPeer>.from(service.discoveredMeshPeers);
+
+    bool isUgly(String? name) {
+      if (name == null || name.trim().isEmpty) return true;
+      final lower = name.trim().toLowerCase();
+      if (lower.startsWith('node_')) return true;
+      if (lower == 'survivor') return true;
+      if (lower.startsWith('survivor_')) return true;
+      if (lower.startsWith('survivor ')) {
+        final remainder = lower.substring('survivor '.length).replaceAll(' ', '');
+        if (RegExp(r'^[0-9a-f]+$').hasMatch(remainder)) return true;
+      }
+      return false;
+    }
 
     // 1. ดึงรายชื่อเพื่อนจาก IdentityService (Trust Store / Known Identities)
     for (var trust in IdentityService.instance.allTrustedPeers) {
       if (trust.peerId != service.nodeId &&
           trust.peerId != service.deviceName) {
         if (!map.containsKey(trust.peerId)) {
+          final cleanTrustName = !isUgly(trust.displayName)
+              ? trust.displayName
+              : NearbyService.generateTacticalCallsign(trust.peerId);
           // โหนดออฟไลน์ที่เคยรู้จักและมี Public Key บันทึกไว้
           map[trust.peerId] = MeshPeer(
             peerId: trust.peerId,
-            peerName: trust.displayName,
+            peerName: cleanTrustName,
             publicKeyHex: trust.publicKeyHex,
             hopCount: 99,
             lastSeen:
@@ -2597,9 +3035,13 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       if (targetId != null &&
           targetId.startsWith('node_') &&
           !map.containsKey(targetId)) {
+        final rawName = targetName?.trim() ?? '';
+        final cleanName = !isUgly(rawName)
+            ? rawName
+            : NearbyService.generateTacticalCallsign(targetId);
         map[targetId] = MeshPeer(
           peerId: targetId,
-          peerName: targetName?.isNotEmpty == true ? targetName! : targetId,
+          peerName: cleanName,
           publicKeyHex: '',
           hopCount: 99,
           lastSeen: msg.timestamp,
@@ -3013,16 +3455,17 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                           children: [
                             Icon(
                               Icons.lock_rounded,
-                              color: Colors.purpleAccent,
+                              color: Color(0xFFC4B5FD),
                               size: 10,
                             ),
                             SizedBox(width: 2),
                             Text(
-                              '🔒 E2EE Direct',
+                              'E2EE DIRECT',
                               style: TextStyle(
-                                color: Colors.purpleAccent,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFE9D5FF),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.4,
                               ),
                             ),
                           ],
@@ -3289,9 +3732,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                         DateFormat('HH:mm').format(msg.timestamp),
                         style: TextStyle(
                           color: isMe
-                              ? Colors.white.withValues(alpha: 0.6)
-                              : Colors.white.withValues(alpha: 0.3),
-                          fontSize: 9,
+                              ? Colors.white.withValues(alpha: 0.75)
+                              : const Color(0xFFCBD5E1),
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -3313,6 +3756,13 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     );
   }
 
+  /// 📊 [Delivery Status Icon Builder]
+  /// แสดงไอคอนและป้ายสถานะของการนำส่งข้อความแชท:
+  /// - `READ` (ฟ้า cyan ✓✓): ผู้รับเปิดอ่านข้อความแล้ว (ได้รับ Read Receipt ACK)
+  /// - `DELIVERED` (ขาวเทา ✓✓): ข้อความส่งถึงเครื่องปลายทางเรียบร้อยแล้ว (ได้รับ Delivery ACK)
+  /// - `PENDING` (เหลืองอำพัน ⏳): บันทึกลงคิว Store-and-Forward ในเครื่อง รอส่งอัตโนมัติเมื่อพบสัญญาณ
+  /// - `MULE_CARRIED` (ส้มทอง 🎒): ฝากส่งผ่านคนเดินสาร (Data Mule) กำลังช่วยหิ้วไปส่งให้ปลายทาง
+  /// - อื่นๆ (นาฬิกา ⏱️): กำลังส่งแพ็กเก็ตผ่านคลื่นวิทยุ (In-flight / Sending)
   Widget _buildDeliveryStatusIcon(String status) {
     if (status == 'READ') {
       return const Row(
@@ -3346,6 +3796,34 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               style: TextStyle(
                 fontSize: 9,
                 color: Colors.amberAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (status == 'MULE_CARRIED') {
+      return Container(
+        margin: const EdgeInsets.only(left: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: Colors.orangeAccent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Colors.orangeAccent.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.backpack_outlined, size: 9, color: Colors.orangeAccent),
+            SizedBox(width: 2),
+            Text(
+              'ฝากคนส่งสาร',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.orangeAccent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -3405,6 +3883,14 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     }
   }
 
+  /// ⌨️ [Chat Input Area Builder]
+  /// แถบควบคุมและกรอกข้อมูลด้านล่างหน้าจอแชท รองรับการส่งทั้งข้อความและสื่อมัลติมีเดีย:
+  /// - ช่องพิมพ์ข้อความ (Text Input Field) พร้อมปุ่มส่ง
+  /// - ปุ่มอัดคลิปเสียงฉุกเฉิน (Voice Note PTT / Hold-to-record สูงสุด 6 วินาที)
+  /// - ปุ่มแนบภาพถ่ายฉุกเฉิน (Camera / Image Picker)
+  /// - ปุ่มแชร์พิกัด GPS ละติจูด/ลองจิจูด ปัจจุบัน
+  /// - ควบคุมการส่ง: หากเป็นห้องแชทสาธารณะจะส่งแบบ Flooding (TTL=3)
+  ///   หากเป็นห้องแชทส่วนตัว จะตรวจสอบการออนไลน์ -> ส่งตรง / รีเลย์ / เสนอฝากคนเดินสาร (Data Mule)
   Widget _buildInputArea(
     NearbyService service, {
     required bool isPrivate,
@@ -3602,6 +4088,21 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                       final content = _msgController.text;
                       String? error;
                       if (isPrivate && targetPeerId != null) {
+                        final targetPeer = service.discoveredMeshPeers[targetPeerId];
+                        final isTargetOnline = targetPeer != null &&
+                            service.getPeerConnectionStatus(targetPeer) != PeerConnectionStatus.offline;
+
+                        if (!isTargetOnline && service.connectedDevices.isNotEmpty) {
+                          // 🎒 ปลายทางออฟไลน์ แต่มีอุปกรณ์อื่นเชื่อมต่ออยู่ -> แสดงตัวเลือกฝากคนเดินสาร (Data Mule) หรือรอส่งเอง
+                          _showOfflineSendChoiceModal(
+                            service: service,
+                            recipientId: targetPeerId,
+                            recipientName: targetPeerName ?? targetPeerId,
+                            content: content,
+                          );
+                          return;
+                        }
+
                         error = await service.sendPrivateMessage(
                           recipientId: targetPeerId,
                           recipientName: targetPeerName ?? targetPeerId,
@@ -3671,6 +4172,665 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
         ],
       ),
     );
+  }
+
+  /// 🎒 [Smart Offline Routing Choice Modal]
+  /// แสดงกล่องโต้ตอบด้านล่างจอ (Bottom Sheet) ให้ผู้ใช้ตัดสินใจเลือกวิธีการส่งข้อความ
+  /// ในกรณีที่ผู้รับเป้าหมาย [recipientId] อยู่นอกระยะการเชื่อมต่อ (Offline)
+  /// 
+  /// ตัวเลือกสำหรับผู้ใช้:
+  /// 1. 🎒 [ฝากคนเดินสาร (Data Mule)]: เข้ารหัสลับแบบ E2EE แล้วส่งซองให้เพื่อนที่เชื่อมต่ออยู่
+  ///    ช่วยหิ้วไปส่งให้ผู้รับปลายทางทันทีที่เขาเดินทางไปพบกัน (คนหิ้วอ่านข้อความไม่ได้: Zero-Knowledge)
+  /// 2. ⏳ [รอส่งเองเมื่อพบกัน (Store & Forward)]: บันทึกข้อความลงคิว `pending_messages` ในเครื่องตนเอง
+  ///    และจะส่งให้อัตโนมัติเมื่อเครื่องเราเข้าใกล้หรือพบกับผู้รับปลายทางด้วยตัวเอง
+  void _showOfflineSendChoiceModal({
+    required NearbyService service,
+    required String recipientId,
+    required String recipientName,
+    required String content,
+  }) {
+    final isThai = Localizations.localeOf(context).languageCode == 'th';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E293B),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(
+              top: BorderSide(color: Colors.amberAccent, width: 2),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amberAccent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.backpack_rounded,
+                      color: Colors.amberAccent,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isThai
+                              ? 'ปลายทางอยู่นอกระยะการเชื่อมต่อ'
+                              : 'Recipient is Out of Direct Range',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isThai
+                              ? 'เลือกวิธีส่งข้อความถึง @$recipientName'
+                              : 'Choose dispatch method to @$recipientName',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.cyanAccent, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isThai
+                            ? 'ขณะนี้มีอุปกรณ์อื่นเชื่อมต่ออยู่ในระยะ ${service.connectedDevices.length} เครื่อง สามารถฝากข้อความเข้ารหัสลับ (E2EE) ไปกับคนเหล่านี้ได้'
+                            : 'Currently ${service.connectedDevices.length} peer(s) connected nearby. You can entrust encrypted (E2EE) envelopes with them.',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11.5,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Option 1: Data Mule Carrier
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showSelectCarrierDialog(
+                      service: service,
+                      recipientId: recipientId,
+                      recipientName: recipientName,
+                      content: content,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.amber.shade900.withValues(alpha: 0.4),
+                          Colors.amber.shade800.withValues(alpha: 0.2),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.amberAccent.withValues(alpha: 0.5),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.amberAccent.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.directions_walk_rounded,
+                            color: Colors.amberAccent,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    isThai
+                                        ? 'ฝากคนเดินสาร (Data Mule)'
+                                        : 'Carrier Data Mule',
+                                    style: const TextStyle(
+                                      color: Colors.amberAccent,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amberAccent.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      isThai ? 'แนะนำ' : 'Recommended',
+                                      style: const TextStyle(
+                                        color: Colors.amberAccent,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isThai
+                                    ? 'เข้ารหัสลับ E2EE ให้เพื่อนที่เชื่อมต่ออยู่ช่วยหิ้วไปส่งให้ทันทีที่เขาเดินไปเจอ @$recipientName (คนหิ้วอ่านข้อความไม่ได้)'
+                                    : 'E2EE encrypted envelope entrusted to nearby peers to deliver when in proximity to @$recipientName (zero-knowledge)',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Colors.amberAccent,
+                          size: 14,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Option 2: Store & Forward
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final err = await service.sendPrivateMessage(
+                      recipientId: recipientId,
+                      recipientName: recipientName,
+                      content: content,
+                    );
+                    if (err == null) {
+                      _msgController.clear();
+                      setState(() {});
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(Icons.schedule_send_rounded, color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isThai
+                                      ? 'บันทึกข้อความรอส่งอัตโนมัติเมื่อพบปลายทาง'
+                                      : 'Message queued locally for delivery upon encounter',
+                                ),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF334155),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.schedule_send_rounded,
+                            color: Colors.white70,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isThai
+                                    ? 'รอส่งเองเมื่อพบกัน (Store & Forward ปกติ)'
+                                    : 'Hold locally until encounter (Direct Store & Forward)',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isThai
+                                    ? 'เก็บไว้ในคิวเครื่องตนเอง และจะส่งให้อัตโนมัติเมื่อเครื่องเราเข้าใกล้หรือเชื่อมต่อกับปลายทางโดยตรง'
+                                    : 'Queue locally and deliver automatically when you directly reconnect with recipient',
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 11,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 🎒 [Carrier Selection Dialog]
+  /// แสดงหน้าต่างสำหรับเลือกโหนดเพื่อนบ้าน (Carrier Node) ที่จะทำหน้าที่เป็นคนเดินสาร (Data Mule)
+  /// - หากมีอุปกรณ์เชื่อมต่ออยู่เพียง 1 เครื่อง: จะเลือกโหนดนั้นและฝากส่งทันทีโดยอัตโนมัติ
+  /// - หากมีอุปกรณ์เชื่อมต่ออยู่หลายเครื่อง: จะเปิด AlertDialog ให้ผู้ใช้เลือกโหนดที่ต้องการฝากส่ง
+  /// - นำพาซองจดหมาย E2EE ไปส่งมอบให้ [recipientId] เมื่อคนเดินสารเดินทางไปพบผู้รับในอนาคต
+  void _showSelectCarrierDialog({
+    required NearbyService service,
+    required String recipientId,
+    required String recipientName,
+    required String content,
+  }) {
+    final connectedList = service.connectedDevices.entries.toList();
+    if (connectedList.isEmpty) return;
+
+    if (connectedList.length == 1) {
+      // มีคนเชื่อมต่ออยู่แค่คนเดียว -> ฝากส่งกับคนนี้ทันที
+      final carrier = connectedList.first;
+      _dispatchToCarrier(
+        service: service,
+        recipientId: recipientId,
+        recipientName: recipientName,
+        content: content,
+        carrierEndpointId: carrier.key,
+        carrierName: carrier.value,
+      );
+      return;
+    }
+
+    // มีคนเชื่อมต่อหลายคน -> แสดง Dialog ให้เลือกว่าจะฝากใคร หรือฝากทุกคนพร้อมกัน (K-Replication)
+    final selectedEndpoints = <String>{};
+    final l10n = AppLocalizations.of(context);
+    final isThai = Localizations.localeOf(context).languageCode == 'th';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: Colors.amberAccent, width: 1.2),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.backpack_rounded, color: Colors.amberAccent, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n?.selectCarrier ?? (isThai ? 'เลือกคนส่งสาร (Data Mule)' : 'Select Carrier (Data Mule)'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isThai
+                          ? 'เลือกอุปกรณ์ที่จะช่วยนำพาซองจดหมายเข้ารหัสลับ (E2EE) ไปส่งมอบ:'
+                          : 'Select device to carry encrypted (E2EE) envelope:',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 🚀 ปุ่มลัด: ฝากทุกคนที่เชื่อมต่ออยู่ (K-Copies Multi-Carrier Replication)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.pop(dialogCtx);
+                        final allEndpoints = connectedList.map((e) => e.key).toList();
+                        _dispatchToCarriers(
+                          service: service,
+                          recipientId: recipientId,
+                          recipientName: recipientName,
+                          content: content,
+                          carrierEndpointIds: allEndpoints,
+                          carrierSummaryName: isThai
+                              ? 'ทุกคนที่เชื่อมต่อ (${allEndpoints.length} คน)'
+                              : 'All connected peers (${allEndpoints.length})',
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.amber.shade700.withValues(alpha: 0.35),
+                              Colors.amber.shade900.withValues(alpha: 0.2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.amberAccent.withValues(alpha: 0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: Colors.amberAccent,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.group_add_rounded,
+                                color: Color(0xFF1E293B),
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isThai
+                                        ? 'ฝากทุกคนที่เชื่อมต่อ (${connectedList.length} คน)'
+                                        : '${l10n?.dispatchAllConnected ?? 'Dispatch to All Connected'} (${connectedList.length})',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isThai
+                                        ? 'กระจายสำเนาความเสี่ยง โอกาสส่งถึงมือสูงสุด'
+                                        : 'Replicate across peers for highest delivery probability',
+                                    style: const TextStyle(
+                                      color: Colors.amberAccent,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.amberAccent,
+                              size: 13,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    Text(
+                      isThai ? 'หรือเลือกคนส่งสารรายคน:' : 'Or select individual carriers:',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // รายชื่อเพื่อนบ้านที่เชื่อมต่ออยู่พร้อม Checkbox
+                    ...connectedList.map((entry) {
+                      final isChecked = selectedEndpoints.contains(entry.key);
+                      return CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: isChecked,
+                        activeColor: Colors.amberAccent,
+                        checkColor: const Color(0xFF1E293B),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            if (val == true) {
+                              selectedEndpoints.add(entry.key);
+                            } else {
+                              selectedEndpoints.remove(entry.key);
+                            }
+                          });
+                        },
+                        secondary: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: Colors.amberAccent.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.person_pin_circle_rounded,
+                            color: Colors.amberAccent,
+                            size: 18,
+                          ),
+                        ),
+                        title: Text(
+                          entry.value,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Endpoint: ${entry.key}',
+                          style: const TextStyle(color: Colors.white38, fontSize: 10),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: Text(
+                    l10n?.cancelButton ?? (isThai ? 'ยกเลิก' : 'Cancel'),
+                    style: const TextStyle(color: Colors.white54),
+                  ),
+                ),
+                if (selectedEndpoints.isNotEmpty)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amberAccent,
+                      foregroundColor: const Color(0xFF1E293B),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogCtx);
+                      final endpoints = selectedEndpoints.toList();
+                      final summaryName = endpoints.length == 1
+                          ? (connectedList.firstWhere((e) => e.key == endpoints.first, orElse: () => MapEntry('', isThai ? 'คนส่งสาร' : 'Carrier')).value)
+                          : (isThai ? '${endpoints.length} คน' : '${endpoints.length} carriers');
+                      _dispatchToCarriers(
+                        service: service,
+                        recipientId: recipientId,
+                        recipientName: recipientName,
+                        content: content,
+                        carrierEndpointIds: endpoints,
+                        carrierSummaryName: summaryName,
+                      );
+                    },
+                    child: Text(
+                      isThai ? 'ฝากส่ง (${selectedEndpoints.length} คน)' : 'Dispatch (${selectedEndpoints.length})',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 🚀 [Dispatch To Single Carrier Method]
+  Future<void> _dispatchToCarrier({
+    required NearbyService service,
+    required String recipientId,
+    required String recipientName,
+    required String content,
+    required String carrierEndpointId,
+    required String carrierName,
+  }) {
+    return _dispatchToCarriers(
+      service: service,
+      recipientId: recipientId,
+      recipientName: recipientName,
+      content: content,
+      carrierEndpointIds: [carrierEndpointId],
+      carrierSummaryName: carrierName,
+    );
+  }
+
+  /// 🚀 [Dispatch To Multiple Carriers Method]
+  /// ดำเนินการสร้างและส่งมอบซองจดหมายคนเดินสาร (Data Mule Envelope) ไปยัง Carriers ที่ระบุ
+  Future<void> _dispatchToCarriers({
+    required NearbyService service,
+    required String recipientId,
+    required String recipientName,
+    required String content,
+    required List<String> carrierEndpointIds,
+    required String carrierSummaryName,
+  }) async {
+    final err = await service.dispatchMultiCarrierEnvelopes(
+      recipientId: recipientId,
+      recipientName: recipientName,
+      content: content,
+      carrierEndpointIds: carrierEndpointIds,
+    );
+
+    if (err == null) {
+      _msgController.clear();
+      setState(() {});
+      if (mounted) {
+        final isThai = Localizations.localeOf(context).languageCode == 'th';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.backpack_rounded, color: Colors.amberAccent, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    carrierEndpointIds.length > 1
+                        ? (isThai
+                            ? '🎒 ฝากซองจดหมายผ่าน $carrierSummaryName เรียบร้อยแล้ว!'
+                            : '🎒 Envelopes dispatched to $carrierSummaryName successfully!')
+                        : (isThai
+                            ? '🎒 ฝากซองจดหมายผ่าน @$carrierSummaryName เรียบร้อยแล้ว!'
+                            : '🎒 Envelope dispatched via @$carrierSummaryName successfully!'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1E293B),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.amberAccent.withValues(alpha: 0.6)),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err, style: const TextStyle(color: Colors.white)),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 }
 

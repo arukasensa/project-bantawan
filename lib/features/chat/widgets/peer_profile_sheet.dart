@@ -2,7 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/mesh_peer.dart';
+import '../models/peer_trust.dart';
 import '../services/nearby_service.dart';
+import '../services/identity_service.dart';
+import '../screens/peer_verification_screen.dart';
 
 /// ============================================================================
 /// 🪪 BANTAWAN Offline Tactical Survivor & Emergency Medical Profile Sheet
@@ -20,6 +23,7 @@ class PeerProfileSheet extends StatelessWidget {
     this.onStartChat,
   });
 
+  /// 🚀 แสดงหน้าต่างบัตรประจำตัวฉุกเฉิน [PeerProfileSheet] ในรูปแบบ Modal Bottom Sheet
   static Future<void> show(
     BuildContext context, {
     required MeshPeer peer,
@@ -50,6 +54,10 @@ class PeerProfileSheet extends StatelessWidget {
     final allergies = peer.allergies.isNotEmpty ? peer.allergies : 'ไม่มีประวัติแพ้ยา/อาหาร';
     final conditions = peer.conditions.isNotEmpty ? peer.conditions : 'ไม่มีโรคประจำตัวที่ระบุ';
     final hospital = peer.hospitalPref.isNotEmpty ? peer.hospitalPref : 'ไม่ระบุโรงพยาบาล';
+
+    // ตรวจสอบสถานะ Trust และความน่าเชื่อถือทาง Cryptographic
+    final trustState = IdentityService.instance.getTrustState(peer.peerId, peer.publicKeyHex);
+    final isVerified = trustState == PeerTrustState.verified;
 
     // ย่อ Public Key Fingerprint
     final pubKey = peer.publicKeyHex;
@@ -201,54 +209,101 @@ class PeerProfileSheet extends StatelessWidget {
               ),
               const SizedBox(height: 18),
 
-              // 3. E2EE Public Key Fingerprint Card
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      pubKey.isNotEmpty ? Icons.vpn_key_rounded : Icons.vpn_key_off_rounded,
-                      color: pubKey.isNotEmpty ? Colors.purpleAccent : Colors.white38,
-                      size: 18,
+              // 3. E2EE Public Key Fingerprint Card (แตะเพื่อกดยืนยันตัวตน)
+              InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PeerVerificationScreen(peer: peer),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'X25519 PUBLIC KEY FINGERPRINT',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            fingerprint,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  );
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isVerified
+                          ? Colors.greenAccent.withValues(alpha: 0.35)
+                          : Colors.cyanAccent.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isVerified
+                            ? Icons.verified_user_rounded
+                            : (pubKey.isNotEmpty ? Icons.vpn_key_rounded : Icons.vpn_key_off_rounded),
+                        color: isVerified
+                            ? Colors.greenAccent
+                            : (pubKey.isNotEmpty ? Colors.cyanAccent : Colors.white38),
+                        size: 20,
                       ),
-                    ),
-                    Icon(
-                      pubKey.isNotEmpty ? Icons.lock_rounded : Icons.lock_open_rounded,
-                      color: pubKey.isNotEmpty ? Colors.purpleAccent : Colors.orangeAccent,
-                      size: 16,
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'X25519 PUBLIC KEY FINGERPRINT',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isVerified ? '✓ ยืนยันแล้ว' : '(แตะเพื่อกดยืนยัน)',
+                                  style: TextStyle(
+                                    color: isVerified ? Colors.greenAccent : Colors.cyanAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isVerified
+                                      ? Colors.greenAccent.withValues(alpha: 0.35)
+                                      : Colors.cyanAccent.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Text(
+                                fingerprint,
+                                style: const TextStyle(
+                                  color: Color(0xFFF1F5F9),
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: isVerified ? Colors.greenAccent : Colors.cyanAccent,
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -562,29 +617,74 @@ class PeerProfileSheet extends StatelessWidget {
             ],
             const SizedBox(height: 20),
 
-              // 5. Action Button: Start E2EE Private Chat
-              ElevatedButton.icon(
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  Navigator.pop(context);
-                  onStartChat?.call();
-                },
-                icon: const Icon(Icons.lock_rounded, size: 18),
-                label: Text('เปิดแชทส่วนตัวกับ ${peer.peerName}'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purpleAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              // 5. Action Buttons: Verify Identity + Start E2EE Private Chat
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PeerVerificationScreen(peer: peer),
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        isVerified ? Icons.verified_user_rounded : Icons.shield_outlined,
+                        size: 18,
+                        color: isVerified ? Colors.greenAccent : Colors.cyanAccent,
+                      ),
+                      label: Text(
+                        isVerified ? 'ยืนยันแล้ว' : 'กดยืนยันตัวตน',
+                        style: TextStyle(
+                          color: isVerified ? Colors.greenAccent : Colors.cyanAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: isVerified ? Colors.greenAccent : Colors.cyanAccent,
+                          width: 1.2,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(context);
+                        onStartChat?.call();
+                      },
+                      icon: const Icon(Icons.lock_rounded, size: 18),
+                      label: Text('เปิดแชทกับ ${peer.peerName}'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purpleAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        elevation: 6,
+                        shadowColor: Colors.purpleAccent.withValues(alpha: 0.4),
+                      ),
+                    ),
                   ),
-                  elevation: 6,
-                  shadowColor: Colors.purpleAccent.withValues(alpha: 0.4),
-                ),
+                ],
               ),
             ],
           ),

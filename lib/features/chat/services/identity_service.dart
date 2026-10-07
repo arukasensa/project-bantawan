@@ -32,6 +32,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'crypto_mesh_service.dart';
+import 'nearby_service.dart';
 import '../models/peer_trust.dart';
 
 /// 🆔 บริการจัดการ Cryptographic Identity และ Trust Store (IdentityService)
@@ -112,6 +113,21 @@ class IdentityService extends ChangeNotifier {
   /// 📖 ดึงข้อมูล PeerTrust ทั้งหมดของ Peer (null ถ้าไม่เคยพบ)
   PeerTrust? getStoredTrust(String peerId) => _trustStore[peerId];
 
+  String _sanitizeDisplayName(String peerId, String rawName) {
+    final trimmed = rawName.trim();
+    final lower = trimmed.toLowerCase();
+    final isUgly = trimmed.isEmpty ||
+        lower.startsWith('node_') ||
+        lower == 'survivor' ||
+        lower.startsWith('survivor_') ||
+        (lower.startsWith('survivor ') &&
+            RegExp(r'^[0-9a-f]+$').hasMatch(lower.substring('survivor '.length).replaceAll(' ', '')));
+    if (isUgly) {
+      return NearbyService.generateTacticalCallsign(peerId);
+    }
+    return trimmed;
+  }
+
   /// ✅ ยืนยัน Fingerprint ของ Peer (ผู้ใช้กดปุ่มยืนยันหลังเปรียบเทียบ Fingerprint)
   /// บันทึก Trust State เป็น VERIFIED และ sync กับ SharedPreferences
   Future<void> verifyPeer({
@@ -119,10 +135,11 @@ class IdentityService extends ChangeNotifier {
     required String displayName,
     required String publicKeyHex,
   }) async {
+    final cleanName = _sanitizeDisplayName(peerId, displayName);
     final fingerprint = computeFingerprint(publicKeyHex);
     final trust = PeerTrust(
       peerId: peerId,
-      displayName: displayName,
+      displayName: cleanName,
       publicKeyHex: publicKeyHex,
       fingerprint: fingerprint,
       verifiedAt: DateTime.now(),
@@ -131,7 +148,7 @@ class IdentityService extends ChangeNotifier {
     _trustStore[peerId] = trust;
     await _saveTrustStore();
     notifyListeners();
-    debugPrint('[Identity] Peer verified: $peerId ($displayName)');
+    debugPrint('[Identity] Peer verified: $peerId ($cleanName)');
   }
 
   /// 📝 ลงทะเบียน Peer ใหม่ที่พบในระบบ Mesh (UNVERIFIED)
@@ -142,13 +159,14 @@ class IdentityService extends ChangeNotifier {
     required String publicKeyHex,
   }) async {
     final currentState = getTrustState(peerId, publicKeyHex);
+    final cleanName = _sanitizeDisplayName(peerId, displayName);
 
     // ถ้าเป็น UNKNOWN → สร้าง record ใหม่เป็น UNVERIFIED
     if (currentState == PeerTrustState.unknown) {
       final fingerprint = computeFingerprint(publicKeyHex);
       final trust = PeerTrust(
         peerId: peerId,
-        displayName: displayName,
+        displayName: cleanName,
         publicKeyHex: publicKeyHex,
         fingerprint: fingerprint,
         trustState: PeerTrustState.unverified,
@@ -156,7 +174,7 @@ class IdentityService extends ChangeNotifier {
       _trustStore[peerId] = trust;
       await _saveTrustStore();
       notifyListeners();
-      debugPrint('[Identity] New peer registered (unverified): $peerId ($displayName)');
+      debugPrint('[Identity] New peer registered (unverified): $peerId ($cleanName)');
     } else if (currentState == PeerTrustState.changed) {
       // Key เปลี่ยน: อัปเดตชื่อใหม่ แต่คงสถานะ CHANGED
       notifyListeners();
@@ -230,7 +248,8 @@ class IdentityService extends ChangeNotifier {
         final trust = PeerTrust.fromJson(
           Map<String, dynamic>.from(entry.value as Map),
         );
-        _trustStore[entry.key] = trust;
+        final cleanName = _sanitizeDisplayName(entry.key, trust.displayName);
+        _trustStore[entry.key] = trust.copyWith(displayName: cleanName);
         // 🔑 ลงทะเบียน Public Key เข้า CryptoMeshService ทันที เพื่อให้พร้อมเข้ารหัสส่งข้อความออฟไลน์
         if (trust.publicKeyHex.isNotEmpty) {
           CryptoMeshService.registerPeerPublicKey(entry.key, trust.publicKeyHex);

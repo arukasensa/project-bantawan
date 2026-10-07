@@ -1,6 +1,24 @@
+// ============================================================================
+// 🚀 BANTAWAN Application Entry Point: main.dart
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical Offline Survival System)           │
+// ├─────────────────────────────────────────────────────────┤
+// │                     main.dart                           │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Hardware & Services  │    MultiProvider Tree     │  │
+// │  │  (Nearby / Health/DB) │ (State Mgmt & Singletons) │  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Localization Engine  │    Root App & Theme       │  │
+// │  │  (Thai / English l10n)│ (Dark Tactical Material)  │  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
 // จุดเริ่มต้นการทำงานหลักของแอปพลิเคชัน BANTAWAN (Application Entry Point)
 // รับผิดชอบการ Initialize บริการพื้นฐาน (Services), ลงทะเบียน State Providers ด้วย MultiProvider,
 // กำหนดระบบหลายภาษา (Localization ไทย/อังกฤษ), และเปิดหน้าจอแรก (SplashScreen)
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -23,7 +41,7 @@ import 'package:flutter1/providers/map_provider.dart';
 
 import 'package:flutter1/features/notifications/services/notification_service.dart';
 
-/// ฟังก์ชันหลักที่ทำงานเป็นลำดับแรกเมื่อแอปเริ่มทำงาน
+/// 🚀 ฟังก์ชันหลักที่ทำงานเป็นลำดับแรกเมื่อแอปเริ่มทำงาน (Entry Point)
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

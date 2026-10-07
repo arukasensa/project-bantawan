@@ -9,6 +9,12 @@ import 'package:flutter/services.dart';
 import '../models/mesh_notice.dart';
 import '../services/nearby_service.dart';
 
+/// 📌 [NoticeBoardSheet] กระดานปักประกาศฉุกเฉินสาธารณะออฟไลน์ (Offline Mesh Bulletin Board)
+/// ออกแบบตามแนวคิด Epidemic Gossip Protocol สำหรับกระจายข่าวสารเตือนภัยในพื้นที่ประสบภัย:
+/// - โพสต์ประกาศฉุกเฉินหรือแจ้งข่าวสารทั่วไปในห้อง `#mesh` โดยไม่ต้องพึ่งพาเซิร์ฟเวอร์
+/// - กำหนดระยะเวลาหมดอายุของประกาศได้ (1 วัน, 3 วัน, 7 วัน) เพื่อป้องกันข้อมูลเก่าคั่งค้าง
+/// - ไฮไลต์ประกาศด่วนวิกฤต (SOS / Urgent Notice) ด้วยสีกรอบและเอฟเฟกต์สะดุดตา
+/// - มีระบบแชร์พิกัดจุดเกิดเหตุ/จุดแจกจ่ายเสบียงประกอบในประกาศ
 class NoticeBoardSheet extends StatefulWidget {
   final NearbyService service;
 
@@ -17,6 +23,7 @@ class NoticeBoardSheet extends StatefulWidget {
     required this.service,
   });
 
+  /// 🚀 แสดงหน้าต่างกระดานประกาศ [NoticeBoardSheet] ในรูปแบบ Modal Bottom Sheet
   static Future<void> show(BuildContext context, NearbyService service) {
     return showModalBottomSheet(
       context: context,
@@ -42,6 +49,11 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
     super.dispose();
   }
 
+  /// 📢 [Post Notice Handler]
+  /// ประมวลผลการโพสต์ประกาศใหม่ขึ้นบนเครือข่ายออฟไลน์:
+  /// 1. ตรวจสอบข้อความไม่เป็นค่าว่าง
+  /// 2. เรียกใช้ [NearbyService.postNotice] เพื่อบันทึกลง SQLite และบรอดแคสต์แพ็กเก็ต `MESH_NOTICE`
+  /// 3. รีเซ็ตฟอร์มและสถานะความเร่งด่วนกลับเป็นค่าเริ่มต้น
   Future<void> _handlePostNotice() async {
     final text = _contentController.text.trim();
     if (text.isEmpty) return;

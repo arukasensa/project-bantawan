@@ -45,6 +45,9 @@ class MuleEnvelope {
   /// จำนวนครั้ง/จำนวนโหนดที่ช่วยแบกซองจดหมายนี้มา
   final int hopCarryCount;
 
+  /// ขีดจำกัดสูงสุดของการส่งต่อระหว่างคนเดินสาร (Max Hops)
+  final int maxHops;
+
   /// สถานะของซองจดหมาย: 'CARRIED' (กำลังช่วยแบก), 'DELIVERED' (ส่งถึงแล้ว), 'EXPIRED' (หมดอายุ)
   final String status;
 
@@ -61,6 +64,7 @@ class MuleEnvelope {
     DateTime? createdAt,
     required this.expiresAt,
     this.hopCarryCount = 0,
+    this.maxHops = 3,
     this.status = 'CARRIED',
   })  : envelopeId = envelopeId ?? _generateUuidV4(),
         createdAt = createdAt ?? DateTime.now();
@@ -77,6 +81,12 @@ class MuleEnvelope {
 
   /// ⏳ ตรวจสอบว่าซองจดหมายหมดอายุแล้วหรือไม่
   bool get isExpired => DateTime.now().isAfter(expiresAt);
+
+  /// 🔄 ตรวจสอบว่าซองจดหมายนี้สามารถส่งต่อให้คนเดินสารคนอื่นช่วยแบกต่อได้หรือไม่
+  bool get canRelay => !isExpired && hopCarryCount < maxHops;
+
+  /// ➕ เพิ่มจำนวนรอบการแบกต่อขึ้น 1 ทอด
+  MuleEnvelope incrementHop() => copyWith(hopCarryCount: hopCarryCount + 1);
 
   /// 📊 คำนวณขนาดโดยประมาณของซองจดหมายในหน่วยไบต์ (Bytes) สำหรับคุม Quota
   int get estimatedSizeBytes {
@@ -106,6 +116,7 @@ class MuleEnvelope {
       'createdAt': createdAt.toIso8601String(),
       'expiresAt': expiresAt.toIso8601String(),
       'hopCarryCount': hopCarryCount,
+      'maxHops': maxHops,
       'status': status,
     };
   }
@@ -125,6 +136,7 @@ class MuleEnvelope {
       createdAt: DateTime.parse(map['createdAt'] as String),
       expiresAt: DateTime.parse(map['expiresAt'] as String),
       hopCarryCount: map['hopCarryCount'] as int? ?? 0,
+      maxHops: map['maxHops'] as int? ?? 3,
       status: map['status'] as String? ?? 'CARRIED',
     );
   }
@@ -144,6 +156,7 @@ class MuleEnvelope {
       'createdAt': createdAt.toIso8601String(),
       'expiresAt': expiresAt.toIso8601String(),
       'hopCarryCount': hopCarryCount,
+      'maxHops': maxHops,
       'status': status,
     };
   }
@@ -163,6 +176,7 @@ class MuleEnvelope {
       createdAt: DateTime.parse(json['createdAt'] as String),
       expiresAt: DateTime.parse(json['expiresAt'] as String),
       hopCarryCount: json['hopCarryCount'] as int? ?? 0,
+      maxHops: json['maxHops'] as int? ?? 3,
       status: json['status'] as String? ?? 'CARRIED',
     );
   }
@@ -181,6 +195,7 @@ class MuleEnvelope {
     DateTime? createdAt,
     DateTime? expiresAt,
     int? hopCarryCount,
+    int? maxHops,
     String? status,
   }) {
     return MuleEnvelope(
@@ -196,12 +211,13 @@ class MuleEnvelope {
       createdAt: createdAt ?? this.createdAt,
       expiresAt: expiresAt ?? this.expiresAt,
       hopCarryCount: hopCarryCount ?? this.hopCarryCount,
+      maxHops: maxHops ?? this.maxHops,
       status: status ?? this.status,
     );
   }
 
   @override
   String toString() {
-    return 'MuleEnvelope(id: $envelopeId, from: $senderCallsign, to: $recipientNodeId, urgent: $isUrgentSOS, status: $status)';
+    return 'MuleEnvelope(id: $envelopeId, from: $senderCallsign, to: $recipientNodeId, urgent: $isUrgentSOS, hop: $hopCarryCount/$maxHops, status: $status)';
   }
 }

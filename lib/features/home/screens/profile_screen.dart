@@ -1098,8 +1098,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     isThai
-                        ? 'ใช้ชื่อรหัสสุ่ม Survivor_XXXX แทนชื่อจริงเมื่อส่งข้อความและค้นหาโหนด'
-                        : 'Use randomized Survivor_XXXX callsign on Mesh Network',
+                        ? 'ใช้รหัสนามเรียกขานฉุกเฉิน (เช่น Survivor Alpha) แทนชื่อจริงเมื่อส่งข้อความและค้นหาโหนด'
+                        : 'Use tactical callsign (e.g. Survivor Alpha) on Mesh Network',
                     style: const TextStyle(color: Colors.white54, fontSize: 11),
                   ),
                 ),

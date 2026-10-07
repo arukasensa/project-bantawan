@@ -1,6 +1,24 @@
-// หน้าจอแดชบอร์ดติดตามการเดินป่า (Hike Dashboard Screen)
+// ============================================================================
+// 🥾 BANTAWAN Hike Tracker Dashboard: HikeDashboardScreen (Survival Layer)
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical Survival & Field Tracking)         │
+// ├─────────────────────────────────────────────────────────┤
+// │                HikeDashboardScreen                      │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Breadcrumbs Trail    │    Backtrack Compass      │  │
+// │  │  (FlutterMap Offline) │ (Bearing + Target Arrow)  │  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Altitude & Distance  │   Summary & SOS Hotkey    │  │
+// │  │  (Altimeter + GPS)    │ (HikeSummaryDialog + Call)│  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
+// หน้าจอแดชบอร์ดติดตามกิจกรรมเดินป่า (Hike Dashboard Screen)
 // แสดงแผนที่รอยทางเดินย้อนกลับ (Breadcrumbs), สถิติระยะทาง, เวลา, ความสูงจริง,
 // ระบบเข็มทิศนำทางย้อนรอย (Backtrack Compass), และการยืนยันสิ้นสุดการเดินป่า
+// ============================================================================
 
 import 'dart:ui';
 import 'dart:async';
@@ -17,8 +35,9 @@ import '../services/hike_service.dart';
 import '../widgets/hike_summary_dialog.dart';
 import 'package:flutter1/features/emergency/services/call_service.dart';
 
-/// หน้าจอแสดงผลและบันทึกสถิติการเดินป่า
+/// 🥾 หน้าจอแดชบอร์ดติดตามและบันทึกสถิติการเดินป่า (Hike Dashboard Screen)
 class HikeDashboardScreen extends StatefulWidget {
+  /// พิกัดเริ่มต้นที่ต้องการเปิดแผนที่โฟกัสไป
   final LatLng? initialPosition;
   const HikeDashboardScreen({super.key, this.initialPosition});
 

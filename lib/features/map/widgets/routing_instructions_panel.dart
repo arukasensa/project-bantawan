@@ -1,12 +1,30 @@
+// ============================================================================
+// 🛣️ BANTAWAN Turn-by-Turn Routing Panel: RoutingInstructionsPanel
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical GIS Map & Medical POIs)            │
+// ├─────────────────────────────────────────────────────────┤
+// │               RoutingInstructionsPanel                  │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Turn-by-Turn Steps   │    Maneuver Icon Mapper   │  │
+// │  │  (OSRM / Longdo Path) │ (Turn Left/Right/Straight)│  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Step Distance Meters │   Dismiss Navigation Bar  │  │
+// │  │  (Segment Distance)   │ (Close Step-by-Step HUD)  │  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
 // แผงแสดงขั้นตอนการเลี้ยวนำทาง (Turn-by-Turn Routing Panel)
 // กล่องลอยแสดงรายการขั้นตอนการเลี้ยว ระยะทาง และเวลาเดินทางอย่างละเอียด
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:flutter1/providers/map_provider.dart';
 
-/// วิดเจ็ตแผงแสดงขั้นตอนการนำทางแบบเลี้ยวต่อเลี้ยว
+/// 🛣️ วิดเจ็ตแผงแสดงขั้นตอนการนำทางแบบเลี้ยวต่อเลี้ยว (Turn-by-Turn Routing Panel)
 class RoutingInstructionsPanel extends StatelessWidget {
   const RoutingInstructionsPanel({super.key});
 

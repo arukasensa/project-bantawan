@@ -9,7 +9,7 @@ class AppLocalizationsTh extends AppLocalizations {
   AppLocalizationsTh([String locale = 'th']) : super(locale);
 
   @override
-  String get appTitle => 'SOS Premier';
+  String get appTitle => 'BANTAWAN';
 
   @override
   String get sos => 'ขอความช่วยเหลือ';
@@ -383,4 +383,69 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get reSendLimit => 'ส่งอีกครั้ง';
+
+  @override
+  String get tabPublic => 'สาธารณะ';
+
+  @override
+  String get tabPrivate => 'ส่วนตัว';
+
+  @override
+  String get onlinePeers => 'โหนดในรัศมี';
+
+  @override
+  String get meshRelayTitle => 'บริดจ์และการส่งต่อทอด (Mesh Relay)';
+
+  @override
+  String get meshRelayDesc =>
+      'ส่งต่อแพ็กเก็ตข้อความและ SOS ข้ามโหนดในรัศมีบลูทูธแบบ Multi-hop';
+
+  @override
+  String get dataMuleTitle => 'คนส่งสารฉุกเฉิน (Data Mule)';
+
+  @override
+  String get dataMuleDesc =>
+      'ฝากส่งข้อความผ่านอุปกรณ์คนอื่นเมื่ออยู่นอกระยะสัญญาณ';
+
+  @override
+  String get tacticalCallsign => 'นามเรียกขาน (@callsign)';
+
+  @override
+  String get changeCallsign => 'เปลี่ยนชื่อ';
+
+  @override
+  String get appLanguage => 'ภาษาของแอป';
+
+  @override
+  String get carrierBag => 'กระเป๋าคนส่งสาร';
+
+  @override
+  String get selectCarrier => 'เลือกคนส่งสาร (Data Mule)';
+
+  @override
+  String get dispatchAllConnected => 'ฝากทุกคนที่เชื่อมต่อ';
+
+  @override
+  String get autoPlayVoice => 'เล่นเสียงอัตโนมัติ';
+
+  @override
+  String get systemInfo => 'ข้อมูลสถาปัตยกรรมระบบ';
+
+  @override
+  String get settingsTab => 'ตั้งค่า';
+
+  @override
+  String get infoTab => 'ข้อมูล';
+
+  @override
+  String get sendSos => 'ส่งสัญญาณ SOS';
+
+  @override
+  String get shareLocation => 'แชร์ตำแหน่งที่ตั้ง';
+
+  @override
+  String get recordVoice => 'กดค้างเพื่อบันทึกเสียง';
+
+  @override
+  String get offlineBagEmpty => 'ยังไม่มีซองจดหมายในกระเป๋า';
 }

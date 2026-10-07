@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import '../models/mesh_peer.dart';
 import '../models/peer_trust.dart';
 import '../services/identity_service.dart';
+import '../widgets/peer_qr_verification_sheet.dart';
 
 /// 🛡️ หน้าจอแสดงผลและยืนยัน Cryptographic Fingerprint ของ Peer คู่สนทนา
 class PeerVerificationScreen extends StatefulWidget {
@@ -59,6 +60,15 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.cyanAccent),
+            tooltip: 'สแกน QR Code เพื่อยืนยัน',
+            onPressed: () {
+              PeerQrVerificationSheet.show(context, peerId: widget.peer.peerId);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -81,8 +91,8 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
               subtitle: 'เปรียบเทียบข้อความนี้กับหน้าจอของ ${widget.peer.peerName}',
               fingerprint: peerFingerprint,
               accentColor: trustState == PeerTrustState.verified
-                  ? Colors.greenAccent
-                  : (trustState == PeerTrustState.changed ? Colors.orangeAccent : Colors.cyanAccent),
+                  ? const Color(0xFF4ADE80)
+                  : (trustState == PeerTrustState.changed ? const Color(0xFFFB923C) : const Color(0xFF38BDF8)),
             ),
             const SizedBox(height: 16),
 
@@ -91,7 +101,7 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
               title: '📱 Fingerprint ของเครื่องคุณ',
               subtitle: 'ให้ ${widget.peer.peerName} ตรวจสอบรหัสนี้บนเครื่องของเขา',
               fingerprint: myFingerprint,
-              accentColor: Colors.purpleAccent,
+              accentColor: const Color(0xFFA78BFA),
             ),
             const SizedBox(height: 24),
 
@@ -178,9 +188,10 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
           Text(
             'Node ID: ${widget.peer.peerId}',
             style: const TextStyle(
-              color: Colors.white54,
+              color: Color(0xFF94A3B8),
               fontSize: 12,
               fontFamily: 'monospace',
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 12),
@@ -274,6 +285,15 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
                 icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white54),
                 tooltip: 'คัดลอก Fingerprint',
                 onPressed: () {
+                  if (fingerprint.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('ยังไม่มีข้อมูล Fingerprint ให้คัดลอก'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
                   Clipboard.setData(ClipboardData(text: fingerprint.replaceAll('\n', ' ')));
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -289,30 +309,94 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
             subtitle,
             style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: accentColor.withValues(alpha:0.3)),
-            ),
-            child: SelectableText(
-              fingerprint,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: accentColor,
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
-                letterSpacing: 1.5,
-                height: 1.5,
-              ),
-            ),
+          const SizedBox(height: 14),
+          Builder(
+            builder: (context) {
+              final groups = fingerprint.isNotEmpty
+                  ? fingerprint.split(RegExp(r'\s+')).where((g) => g.trim().isNotEmpty).toList()
+                  : <String>[];
+
+              if (groups.isNotEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF090D16),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.25),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // แถวที่ 1 (4 กลุ่มแรก)
+                      _buildFingerprintRow(groups.sublist(0, groups.length >= 4 ? 4 : groups.length), accentColor),
+                      if (groups.length > 4) ...[
+                        const SizedBox(height: 8),
+                        // แถวที่ 2 (4 กลุ่มหลัง)
+                        _buildFingerprintRow(groups.sublist(4), accentColor),
+                      ],
+                    ],
+                  ),
+                );
+              }
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF090D16),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: const Text(
+                  'ยังไม่มีข้อมูล Public Key (ยังไม่ได้รับ Key)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
+    );
+  }
+
+  /// สร้างแถวกล่องตัวเลข 4 หลักที่คมชัด ไม่บวม สว่างชัดเจน
+  Widget _buildFingerprintRow(List<String> rowGroups, Color accentColor) {
+    return Row(
+      children: rowGroups.map((group) {
+        return Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF162032),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: accentColor.withValues(alpha: 0.35),
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              group,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFF8FAFC),
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.4,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -348,6 +432,48 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
                   const SnackBar(content: Text('ยกเลิกการยืนยันเรียบร้อยแล้ว')),
                 );
               }
+            },
+          ),
+        ],
+      );
+    }
+
+    final hasKey = widget.peer.publicKeyHex.isNotEmpty;
+    if (!hasKey) {
+      return Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.amberAccent.withValues(alpha: 0.4)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 22),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'ยังไม่ได้รับ Public Key จากคู่สนทนานี้ในระบบ Mesh กรุณารอให้คู่สนทนาออนไลน์ หรือสแกน QR Code เพื่อแลกเปลี่ยนกุญแจทันที',
+                    style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purpleAccent,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            label: const Text('สแกน QR Code เพื่อรับ Key ทันที', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              PeerQrVerificationSheet.show(context, peerId: widget.peer.peerId);
             },
           ),
         ],

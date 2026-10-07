@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter1/features/home/services/profile_service.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/mesh_peer.dart';
 import '../models/mesh_notice.dart';
 import '../models/mule_envelope.dart';
@@ -292,7 +293,115 @@ class NearbyService extends ChangeNotifier {
   /// อนุญาตให้แต่ละอุปกรณ์ทำหน้าที่เป็นทั้งโหนดค้นหา (Discoverer) และโหนดโฆษณาสัญญาณ (Advertiser)
   final Strategy strategy = Strategy.P2P_CLUSTER;
 
-  String deviceName = "Survivor"; // ชื่อเรียกประจำอุปกรณ์ (Device Callsign)
+  String deviceName = "Survivor Alpha"; // ชื่อเรียกประจำอุปกรณ์ (Device Callsign)
+
+  /// 🏷️ ชื่อที่ใช้ประกาศผ่าน Google Nearby BLE/Wi-Fi (Advertised Name)
+  /// รูปแบบ: `BW:[nodeIdPrefix]:[deviceName]` (เช่น `BW:a1b2c3d4e5f6:Survivor Alpha`)
+  String get advertisedName {
+    final cleanId = nodeId.replaceFirst('node_', '');
+    return 'BW:$cleanId:$deviceName';
+  }
+
+  /// 🧩 แยกวิเคราะห์รูปแบบชื่อ Advertised Name ที่สแกนพบ
+  /// รองรับทั้งโหนดรุ่นใหม่ (BW:nodeIdPrefix:deviceName) และโหนดรุ่นเดิม (deviceName ปกติ)
+  static ({String? peerNodeId, String peerName}) parseAdvertisedName(String rawName) {
+    if (rawName.startsWith('BW:')) {
+      final parts = rawName.split(':');
+      if (parts.length >= 3) {
+        final cleanId = parts[1].replaceFirst('node_', '');
+        final name = parts.sublist(2).join(':');
+        return (peerNodeId: 'node_$cleanId', peerName: name);
+      }
+    }
+    return (peerNodeId: null, peerName: rawName);
+  }
+
+  /// ⚠️ ข้อความแจ้งเตือนสถานะฮาร์ดแวร์ (null หากระบบพร้อม)
+  String? hardwareWarningMessage;
+  bool isLocationServiceEnabled = true;
+
+  /// 🛑 สถานะการหยุด Discovery ชั่วคราว (เมื่อ Direct Connections เต็ม 4/4 เพื่อประหยัดแบนด์วิดท์)
+  bool isDiscoveryPaused = false;
+
+  /// 🛑 ธงระบุว่าผู้ใช้สั่งหยุดเครือข่ายฉุกเฉินด้วยตนเอง (User Explicit Stop)
+  /// ป้องกัน Zombie Auto-Reconnect ลูปแอบปลุกสแกนเนอร์ขึ้นมาเองเมื่อผู้ใช้สั่งปิด
+  bool _isManuallyStopped = false;
+
+  /// ⏱️ ตารางบันทึกเวลามีการเคลื่อนไหวของข้อมูลล่าสุดในระดับ Endpoint (endpointId -> DateTime)
+  /// ใช้สำหรับ Liveness Watchdog ตรวจจับโหนดที่ปิดบลูทูธเงียบๆ เพื่อตัด Ghost Node ทิ้งทันที
+  final Map<String, DateTime> _endpointLastActivity = {};
+
+  /// ⏳ Negative Caching: ตารางหน่วงเวลาสำหรับ Endpoint ที่เชื่อมต่อล้มเหลว (endpointId -> expireAt)
+  /// ป้องกันการยิงคำขอเชื่อมต่อซ้ำรัวๆ รบกวนช่องสัญญาณ BLE
+  final Map<String, DateTime> _failedConnectionCooldowns = {};
+
+  /// 🏷️ แคชชื่อของ Endpoint ที่อยู่ระหว่าง Handshake (endpointId -> peerDisplayName)
+  final Map<String, String> _pendingPeerNames = {};
+
+  /// 📜 ชุดบันทึกไอดีซองจดหมายคนเดินสารที่ส่งมอบถึงมือผู้รับแล้ว เพื่อรอแจ้งใบเสร็จให้ผู้ส่งต้นทาง
+  final Set<String> _deliveredMuleReceipts = {};
+
+  DateTime? _lastForceRescanTime;
+
+  /// 🛡️ ตรวจสอบว่ามีเพื่อนโหนดนี้เชื่อมต่ออยู่แล้ว หรืออยู่ระหว่างขอเชื่อมต่อหรือไม่
+  /// ป้องกัน Duplicate Connection Request ซ้ำซ้อน ซึ่งเป็นสาเหตุหลักที่ทำให้คลัสเตอร์ 3 โหนดหลุดล้มระเนระนาด
+  @visibleForTesting
+  bool isPeerAlreadyConnectedOrPending({
+    String? peerNodeId,
+    required String peerDisplayName,
+    required String endpointId,
+  }) {
+    if (connectedDevices.containsKey(endpointId)) return true;
+    if (_pendingConnectionEndpoints.contains(endpointId)) return true;
+    if (connectedDevices.containsValue(peerDisplayName)) return true;
+    if (_pendingPeerNames.containsValue(peerDisplayName)) return true;
+    if (peerNodeId != null) {
+      final existingPeer = discoveredMeshPeers[peerNodeId];
+      if (existingPeer != null &&
+          existingPeer.hopCount == 1 &&
+          existingPeer.directEndpoint != null &&
+          connectedDevices.containsKey(existingPeer.directEndpoint)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isPeerAlreadyConnectedOrPending({
+    String? peerNodeId,
+    required String peerDisplayName,
+    required String endpointId,
+  }) => isPeerAlreadyConnectedOrPending(
+    peerNodeId: peerNodeId,
+    peerDisplayName: peerDisplayName,
+    endpointId: endpointId,
+  );
+
+  /// 🔍 ตรวจสอบความพร้อมของฮาร์ดแวร์ก่อนเปิดสแกน
+  /// ป้องกัน Silent Failure บน Android เมื่อ GPS/Location Services ถูกปิดที่ระดับระบบ
+  Future<bool> checkHardwareReadiness() async {
+    try {
+      isLocationServiceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!isLocationServiceEnabled) {
+        hardwareWarningMessage = 'บริการตำแหน่ง (GPS) ปิดอยู่ กรุณาเปิดเพื่อให้บลูทูธค้นหาอุปกรณ์ได้';
+        notifyListeners();
+        debugPrint('[Nearby Hardware] ⚠️ Location services are disabled. BLE scanning will fail.');
+        return false;
+      } else {
+        hardwareWarningMessage = null;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[Nearby Hardware] Error checking location readiness: $e');
+      return true;
+    }
+  }
+
+  void _setFailedCooldown(String endpointId) {
+    _failedConnectionCooldowns[endpointId] =
+        DateTime.now().add(const Duration(seconds: 3));
+  }
 
   Map<String, String> connectedDevices = {}; // ตารางเก็บอุปกรณ์ที่เชื่อมต่อโดยตรง (endpointId -> deviceName)
   List<NearbyMessage> messages = [];         // รายการข้อความแชททั้งหมดในเซสชัน
@@ -306,19 +415,22 @@ class NearbyService extends ChangeNotifier {
 
   /// 🌐 ตรวจสอบสถานะการเชื่อมต่อจริงของโหนดในโครงข่าย Mesh แบบ Real-time
   /// ป้องกัน Ghost Node (สถานะค้าง): หากเครื่องเราไม่มีอุปกรณ์เชื่อมต่อตรงเหลืออยู่เลย
-  /// หรือสะพานตัวกลาง (Relay Link) หลุดการเชื่อมต่อไป จะถือว่าโหนดนั้น Offline ทันที
+  /// หรือโหนดเงียบหายไปเกินเกณฑ์เวลา Heartbeat Timeout จะถือว่า Offline ทันที
   PeerConnectionStatus getPeerConnectionStatus(MeshPeer peer) {
     // 1. หากเครื่องเราไม่มีบลูทูธเชื่อมต่อกับอุปกรณ์ใดๆ เลย โหนดทั้งหมดในโลกต้องเป็น Offline ทันที
     if (connectedDevices.isEmpty) {
       return PeerConnectionStatus.offline;
     }
 
+    final diff = DateTime.now().difference(peer.lastSeen);
+
     // 2. กรณีเป็น Direct BLE Node (1 hop)
     if (peer.hopCount == 1) {
-      if (peer.directEndpoint != null && connectedDevices.containsKey(peer.directEndpoint)) {
-        return PeerConnectionStatus.direct;
+      // ⏱️ หากไม่ได้รับ Heartbeat/สัญญาณใดๆ เกิน 15 วินาที ถือว่าหลุดการเชื่อมต่อไปแล้ว (แก้ปัญหาปิดบลูทูธแต่ค้าง)
+      if (diff.inSeconds > 15) {
+        return PeerConnectionStatus.offline;
       }
-      if (connectedDevices.containsValue(peer.peerName)) {
+      if (peer.directEndpoint != null && connectedDevices.containsKey(peer.directEndpoint)) {
         return PeerConnectionStatus.direct;
       }
       return PeerConnectionStatus.offline;
@@ -326,6 +438,9 @@ class NearbyService extends ChangeNotifier {
 
     // 3. กรณีเป็น Multi-hop Relayed Node (2+ hops)
     if (peer.isReachable) {
+      if (diff.inSeconds > 45) {
+        return PeerConnectionStatus.offline;
+      }
       // ตรวจสอบว่าเส้นทาง Reverse Path สำหรับโหนดนี้ยังชี้ไปยังโหนดตรงที่เชื่อมต่ออยู่หรือไม่
       final nextHopEndpoint = _reversePathTable[peer.peerId] ??
           (peer.hopCount > 1 ? peer.directEndpoint : null);
@@ -358,11 +473,21 @@ class NearbyService extends ChangeNotifier {
   /// 💬 ห้องแชทส่วนตัวที่กำลังเปิดอยู่ในขณะนี้ (peerId) เพื่อไม่ให้แจ้งเตือนซ้ำหากกำลังคุยกันอยู่
   String? activeChatPeerId;
 
-  // --- 🎒 Data Mule (Deprecated / Disabled in favor of Direct & Multi-hop Mesh) ---
-  bool isDataMuleEnabled = false;
+  // --- 🎒 Data Mule (Store-Carry-and-Forward Mesh Carrier) ---
+  bool isDataMuleEnabled = true;
   List<MuleEnvelope> carriedEnvelopes = [];
-  Future<void> loadCarriedEnvelopes() async {}
-  void toggleDataMule(bool enabled) {}
+  Future<void> loadCarriedEnvelopes() async {
+    carriedEnvelopes = await ChatDatabaseHelper.instance.getAllCarriedEnvelopes();
+    notifyListeners();
+  }
+  void toggleDataMule(bool enabled) {
+    isDataMuleEnabled = enabled;
+    notifyListeners();
+  }
+  Future<void> deleteCarriedEnvelope(String envelopeId) async {
+    await ChatDatabaseHelper.instance.deleteMuleEnvelope(envelopeId);
+    await loadCarriedEnvelopes();
+  }
 
   /// 🐕 Watchdog Timer สำหรับตรวจสอบและฟื้นฟู Discovery หากไม่พบโหนดนานผิดปกติ
   Timer? _discoveryWatchdogTimer;
@@ -501,6 +626,42 @@ class NearbyService extends ChangeNotifier {
     ChatDatabaseHelper.instance.purgeExpiredProcessedPackets();
     await ChatDatabaseHelper.instance.purgeExpiredNotices();
     await loadNotices();
+    await ChatDatabaseHelper.instance.purgeExpiredMuleEnvelopes();
+    await loadCarriedEnvelopes();
+  }
+
+  /// 🏷️ สร้างนามเรียกขานฉุกเฉินสไตล์ Tactical (เช่น "Survivor Alpha", "Survivor Phoenix", "Survivor Falcon")
+  /// แทนที่จะใช้ตัวเลขสุ่ม hex เช่น "Survivor_d76b" ที่ดูเหมือนรหัสคอมพิวเตอร์
+  static String generateTacticalCallsign(String nodeId) {
+    const callsigns = [
+      'Alpha',
+      'Phoenix',
+      'Falcon',
+      'Echo',
+      'Sierra',
+      'Delta',
+      'Orion',
+      'Scout',
+      'Titan',
+      'Raven',
+      'Victor',
+      'Ranger',
+      'Maverick',
+      'Bravo',
+      'Hawk',
+      'Shadow',
+      'Apex',
+      'Viper',
+      'Specter',
+      'Cobra',
+    ];
+
+    int hash = 0;
+    for (int i = 0; i < nodeId.length; i++) {
+      hash = (hash * 31 + nodeId.codeUnitAt(i)) & 0x7FFFFFFF;
+    }
+    final selectedCallsign = callsigns[hash % callsigns.length];
+    return 'Survivor $selectedCallsign';
   }
 
   /// 👤 ดึงข้อมูลชื่อผู้ใช้จาก ProfileService เพื่อตั้งเป็น Callsign และอัปเดตข้อมูลทางการแพทย์ในเครือข่าย Mesh
@@ -510,17 +671,15 @@ class NearbyService extends ChangeNotifier {
     final isAnonymous = profile['anonymousMode'] == 'true';
     final oldName = deviceName;
 
-    final suffix = nodeId.length >= 4
-        ? nodeId.substring(nodeId.length - 4)
-        : '${Random.secure().nextInt(9000) + 1000}';
+    final defaultCallsign = generateTacticalCallsign(nodeId);
 
     // 👤 ตรวจสอบโหมดไม่ระบุตัวตน (Anonymous / Ghost Mode)
     if (isAnonymous) {
-      deviceName = "Survivor_$suffix";
-    } else if (name.isNotEmpty) {
-      deviceName = name;
+      deviceName = defaultCallsign;
+    } else if (name.trim().isNotEmpty) {
+      deviceName = name.trim();
     } else {
-      deviceName = "Survivor_$suffix";
+      deviceName = defaultCallsign;
     }
 
     // ล้างรายชื่อเครื่องตนเองชื่อเก่าออกจากรายการอุปกรณ์เชื่อมต่อ ป้องกันชื่อซ้ำ
@@ -627,6 +786,9 @@ class NearbyService extends ChangeNotifier {
   /// 📶 เปิดสวิตช์เครือข่ายฉุกเฉินออฟไลน์ (เริ่มต้นทั้ง Advertising และ Discovery)
   /// พร้อม Jitter, Cool-down, และ Auto-Retry Loop ป้องกัน BLE Packet Collision & Android Throttling
   Future<void> startEmergencyNetwork() async {
+    // 🔍 ตรวจสอบความพร้อมของระบบตำแหน่งและบลูทูธก่อนเริ่มสแกน
+    await checkHardwareReadiness();
+
     final hasPerm = await checkPermissions();
     if (!hasPerm) {
       debugPrint("Nearby: Missing permissions");
@@ -635,13 +797,14 @@ class NearbyService extends ChangeNotifier {
 
     try {
       await stopEmergencyNetwork();
+      _isManuallyStopped = false;
 
-      // ⏳ Warm-up Delay 1200ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เปิดทำงานอย่างสมบูรณ์
-      // ป้องกันกรณีผู้ใช้เพิ่งเปิดบลูทูธแล้วฮาร์ดแวร์ยังไม่พร้อม (STATE_TURNING_ON -> STATE_ON)
-      await Future.delayed(const Duration(milliseconds: 1200));
+      // ⏳ Warm-up Delay 200ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เปิดทำงานอย่างสมบูรณ์
+      // ปรับลดจาก 1200ms เพื่อความรวดเร็วในการเริ่มระบบฉุกเฉิน
+      await Future.delayed(const Duration(milliseconds: 200));
 
-      // 🎲 1. Randomized Startup Jitter (100ms - 500ms)
-      final jitterMs = 100 + Random().nextInt(400);
+      // 🎲 1. Randomized Startup Jitter (50ms - 150ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
+      final jitterMs = 50 + Random().nextInt(100);
       await Future.delayed(Duration(milliseconds: jitterMs));
 
       // ----------------------------------------------------------------------
@@ -651,21 +814,25 @@ class NearbyService extends ChangeNotifier {
       for (int attempt = 1; attempt <= 4; attempt++) {
         try {
           await Nearby().startAdvertising(
-            deviceName,
+            advertisedName,
             strategy,
             onConnectionInitiated: (id, info) {
               _pendingConnectionEndpoints.add(id);
+              final parsed = parseAdvertisedName(info.endpointName);
+              _pendingPeerNames[id] = parsed.peerName;
               _onConnectionInitiated(id, info);
             },
             onConnectionResult: (id, status) {
               _pendingConnectionEndpoints.remove(id);
               if (status == Status.CONNECTED) {
-                // ✅ Fix 1: populate connectedDevices เฉพาะตอน CONNECTED จริง
-                connectedDevices[id] = connectedDevices[id] ?? 'Nearby Peer';
+                _endpointLastActivity[id] = DateTime.now();
+                _failedConnectionCooldowns.remove(id);
+                final pName = _pendingPeerNames.remove(id) ?? connectedDevices[id] ?? 'Nearby Peer';
+                connectedDevices[id] = pName;
                 syncPeersToNewNode(id);
                 broadcastPeerAnnounce(targetEndpointId: id);
                 _broadcastMeshUpdateToExistingNodes(id);
-                debugPrint('[Nearby Advertiser] ✅ Connected: $id (${connectedDevices[id]})');
+                debugPrint('[Nearby Advertiser] ✅ Connected: $id ($pName)');
                 // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
                 final peerNodeId = discoveredMeshPeers.entries
                     .where((e) => e.value.directEndpoint == id)
@@ -673,11 +840,16 @@ class NearbyService extends ChangeNotifier {
                     .firstOrNull;
                 if (peerNodeId != null) {
                   _deliverPendingMessages(id, peerNodeId);
+                  _deliverMuleEnvelopes(id, peerNodeId);
                 }
+                _checkAndAdjustDiscoveryState();
                 notifyListeners();
               } else {
-                // เชื่อมต่อไม่สำเร็จ — เอา id ออกหากเผลอเพิ่มไว้ก่อนหน้า
+                // เชื่อมต่อไม่สำเร็จ — เอา id ออก และตั้ง Negative Cache Cooldown
+                _endpointLastActivity.remove(id);
+                _pendingPeerNames.remove(id);
                 connectedDevices.remove(id);
+                _setFailedCooldown(id);
                 debugPrint('[Nearby Advertiser] ❌ Connection failed: $id status=$status');
                 notifyListeners();
               }
@@ -696,7 +868,7 @@ class NearbyService extends ChangeNotifier {
       }
       isAdvertising = adSuccess;
 
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 50));
 
       // ----------------------------------------------------------------------
       // Step 2: Start Discovery (ลองเปิดสแกนค้นหาด้วย Retry Loop 4 ครั้ง)
@@ -713,75 +885,138 @@ class NearbyService extends ChangeNotifier {
 
   /// 📡 เริ่มสแกนหาสัญญาณ Discovery ภายใน พร้อม Callback จับคู่ (Auto-Retry 4 ครั้ง)
   Future<void> _startDiscoveryInternal() async {
+    // หากหยุดชั่วคราวเพราะสล็อตเต็ม ให้ข้าม
+    if (isDiscoveryPaused || connectedDevices.length >= 4) {
+      debugPrint('[Nearby Discovery] 🛑 Discovery paused: direct peer slots full (${connectedDevices.length}/4)');
+      return;
+    }
+
     for (int attempt = 1; attempt <= 4; attempt++) {
       try {
         await Nearby().startDiscovery(
-          deviceName,
+          advertisedName,
           strategy,
           onEndpointFound: (id, name, serviceId) {
-            // ✅ Fix 2: ข้ามชื่อตัวเองและป้องกัน Dual-Initiator Conflict
-            // หากเชื่อมต่ออยู่แล้ว หรืออยู่ระหว่างส่งคำขอเชื่อมต่อ ให้ข้ามทันที
-            if (name == deviceName) return;
-            if (connectedDevices.containsKey(id) || _pendingConnectionEndpoints.contains(id)) {
-              debugPrint('[Nearby Discovery] ⚠️ Already connected or pending with $id ($name), skipping request.');
+            final parsed = parseAdvertisedName(name);
+            final peerNodeId = parsed.peerNodeId;
+            final peerDisplayName = parsed.peerName;
+
+            // ✅ Fix 1: ข้ามเครื่องตัวเอง (ตรวจทั้งชื่อและ Node ID)
+            if (name == deviceName ||
+                name == advertisedName ||
+                (peerNodeId != null && peerNodeId == nodeId)) {
               return;
             }
 
-            debugPrint('[Nearby Discovery] 🔍 Found endpoint: $id ($name)');
+            // ✅ Fix 2: ตรวจสอบโควต้า Direct Connections (จำกัด 4 โหนดต่อตรง)
+            if (connectedDevices.length >= 4) {
+              debugPrint('[Nearby Discovery] 🛑 Direct peer quota full (4/4). Pausing discovery.');
+              _checkAndAdjustDiscoveryState();
+              return;
+            }
 
-            // 🛡️ Deterministic Tie-Breaking ป้องกัน Dual-Initiator Collision
-            // ให้โหนดที่มีชื่อมากกว่า (Lexicographically) เป็นผู้ส่ง requestConnection ก่อนทันที
-            // ส่วนโหนดที่ชื่อน้อยกว่าจะหน่วงเวลา 2.5 - 3.0 วินาที เพื่อรอรับ incoming connection ก่อน
-            final shouldInitiateImmediately = deviceName.compareTo(name) > 0;
-            final delayMs = shouldInitiateImmediately ? 0 : (2500 + Random().nextInt(500));
+            // ✅ Fix 3: ตรวจสอบ Negative Caching Cooldown (ป้องกัน retry loop รัวๆ)
+            final cooldown = _failedConnectionCooldowns[id];
+            if (cooldown != null) {
+              if (DateTime.now().isBefore(cooldown)) {
+                debugPrint('[Nearby Discovery] ⏳ Endpoint $id is in negative cache cooldown. Skipping retry.');
+                return;
+              } else {
+                _failedConnectionCooldowns.remove(id);
+              }
+            }
+
+            // ✅ Fix 4: หากเชื่อมต่ออยู่แล้ว หรืออยู่ระหว่างขอเชื่อมต่อ ให้ข้าม (ป้องกันชน 3 เครื่อง)
+            if (_isPeerAlreadyConnectedOrPending(
+              peerNodeId: peerNodeId,
+              peerDisplayName: peerDisplayName,
+              endpointId: id,
+            )) {
+              debugPrint('[Nearby Discovery] ⚠️ Already connected or pending with $id ($peerDisplayName, nodeId: $peerNodeId), skipping duplicate request.');
+              return;
+            }
+
+            debugPrint('[Nearby Discovery] 🔍 Found endpoint: $id ($peerDisplayName, nodeId: $peerNodeId)');
+
+            // 🛡️ Deterministic Master/Responder Protocol ป้องกัน Dual-Initiator Collision 100%:
+            // - หากมี peerNodeId: โหนดที่มี Node ID มากกว่า (Lexicographically) จะเป็น Master (Initiator)
+            // - หากเป็นรุ่นเดิมที่ไม่มี prefix: ใช้ deviceName เปรียบเทียบ หากเสมอกันให้ใช้ endpoint ID hash
+            final bool shouldInitiateImmediately = peerNodeId != null
+                ? nodeId.compareTo(peerNodeId) > 0
+                : (deviceName.compareTo(peerDisplayName) != 0
+                    ? deviceName.compareTo(peerDisplayName) > 0
+                    : id.hashCode % 2 == 0);
+
+            // ⚡ Master (Initiator): ยิงคำขอเชื่อมต่อทันทีหลัง Jitter สั้นๆ 30-80ms
+            // ⏳ Responder: รอรับคำขอเชื่อมต่อเท่านั้น (มี Safe Fallback 1200-1500ms เผื่อ Master หลุด)
+            final delayMs = shouldInitiateImmediately
+                ? (30 + Random().nextInt(50))
+                : (1200 + Random().nextInt(300));
 
             if (!shouldInitiateImmediately) {
-              debugPrint('[Nearby Discovery] ⏳ Waiting ${delayMs}ms for higher-order peer $name to initiate...');
+              debugPrint('[Nearby Discovery] ⏳ Responder role: Waiting ${delayMs}ms for Master peer ($peerDisplayName) to initiate...');
+            } else {
+              debugPrint('[Nearby Discovery] ⚡ Master role: Initiating fast connection in ${delayMs}ms to $peerDisplayName...');
             }
 
             Future.delayed(Duration(milliseconds: delayMs), () {
-              if (connectedDevices.containsKey(id) ||
-                  _pendingConnectionEndpoints.contains(id) ||
-                  !isDiscovering) {
+              if (_isPeerAlreadyConnectedOrPending(
+                    peerNodeId: peerNodeId,
+                    peerDisplayName: peerDisplayName,
+                    endpointId: id,
+                  ) ||
+                  !isDiscovering ||
+                  connectedDevices.length >= 4) {
                 return;
               }
               _pendingConnectionEndpoints.add(id);
-              debugPrint('[Nearby Discovery] 🚀 Requesting connection to: $id ($name)');
+              _pendingPeerNames[id] = peerDisplayName;
+              debugPrint('[Nearby Discovery] 🚀 Requesting connection to: $id ($peerDisplayName)');
 
               // ร้องขอการเชื่อมต่อยิงจับคู่ (Pairing Connection)
               Nearby().requestConnection(
-                deviceName,
+                advertisedName,
                 id,
                 onConnectionInitiated: (connId, info) {
                   _pendingConnectionEndpoints.add(connId);
+                  final p = parseAdvertisedName(info.endpointName);
+                  _pendingPeerNames[connId] = p.peerName;
                   _onConnectionInitiated(connId, info);
                 },
                 onConnectionResult: (connResultId, status) {
                   _pendingConnectionEndpoints.remove(connResultId);
                   if (status == Status.CONNECTED) {
-                    if (name != deviceName) {
-                      connectedDevices[connResultId] = name;
+                    _endpointLastActivity[connResultId] = DateTime.now();
+                    _failedConnectionCooldowns.remove(connResultId);
+                    final actualName = _pendingPeerNames.remove(connResultId) ?? peerDisplayName;
+                    if (actualName != deviceName) {
+                      connectedDevices[connResultId] = actualName;
                       syncPeersToNewNode(connResultId);
                       broadcastPeerAnnounce(targetEndpointId: connResultId);
                       _broadcastMeshUpdateToExistingNodes(connResultId);
-                      _showProximityAlert(name);
-                      debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($name)');
+                      _showProximityAlert(actualName);
+                      debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($actualName)');
                       // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
                       Future.delayed(const Duration(seconds: 2), () {
-                        final peerNodeId = discoveredMeshPeers.entries
+                        final pNodeId = discoveredMeshPeers.entries
                             .where((e) => e.value.directEndpoint == connResultId)
                             .map((e) => e.key)
                             .firstOrNull;
-                        if (peerNodeId != null) {
-                          _deliverPendingMessages(connResultId, peerNodeId);
+                        if (pNodeId != null) {
+                          _deliverPendingMessages(connResultId, pNodeId);
+                          _deliverMuleEnvelopes(connResultId, pNodeId);
                         }
                       });
+                      _checkAndAdjustDiscoveryState();
                       notifyListeners();
                     }
                   } else {
-                    // เชื่อมต่อล้มเหลว — ล้าง id ออก
+                    // เชื่อมต่อล้มเหลว — ล้าง id ออก และตั้ง Negative Cache Cooldown
+                    _endpointLastActivity.remove(connResultId);
+                    _pendingPeerNames.remove(connResultId);
                     connectedDevices.remove(connResultId);
-                    debugPrint('[Nearby Discovery] ❌ Connection failed: $connResultId ($name) status=$status');
+                    _setFailedCooldown(connResultId);
+                    debugPrint('[Nearby Discovery] ❌ Connection failed: $connResultId ($peerDisplayName) status=$status');
                     notifyListeners();
                   }
                 },
@@ -790,6 +1025,8 @@ class NearbyService extends ChangeNotifier {
                 },
               ).catchError((e) {
                 _pendingConnectionEndpoints.remove(id);
+                _pendingPeerNames.remove(id);
+                _setFailedCooldown(id);
                 debugPrint('[Nearby Discovery] ⚠️ requestConnection error: $e');
                 return false;
               });
@@ -849,6 +1086,9 @@ class NearbyService extends ChangeNotifier {
   /// 🔌 จัดการเมื่อการเชื่อมต่อกับ Endpoint ขาดหาย (Fast Topology Reconvergence)
   Future<void> _handleEndpointDisconnected(String endpointId, {String source = 'Nearby'}) async {
     _pendingConnectionEndpoints.remove(endpointId);
+    _pendingPeerNames.remove(endpointId);
+    _failedConnectionCooldowns.remove(endpointId);
+    _endpointLastActivity.remove(endpointId);
     connectedDevices.remove(endpointId);
 
     // 1. ปรับสถานะโหนดที่เคยต่อตรงผ่าน endpoint นี้เป็น Offline (hopCount = 99)
@@ -865,6 +1105,13 @@ class NearbyService extends ChangeNotifier {
     debugPrint('[Nearby $source] 🔌 Disconnected: $endpointId');
     notifyListeners();
 
+    // 🛑 ตรวจสอบการหยุดทำงาน: หากผู้ใช้สั่งปิด หรือเครือข่ายไม่ได้ทำงานอยู่
+    // ให้หยุดทันที ไม่ทำการ auto-reconnect หรือปลุกสแกนเนอร์ขึ้นมาเอง (แก้ปัญหา Zombie Reconnect)
+    if (_isManuallyStopped || (!isAdvertising && !isDiscovering)) {
+      debugPrint('[Nearby $source] 🛑 Network is stopped or inactive. Skipping auto-reconnect.');
+      return;
+    }
+
     // 2. ⚡ Fast Mesh Reconvergence: หากยังมีอุปกรณ์อื่นเชื่อมต่ออยู่
     // ให้กระจายสัญญาณประกาศตนเองและซิงก์บริดจ์ทันทีโดยไม่ต้องรอรอบ Timer
     if (connectedDevices.isNotEmpty) {
@@ -873,14 +1120,87 @@ class NearbyService extends ChangeNotifier {
       await syncBridgeAnnounces();
     }
 
-    // 3. เริ่มสแกนค้นหาใหม่ทันทีเพื่อกู้คืนโหนดที่หลุด
+    // 3. ปรับสถานะสล็อตเชื่อมต่อ หากเคย Pause Discovery ไว้ ให้ปลุกขึ้นมาใหม่
+    await _checkAndAdjustDiscoveryState();
+
+    // 4. เริ่มสแกนค้นหาใหม่ทันทีเพื่อกู้คืนโหนดที่หลุด
     _triggerFastDiscoveryRestart();
+  }
+
+  /// 🛑 ตรวจสอบและสลับสถานะการสแกน Discovery ตามจำนวน Direct Connections (Slot Management)
+  /// - หากเชื่อมต่อตรงครบ 4 โหนด: สั่ง Nearby().stopDiscovery() พักการสแกนเพื่อรักษาแบนด์วิดท์
+  /// - หากลดลงต่ำกว่า 4 โหนด: ปลุกการสแกนกลับมาทันที (Resume Discovery)
+  Future<void> _checkAndAdjustDiscoveryState() async {
+    if (!isAdvertising && !isDiscovering && !isDiscoveryPaused) return;
+
+    if (connectedDevices.length >= 4) {
+      if (isDiscovering && !isDiscoveryPaused) {
+        debugPrint('[Nearby Slots] 🔒 Direct peer slots full (4/4). Pausing discovery to preserve bandwidth.');
+        try {
+          await Nearby().stopDiscovery();
+          isDiscovering = false;
+          isDiscoveryPaused = true;
+          notifyListeners();
+        } catch (e) {
+          debugPrint('[Nearby Slots] Error pausing discovery: $e');
+        }
+      }
+    } else {
+      if (isDiscoveryPaused) {
+        debugPrint('[Nearby Slots] 🔓 Direct peer slot available (${connectedDevices.length}/4). Resuming discovery.');
+        isDiscoveryPaused = false;
+        await _startDiscoveryInternal();
+        notifyListeners();
+      }
+    }
+  }
+
+  /// 🚀 บังคับรีเฟรชการสแกนบลูทูธทันที (Force Rescan) พร้อมเคลียร์ Cooldown และตรวจสอบความพร้อมของระบบ
+  /// มีระบบ Rate Limit 5 วินาที เพื่อป้องกัน Android BLE Scan Throttling
+  Future<bool> forceRescan() async {
+    final now = DateTime.now();
+    if (_lastForceRescanTime != null &&
+        now.difference(_lastForceRescanTime!).inSeconds < 5) {
+      final remaining = 5 - now.difference(_lastForceRescanTime!).inSeconds;
+      debugPrint('[Nearby Force Rescan] ⏳ Rate limited. Please wait $remaining s.');
+      return false;
+    }
+    _lastForceRescanTime = now;
+
+    // 1. ตรวจสอบสถานะฮาร์ดแวร์ GPS/Location
+    await checkHardwareReadiness();
+
+    // 2. เคลียร์ Cooldown แคชเพื่อเปิดโอกาสเชื่อมต่อใหม่
+    _failedConnectionCooldowns.clear();
+    _pendingConnectionEndpoints.clear();
+    _pendingPeerNames.clear();
+
+    // 3. หากระบบปิดอยู่ ให้เริ่มใหม่ทั้งหมด
+    if (!isAdvertising && !isDiscovering) {
+      await startEmergencyNetwork();
+      return true;
+    }
+
+    // 4. หากระบบเปิดอยู่ ให้ Refresh Discovery
+    try {
+      isDiscoveryPaused = false;
+      await Nearby().stopDiscovery();
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _startDiscoveryInternal();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('[Nearby Force Rescan] Error: $e');
+      return false;
+    }
   }
 
   DateTime? _lastDiscoveryRestartTime;
 
   /// 🔄 กระตุ้นการรีสตาร์ท Discovery สั้นๆ เพื่อล้างแคช Bluetooth GATT Stack ของ Android
   void _triggerFastDiscoveryRestart() {
+    if (_isManuallyStopped || !isDiscovering) return;
+
     final now = DateTime.now();
     if (_lastDiscoveryRestartTime != null &&
         now.difference(_lastDiscoveryRestartTime!).inSeconds < 8) {
@@ -888,12 +1208,14 @@ class NearbyService extends ChangeNotifier {
     }
     _lastDiscoveryRestartTime = now;
     Future.delayed(const Duration(milliseconds: 1200), () async {
+      if (_isManuallyStopped || !isDiscovering) return;
       // รีเฟรชได้เสมอหากอุปกรณ์เชื่อมต่อตรงยังไม่เต็มโควต้า (< 4 โหนด)
-      if (connectedDevices.length < 4) {
+      if (connectedDevices.length < 4 && !isDiscoveryPaused) {
         debugPrint('[Nearby] 🔄 Auto-recovering: Fast cycling discovery scanner...');
         try {
           await Nearby().stopDiscovery();
           await Future.delayed(const Duration(milliseconds: 400));
+          if (_isManuallyStopped) return;
           await _startDiscoveryInternal();
         } catch (e) {
           debugPrint('[Nearby] Error during fast discovery restart: $e');
@@ -903,10 +1225,14 @@ class NearbyService extends ChangeNotifier {
   }
 
   /// 🐕 เริ่มระบบ Watchdog ตรวจสอบสถานะทุก 40 วินาที
-  /// ป้องกัน BLE Scanner หลับหรือค้างบน Android แม้จะเชื่อมต่อกับ Node A อยู่ ก็ยังสแกนหา Node C เจอ
+  /// ป้องกัน BLE Scanner หลับหรือค้างบน Android
   void _startDiscoveryWatchdog() {
     _discoveryWatchdogTimer?.cancel();
     _discoveryWatchdogTimer = Timer.periodic(const Duration(seconds: 40), (_) async {
+      if (_isManuallyStopped || (!isAdvertising && !isDiscovering)) return;
+      // หากสล็อตเต็มแล้ว ไม่ต้องปลุกสแกนเนอร์
+      if (isDiscoveryPaused) return;
+
       // 1. ฟื้นฟูระบบกรณี Discovery หลุดการทำงาน (เช่น หลังเปิด-ปิดบลูทูธบนเครื่อง)
       if (!isDiscovering) {
         debugPrint('[Nearby Watchdog] Discovery was inactive. Reviving discovery scanner...');
@@ -914,13 +1240,14 @@ class NearbyService extends ChangeNotifier {
         return;
       }
 
-      // 2. Soft-cycling: หากเชื่อมต่อตรงยังไม่เต็ม 4 โหนด ให้รีเฟรชสแกนเนอร์เงียบๆ ทุก 40 วินาที
-      // การ stopDiscovery / startDiscovery จะไม่ตัดการเชื่อมต่อบลูทูธเดิม แต่จะล้างบัฟเฟอร์ BLE ให้ค้นพบโหนดใหม่ได้ทันที
-      if (connectedDevices.length < 4) {
-        debugPrint('[Nearby Watchdog] Softly cycling BLE discovery scanner to maintain high-sensitivity discovery...');
+      // 2. Soft-cycling: ทำเฉพาะตอนที่ "ยังไม่มีอุปกรณ์ใดเชื่อมต่อเลย" (connectedDevices.isEmpty)
+      // ⚠️ หากมีอุปกรณ์เชื่อมต่ออยู่ ห้าม stopDiscovery() เด็ดขาด เพราะ Android HAL จะรีเซ็ต GATT Socket ทำให้คลัสเตอร์ 3 เครื่องหลุด!
+      if (connectedDevices.isEmpty) {
+        debugPrint('[Nearby Watchdog] Softly cycling BLE discovery scanner while idle to maintain high sensitivity...');
         try {
           await Nearby().stopDiscovery();
           await Future.delayed(const Duration(milliseconds: 400));
+          if (_isManuallyStopped) return;
           await _startDiscoveryInternal();
         } catch (e) {
           debugPrint('[Nearby Watchdog] Error cycling discovery: $e');
@@ -929,12 +1256,31 @@ class NearbyService extends ChangeNotifier {
     });
   }
 
-  /// ⏹️ ปิดการทำงานของเครือข่ายฉุกเฉินและล้างค่าเซสชัน พร้อม Cool-down Delay 800ms ให้ OS เคลียร์ Bluetooth Socket
+  /// ⏹️ ปิดการทำงานของเครือข่ายฉุกเฉินและล้างค่าเซสชัน พร้อมแจ้งเตือนตัดการเชื่อมต่อไปยังโหนดข้างเคียงทันที
   Future<void> stopEmergencyNetwork() async {
+    _isManuallyStopped = true;
     _peerAnnounceTimer?.cancel();
     _peerAnnounceTimer = null;
     _discoveryWatchdogTimer?.cancel();
     _discoveryWatchdogTimer = null;
+
+    // 📢 ส่งสัญญาณแจ้งเตือนบอกลา (Graceful Leave Notice) ให้โหนดอื่นทราบทันทีก่อนตัดการเชื่อมต่อ
+    if (connectedDevices.isNotEmpty) {
+      final leaveMsg = NearbyMessage(
+        senderId: nodeId,
+        senderName: deviceName,
+        content: 'LEAVE_MESH',
+        timestamp: DateTime.now(),
+        ttl: 1,
+      );
+      final leaveBytes = utf8.encode(jsonEncode(leaveMsg.toJson()));
+      for (final endpointId in connectedDevices.keys.toList()) {
+        try {
+          await Nearby().sendBytesPayload(endpointId, leaveBytes);
+        } catch (_) {}
+      }
+    }
+
     try {
       await Nearby().stopAdvertising();
       await Nearby().stopDiscovery();
@@ -943,11 +1289,15 @@ class NearbyService extends ChangeNotifier {
       debugPrint('[Nearby Stop Error]: $e');
     }
     _pendingConnectionEndpoints.clear();
+    _pendingPeerNames.clear();
+    _failedConnectionCooldowns.clear();
+    _endpointLastActivity.clear();
     connectedDevices.clear();
     discoveredMeshPeers.clear();
     _processedMessageIds.clear();
     isAdvertising = false;
     isDiscovering = false;
+    isDiscoveryPaused = false;
     notifyListeners();
     // ⏳ หน่วงเวลา Cool-down 800ms ให้ระบบปฏิบัติการ Android Bluetooth Stack เคลียร์ซ็อกเก็ต GATT ให้เรียบร้อย
     await Future.delayed(const Duration(milliseconds: 800));
@@ -978,24 +1328,57 @@ class NearbyService extends ChangeNotifier {
 
   /// 🤝 Callback ขั้นตอนการ Handshake สถาปนาการเชื่อมต่อแบบไร้สาย และการรับข้อมูล Payload
   void _onConnectionInitiated(String id, ConnectionInfo info) {
-    // ✅ Fix 1: ปฏิเสธการเชื่อมต่อกับตัวเอง
-    if (info.endpointName == deviceName) {
+    final parsed = parseAdvertisedName(info.endpointName);
+
+    // ✅ Fix 1: ปฏิเสธการเชื่อมต่อกับตัวเอง (ตรวจสอบทั้ง Node ID และชื่อ)
+    final isSelf = (parsed.peerNodeId != null && parsed.peerNodeId == nodeId) ||
+        info.endpointName == deviceName ||
+        info.endpointName == advertisedName ||
+        parsed.peerName == deviceName;
+    if (isSelf) {
+      debugPrint('[Nearby] 🚫 Rejected connection attempt from self: $id (${info.endpointName})');
       Nearby().rejectConnection(id);
       return;
     }
-    // ✅ Fix 1: ไม่เพิ่ม connectedDevices ตรงนี้ — รอให้ onConnectionResult (CONNECTED) เป็นผู้เพิ่ม
+
+    // ✅ Fix 1.5: ปฏิเสธหากเป็น Duplicate Connection (เชื่อมต่ออยู่แล้วหรืออยู่ระหว่าง Handshake)
+    if (_isPeerAlreadyConnectedOrPending(
+      peerNodeId: parsed.peerNodeId,
+      peerDisplayName: parsed.peerName,
+      endpointId: id,
+    )) {
+      debugPrint('[Nearby] 🚫 Rejected duplicate connection attempt from: $id (${parsed.peerName})');
+      Nearby().rejectConnection(id);
+      return;
+    }
+
+    // ✅ Fix 2: ปฏิเสธหากโควต้าเชื่อมต่อตรงเต็ม 4 โหนด
+    if (connectedDevices.length >= 4) {
+      debugPrint('[Nearby] 🚫 Direct peer slots full (4/4). Rejecting incoming connection: $id');
+      Nearby().rejectConnection(id);
+      return;
+    }
+
+    // ✅ Fix 3: ไม่เพิ่ม connectedDevices ตรงนี้ — รอให้ onConnectionResult (CONNECTED) เป็นผู้เพิ่ม
     // เพื่อป้องกันสถานะ count ผิดพลาดเมื่อ connection สุดท้าย reject/timeout
-    debugPrint('[Nearby] 🤝 Connection initiated with: $id (${info.endpointName})');
+    debugPrint('[Nearby] 🤝 Connection initiated with: $id (${parsed.peerName})');
 
     // ยอมรับการเชื่อมต่อ (Accept Connection)
     Nearby().acceptConnection(
       id,
       onPayLoadRecieved: (endpointId, payload) async {
+        _endpointLastActivity[endpointId] = DateTime.now();
         // เมื่อได้รับแพ็กเก็ตข้อมูลประเภท Byte Payload
         if (payload.type == PayloadType.BYTES) {
           final str = utf8.decode(payload.bytes!);
           try {
             final json = jsonDecode(str);
+
+            // 🎒 ตรวจสอบว่าเป็นแพ็กเก็ตคนส่งสาร (Data Mule Envelope) หรือไม่
+            if (json is Map<String, dynamic> && json['isMuleEnvelope'] == true) {
+              await _handleIncomingMulePayload(json, endpointId);
+              return;
+            }
 
             // 📌 ตรวจสอบว่าเป็นแพ็กเก็ตกระดานประกาศฉุกเฉินออฟไลน์ (Offline Mesh Notice) หรือไม่
             if (json is Map<String, dynamic> && json['isNotice'] == true) {
@@ -1043,6 +1426,15 @@ class NearbyService extends ChangeNotifier {
             _reversePathTable[msg.senderId] = endpointId;
             if (_reversePathTable.length > 2000) {
               _reversePathTable.remove(_reversePathTable.keys.first);
+            }
+
+            // ------------------------------------------------------------------
+            // 🚪 1.2 Graceful Leave Notification (เมื่อโหนดคู่สนทนาปิดระบบ Mesh)
+            // ------------------------------------------------------------------
+            if (msg.content == 'LEAVE_MESH') {
+              debugPrint('[Nearby] 🚪 Peer ${msg.senderName} (${msg.senderId}) sent LEAVE_MESH notice.');
+              await _handleEndpointDisconnected(endpointId, source: 'GracefulLeave');
+              return;
             }
 
             // ------------------------------------------------------------------
@@ -1263,7 +1655,20 @@ class NearbyService extends ChangeNotifier {
           }
         }
       },
-      onPayloadTransferUpdate: (endpointId, payloadTransferUpdate) {},
+      onPayloadTransferUpdate: (endpointId, payloadTransferUpdate) {
+        if (payloadTransferUpdate.status == PayloadStatus.FAILURE) {
+          debugPrint('[Nearby Payload Guard] ⚠️ Payload transfer to $endpointId failed.');
+          // ตรวจสอบว่าโหนดนี้เงียบหายไปนานเกิน 15 วินาทีหรือไม่ หากใช่ ให้ตัดการเชื่อมต่อทันที
+          for (final peer in discoveredMeshPeers.values.toList()) {
+            if (peer.directEndpoint == endpointId) {
+              if (DateTime.now().difference(peer.lastSeen).inSeconds > 15) {
+                _handleEndpointDisconnected(endpointId, source: 'PayloadTransferFailure');
+              }
+              break;
+            }
+          }
+        }
+      },
     );
   }
 
@@ -1336,10 +1741,24 @@ class NearbyService extends ChangeNotifier {
       }
     }
 
+    final rawSenderName = msg.senderName.trim();
+    final parsedRaw = parseAdvertisedName(rawSenderName);
+    final effectiveRawName = parsedRaw.peerName;
+    final cleanSenderName = (effectiveRawName.isNotEmpty &&
+            !effectiveRawName.startsWith('node_') &&
+            !RegExp(r'^Survivor_[0-9a-fA-F]{4}$').hasMatch(effectiveRawName))
+        ? effectiveRawName
+        : (existingPeer != null &&
+                !existingPeer.peerName.startsWith('node_') &&
+                !RegExp(r'^Survivor_[0-9a-fA-F]{4}$').hasMatch(existingPeer.peerName) &&
+                existingPeer.peerName.trim().isNotEmpty)
+            ? existingPeer.peerName
+            : NearbyService.generateTacticalCallsign(msg.senderId);
+
     // อัปเดตข้อมูลโหนดเดิมที่มีอยู่แล้ว หรือเพิ่มโหนดใหม่ (โดยยึด senderId / nodeId ถาวรเป็นหลัก)
     discoveredMeshPeers[msg.senderId] = MeshPeer(
       peerId: msg.senderId,
-      peerName: msg.senderName.isNotEmpty ? msg.senderName : msg.senderId,
+      peerName: cleanSenderName,
       publicKeyHex: msg.peerPublicKey ?? existingPeer?.publicKeyHex ?? '',
       hopCount: bestHop,
       directEndpoint: (bestHop == 1) ? fromEndpointId : null,
@@ -1357,6 +1776,9 @@ class NearbyService extends ChangeNotifier {
 
     // 📬 ส่งข้อความส่วนตัวที่ฝากไว้ในคิว (Store-and-Forward) ให้โหนดนี้ทันทีที่ค้นพบ
     _deliverPendingMessages(fromEndpointId, msg.senderId);
+
+    // 🎒 ตรวจสอบและส่งมอบซองจดหมายคนเดินสาร (Data Mule Auto-Handover) ให้โหนดนี้ทันทีที่ค้นพบ
+    _deliverMuleEnvelopes(fromEndpointId, msg.senderId);
 
     // 3. Multi-hop Silent Relay Engine (คำนวณ TTL Sanitization ป้องกันวนลูป)
     final effectiveTtl = min(msg.ttl, 5);
@@ -1532,9 +1954,45 @@ class NearbyService extends ChangeNotifier {
     _peerAnnounceTimer?.cancel();
     // ⚡ ปรับเป็นทุก 6 วินาที เพื่อให้ Dynamic Mesh สลับ 1-hop / 2-hop ตอบสนองรวดเร็วในภาคสนาม
     _peerAnnounceTimer = Timer.periodic(const Duration(seconds: 6), (_) async {
+      if (_isManuallyStopped || (!isAdvertising && !isDiscovering && connectedDevices.isEmpty)) return;
+
       if (isAdvertising || isDiscovering || connectedDevices.isNotEmpty) {
         await broadcastPeerAnnounce();
         await syncBridgeAnnounces();
+
+        // 🧹 Active Dead-Peer & Ghost-Link Pruning (แก้ปัญหาเครื่องปลายทางปิดบลูทูธฉับพลันแล้วสถานะค้าง):
+        // 1. ตรวจสอบระดับ Endpoint ใน connectedDevices ทุกตัว โดยอิงจาก _endpointLastActivity
+        // หากไม่มีข้อมูลหรือ Heartbeat ตอบรับจาก Endpoint นั้นเกิน 15 วินาที
+        // ให้ตัดการเชื่อมต่อที่ระดับ Nearby() ทันที และล้างสถานะออกจากคลัสเตอร์
+        final now = DateTime.now();
+        final staleEndpoints = <String>[];
+        for (final endpointId in connectedDevices.keys.toList()) {
+          final lastAct = _endpointLastActivity[endpointId] ?? now;
+          if (now.difference(lastAct).inSeconds > 15) {
+            staleEndpoints.add(endpointId);
+          }
+        }
+        for (final staleId in staleEndpoints) {
+          debugPrint('[Liveness Watchdog] ⚠️ Endpoint $staleId silent for >15s (Ghost Node). Purging connection.');
+          try {
+            await Nearby().disconnectFromEndpoint(staleId);
+          } catch (_) {}
+          await _handleEndpointDisconnected(staleId, source: 'LivenessWatchdog');
+        }
+
+        // 2. ตรวจสอบโหนดใน discoveredMeshPeers (Heartbeat timeout 15 วินาที)
+        for (final peer in discoveredMeshPeers.values.toList()) {
+          if (peer.peerId != nodeId && peer.directEndpoint != null) {
+            final silentSec = now.difference(peer.lastSeen).inSeconds;
+            if (silentSec > 15) {
+              debugPrint('[Heartbeat Watchdog] ⚠️ Peer ${peer.peerName} (${peer.directEndpoint}) silent for ${silentSec}s. Purging stale link.');
+              try {
+                await Nearby().disconnectFromEndpoint(peer.directEndpoint!);
+              } catch (_) {}
+              await _handleEndpointDisconnected(peer.directEndpoint!, source: 'HeartbeatWatchdog');
+            }
+          }
+        }
       }
     });
   }
@@ -1708,6 +2166,11 @@ class NearbyService extends ChangeNotifier {
         recipientName: recipientName,
       );
 
+      // ตรวจสอบว่าเป้าหมายออนไลน์อยู่ในโครงข่ายปัจจุบันหรือไม่
+      final targetPeer = discoveredMeshPeers[targetNodeId];
+      final isTargetOnline = targetPeer != null &&
+          getPeerConnectionStatus(targetPeer) != PeerConnectionStatus.offline;
+
       // 1. แพ็กรวมข้อมูลลับเฉพาะ (Inner Private Payload) ลง JSON
       final innerPayload = jsonEncode({
         "content": content,
@@ -1734,26 +2197,49 @@ class NearbyService extends ChangeNotifier {
       );
 
       _processedMessageIds.add(msg.id);
+      final jsonStr = jsonEncode(msg.toJson());
+      final bytes = utf8.encode(jsonStr);
 
-      // บนหน้าจอผู้ส่ง ให้บันทึกแสดงผลด้วยข้อความปกติ (Plaintext) เพื่อให้อ่านในกล่องข้อความตนเองได้
+      // 🛑 กรณีปลายทางออฟไลน์ชัดเจน (ไม่อยู่ในระยะเชื่อมต่อ 1-hop หรือ Multi-hop):
+      // บันทึกลงตาราง pending_messages ทันที เพื่อรอส่งอัตโนมัติเมื่อพบกัน (Direct Store-and-Forward)
+      if (!isTargetOnline) {
+        debugPrint('[PrivateMsg] 📤 Target $targetNodeId is offline — queuing message ${msg.id} in pending_messages for direct delivery on reconnect.');
+        await ChatDatabaseHelper.instance.insertPendingMessage(
+          id: msg.id,
+          recipientNodeId: targetNodeId,
+          payload: jsonStr,
+        );
+        final localDisplayMsg = msg.copyWith(
+          content: content,
+          status: 'PENDING',
+        );
+        messages.insert(0, localDisplayMsg);
+        await ChatDatabaseHelper.instance.insertMessage(
+          localDisplayMsg,
+          myNodeId: nodeId,
+          myDeviceName: deviceName,
+        );
+        notifyListeners();
+        return null;
+      }
+
+      // 🟢 กรณีเป้าหมายออนไลน์อยู่ในเครือข่าย:
       final localDisplayMsg = msg.copyWith(
         content: content,
         status: 'SENDING',
       );
       messages.insert(0, localDisplayMsg);
-      ChatDatabaseHelper.instance.insertMessage(
+      await ChatDatabaseHelper.instance.insertMessage(
         localDisplayMsg,
         myNodeId: nodeId,
         myDeviceName: deviceName,
       );
       notifyListeners();
 
-      final jsonStr = jsonEncode(msg.toJson());
-      final bytes = utf8.encode(jsonStr);
-
       // 3. ตรวจสอบว่ามีโหนดใดรู้จักเส้นทางไปหาผู้รับได้หรือไม่
       bool sent = false;
-      final nextHop = _reversePathTable[targetNodeId];
+      final nextHop = _reversePathTable[targetNodeId] ??
+          (targetPeer.hopCount == 1 ? targetPeer.directEndpoint : null);
       if (nextHop != null && connectedDevices.containsKey(nextHop)) {
         try {
           await Nearby().sendBytesPayload(nextHop, bytes);
@@ -1772,10 +2258,9 @@ class NearbyService extends ChangeNotifier {
         }
       }
 
-
       if (!sent) {
-        // ❌ Peer ไม่ได้อยู่ในเครือข่ายตอนนี้ — ฝากข้อความไว้ในคิว (Store-and-Forward)
-        debugPrint('[PrivateMsg] 📤 No active route to $targetNodeId — queuing message ${msg.id} for later delivery.');
+        // ❌ หากส่งไม่สำเร็จ (เช่น สัญญาณหลุดกะทันหัน) — ตกกลับมาฝากข้อความไว้ในคิว (Store-and-Forward)
+        debugPrint('[PrivateMsg] 📤 Transmission failed to $targetNodeId — fallback queuing message ${msg.id}.');
         await ChatDatabaseHelper.instance.insertPendingMessage(
           id: msg.id,
           recipientNodeId: targetNodeId,
@@ -1842,6 +2327,435 @@ class NearbyService extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  // ==========================================================================
+  // 🎒 Section: Data Mule Courier Engine (ระบบส่งสารแบบ Store-Carry-and-Forward)
+  // ==========================================================================
+
+  /// 🎒 ส่งข้อความผ่านคนส่งสาร (Data Mule Courier Dispatch) - แบบระบุคนเดียว
+  Future<String?> dispatchMuleEnvelope({
+    required String recipientId,
+    required String recipientName,
+    required String content,
+    required String carrierEndpointId,
+    bool isUrgent = false,
+  }) {
+    return dispatchMultiCarrierEnvelopes(
+      recipientId: recipientId,
+      recipientName: recipientName,
+      content: content,
+      carrierEndpointIds: [carrierEndpointId],
+      isUrgent: isUrgent,
+    );
+  }
+
+  /// 🎒🎒🎒 ส่งข้อความผ่านคนส่งสารหลายคนพร้อมกัน (Multi-Carrier Controlled K-Replication)
+  /// 
+  /// ใช้ในกรณีที่ผู้รับเป้าหมาย [recipientId] อยู่นอกระยะการเชื่อมต่อ
+  /// ระบบจะคัดลอกซองจดหมาย [MuleEnvelope] เดียวกัน (Same ID) ให้คนเดินสารทุกคนใน [carrierEndpointIds] (สูงสุด 3 คน)
+  /// เพื่อกระจายความเสี่ยง (Opportunistic Diversity) และเพิ่มโอกาสส่งถึงมือผู้รับสูงสุด
+  Future<String?> dispatchMultiCarrierEnvelopes({
+    required String recipientId,
+    required String recipientName,
+    required String content,
+    required List<String> carrierEndpointIds,
+    bool isUrgent = false,
+  }) async {
+    if (carrierEndpointIds.isEmpty) {
+      return 'กรุณาเลือกคนส่งสารอย่างน้อย 1 คน';
+    }
+
+    final rateLimitError = checkRateLimit(type: 'TEXT', content: content);
+    if (rateLimitError != null) {
+      debugPrint('[RateLimit] ⚠️ $rateLimitError');
+      return rateLimitError;
+    }
+    _recordSendTimestamp(type: 'TEXT');
+
+    MuleEnvelope? envelope;
+    try {
+      final targetNodeId = _resolveTargetNodeId(
+        recipientId: recipientId,
+        recipientName: recipientName,
+      );
+
+      final innerPayload = jsonEncode({
+        "content": content,
+        "senderName": deviceName,
+        "senderId": nodeId,
+        "timestamp": DateTime.now().toIso8601String(),
+      });
+
+      final encryptedContent = CryptoMeshService.encryptPayload(
+        plainText: innerPayload,
+        recipientId: targetNodeId,
+        senderId: nodeId,
+      );
+
+      final signature = CryptoMeshService.signData(encryptedContent);
+
+      envelope = MuleEnvelope(
+        senderNodeId: nodeId,
+        senderCallsign: deviceName,
+        recipientNodeId: targetNodeId,
+        encryptedPayload: encryptedContent,
+        payloadIv: '',
+        payloadAuthTag: '',
+        senderSignature: signature,
+        isUrgentSOS: isUrgent,
+        maxHops: 3,
+        expiresAt: DateTime.now().add(const Duration(hours: 48)),
+      );
+
+      // บันทึกข้อความลงในแชทตนเองเป็นสถานะ MULE_CARRIED
+      final localDisplayMsg = NearbyMessage(
+        id: envelope.envelopeId,
+        senderId: nodeId,
+        senderName: deviceName,
+        recipientId: targetNodeId,
+        recipientName: recipientName,
+        content: content,
+        timestamp: DateTime.now(),
+        status: 'MULE_CARRIED',
+        isEncrypted: true,
+      );
+
+      messages.insert(0, localDisplayMsg);
+      await ChatDatabaseHelper.instance.insertMessage(
+        localDisplayMsg,
+        myNodeId: nodeId,
+        myDeviceName: deviceName,
+      );
+      notifyListeners();
+
+      final packet = {
+        'isMuleEnvelope': true,
+        'muleAction': 'DISPATCH',
+        'envelope': envelope.toJson(),
+      };
+
+      final bytes = utf8.encode(jsonEncode(packet));
+      int successCount = 0;
+
+      for (final ep in carrierEndpointIds) {
+        try {
+          await Nearby().sendBytesPayload(ep, bytes);
+          successCount++;
+          final carrierName = connectedDevices[ep] ?? 'คนส่งสาร';
+          debugPrint('[Data Mule] 🎒 Dispatched envelope ${envelope.envelopeId} to carrier $carrierName ($ep)');
+        } catch (e) {
+          debugPrint('[Data Mule Error] Failed to dispatch envelope to $ep: $e');
+        }
+      }
+
+      if (successCount == 0) {
+        final envId = envelope.envelopeId;
+        final idx = messages.indexWhere((m) => m.id == envId);
+        if (idx != -1) {
+          messages[idx] = messages[idx].copyWith(status: 'FAILED');
+          ChatDatabaseHelper.instance.updateMessageStatus(envId, 'FAILED');
+          notifyListeners();
+        }
+        return 'ไม่สามารถส่งมอบซองจดหมายให้คนส่งสารได้ กรุณาลองใหม่อีกครั้ง';
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('[Data Mule Error] Failed in dispatchMultiCarrierEnvelopes: $e');
+      final env = envelope;
+      if (env != null) {
+        final idx = messages.indexWhere((m) => m.id == env.envelopeId);
+        if (idx != -1) {
+          messages[idx] = messages[idx].copyWith(status: 'FAILED');
+          ChatDatabaseHelper.instance.updateMessageStatus(env.envelopeId, 'FAILED');
+          notifyListeners();
+        }
+      }
+      return 'เกิดข้อผิดพลาดในการฝากข้อความกับคนส่งสาร: $e';
+    }
+  }
+
+  /// 🎒 ตรวจสอบและส่งมอบซองจดหมายคนเดินสาร (Data Mule Auto-Handover & Opportunistic Relay)
+  /// 
+  /// 1. ส่งใบเสร็จ Delivery Receipts ให้โหนดที่เชื่อมต่อ (แจ้งผู้ส่งต้นทาง)
+  /// 2. ส่งมอบซองจดหมายที่จ่าหน้าถึงผู้รับนี้ (Direct Handover)
+  /// 3. ส่งต่อซองจดหมายให้คนเดินสารคนอื่นช่วยแบกต่อ (Courier-to-Courier Opportunistic Relay)
+  Future<void> _deliverMuleEnvelopes(String connectedEndpointId, String peerNodeId) async {
+    // 1. ส่งมอบใบเสร็จ Delivery Receipts ที่ค้างอยู่ในเครื่องให้โหนดที่เชื่อมต่อ (แจ้งผู้ส่งต้นทาง)
+    for (final envId in _deliveredMuleReceipts.toList()) {
+      final receiptPacket = {
+        'isMuleEnvelope': true,
+        'muleAction': 'DELIVERY_RECEIPT',
+        'envelopeId': envId,
+      };
+      try {
+        await Nearby().sendBytesPayload(connectedEndpointId, utf8.encode(jsonEncode(receiptPacket)));
+      } catch (_) {}
+    }
+
+    // 2. ส่งมอบซองจดหมายที่จ่าหน้าถึงผู้รับนี้
+    final envelopes = await ChatDatabaseHelper.instance.getEnvelopesForRecipient(peerNodeId);
+    if (envelopes.isNotEmpty) {
+      debugPrint('[Data Mule] 🎒 Found ${envelopes.length} carried envelope(s) for $peerNodeId. Delivering now...');
+      for (final env in envelopes) {
+        final packet = {
+          'isMuleEnvelope': true,
+          'muleAction': 'DELIVER',
+          'envelope': env.toJson(),
+        };
+        try {
+          final bytes = utf8.encode(jsonEncode(packet));
+          await Nearby().sendBytesPayload(connectedEndpointId, bytes);
+          debugPrint('[Data Mule] 📬 Handed over envelope ${env.envelopeId} to $peerNodeId via $connectedEndpointId');
+        } catch (e) {
+          debugPrint('[Data Mule] ❌ Failed to deliver envelope ${env.envelopeId}: $e');
+        }
+      }
+    }
+
+    // 3. 🔄 ส่งต่อซองจดหมายให้คนเดินสารคนอื่นช่วยแบกต่อ (Courier-to-Courier Opportunistic Relay)
+    if (isDataMuleEnabled) {
+      final relayEnvelopes = await ChatDatabaseHelper.instance.getEnvelopesForRelay(
+        peerNodeId: peerNodeId,
+        maxHops: 2, // จำกัดไม่เกิน 2 ทอดในการ relay เพื่อป้องกันคลื่นชนและข้อมูลซ้ำซ้อน
+      );
+      for (final env in relayEnvelopes) {
+        final relayedEnv = env.incrementHop();
+        final relayPacket = {
+          'isMuleEnvelope': true,
+          'muleAction': 'MULE_RELAY',
+          'envelope': relayedEnv.toJson(),
+        };
+        try {
+          final bytes = utf8.encode(jsonEncode(relayPacket));
+          await Nearby().sendBytesPayload(connectedEndpointId, bytes);
+          debugPrint('[Data Mule] 🔄 Relayed envelope ${env.envelopeId} (hop: ${relayedEnv.hopCarryCount}/${relayedEnv.maxHops}) to peer $peerNodeId');
+        } catch (e) {
+          debugPrint('[Data Mule Relay Error] Failed to relay envelope ${env.envelopeId}: $e');
+        }
+      }
+    }
+  }
+
+  /// 📬 ประมวลผลและถอดรหัสซองจดหมายที่ส่งถึงมือผู้รับปลายทาง
+  Future<void> _processDeliveredEnvelope(MuleEnvelope envelope, String fromEndpointId) async {
+    // ตรวจสอบว่าเคยรับซองนี้ไปแล้วหรือไม่
+    if (await ChatDatabaseHelper.instance.isPacketProcessed(envelope.envelopeId)) {
+      debugPrint('[Data Mule] ℹ️ Envelope ${envelope.envelopeId} already processed. Resending DELIVER_ACK.');
+      final ackPacket = {
+        'isMuleEnvelope': true,
+        'muleAction': 'DELIVER_ACK',
+        'envelopeId': envelope.envelopeId,
+      };
+      try {
+        await Nearby().sendBytesPayload(fromEndpointId, utf8.encode(jsonEncode(ackPacket)));
+      } catch (_) {}
+      return;
+    }
+    ChatDatabaseHelper.instance.markPacketProcessed(envelope.envelopeId);
+
+    try {
+      final decryptedJsonStr = CryptoMeshService.decryptPayload(
+        cipherText: envelope.encryptedPayload,
+        senderId: envelope.senderNodeId,
+        recipientId: nodeId,
+      );
+      final inner = jsonDecode(decryptedJsonStr) as Map<String, dynamic>;
+      final content = inner['content'] as String? ?? '';
+      final senderName = inner['senderName'] as String? ?? envelope.senderCallsign;
+
+      final incomingMsg = NearbyMessage(
+        id: envelope.envelopeId,
+        senderId: envelope.senderNodeId,
+        senderName: senderName,
+        recipientId: nodeId,
+        recipientName: deviceName,
+        content: content,
+        timestamp: envelope.createdAt,
+        isEncrypted: true,
+        status: 'DELIVERED',
+      );
+
+      messages.insert(0, incomingMsg);
+      await ChatDatabaseHelper.instance.insertMessage(
+        incomingMsg,
+        myNodeId: nodeId,
+        myDeviceName: deviceName,
+      );
+      notifyListeners();
+
+      _showMuleAlert(
+        '🎒 ได้รับข้อความผ่านคนส่งสาร',
+        '$senderName: $content',
+      );
+
+      final ackPacket = {
+        'isMuleEnvelope': true,
+        'muleAction': 'DELIVER_ACK',
+        'envelopeId': envelope.envelopeId,
+      };
+      await Nearby().sendBytesPayload(fromEndpointId, utf8.encode(jsonEncode(ackPacket)));
+      debugPrint('[Data Mule] ✅ Processed and decrypted delivered envelope ${envelope.envelopeId}');
+    } catch (e) {
+      debugPrint('[Data Mule Error] Failed to decrypt delivered envelope: $e');
+    }
+  }
+
+  /// 🎒 จัดการแพ็กเก็ตโปรโตคอล Data Mule (DISPATCH / DISPATCH_ACK / DELIVER / DELIVER_ACK / DELIVERY_RECEIPT / MULE_RELAY)
+  Future<void> _handleIncomingMulePayload(Map<String, dynamic> json, String fromEndpointId) async {
+    final action = json['muleAction'] as String?;
+    if (action == null) return;
+
+    if (action == 'DISPATCH') {
+      if (!isDataMuleEnabled) {
+        debugPrint('[Data Mule] ⚠️ Data Mule is disabled on this device. Rejected dispatch.');
+        return;
+      }
+      final envMap = json['envelope'] as Map<String, dynamic>?;
+      if (envMap == null) return;
+      final envelope = MuleEnvelope.fromJson(envMap);
+      final inserted = await ChatDatabaseHelper.instance.insertMuleEnvelope(envelope);
+      if (inserted) {
+        await loadCarriedEnvelopes();
+        _showMuleAlert(
+          '🎒 ได้รับฝากข้อความคนเดินสาร',
+          'ได้รับฝากซองจดหมายจาก ${envelope.senderCallsign} เพื่อนำไปส่งให้เพื่อน',
+        );
+        final ackPacket = {
+          'isMuleEnvelope': true,
+          'muleAction': 'DISPATCH_ACK',
+          'envelopeId': envelope.envelopeId,
+        };
+        try {
+          await Nearby().sendBytesPayload(fromEndpointId, utf8.encode(jsonEncode(ackPacket)));
+        } catch (_) {}
+      }
+    } else if (action == 'DISPATCH_ACK') {
+      final envId = json['envelopeId'] as String?;
+      if (envId != null) {
+        debugPrint('[Data Mule] ✅ Carrier acknowledged envelope $envId');
+        final idx = messages.indexWhere((m) => m.id == envId);
+        if (idx != -1) {
+          messages[idx] = messages[idx].copyWith(status: 'MULE_CARRIED');
+          ChatDatabaseHelper.instance.updateMessageStatus(envId, 'MULE_CARRIED');
+          notifyListeners();
+        }
+      }
+    } else if (action == 'MULE_RELAY') {
+      if (!isDataMuleEnabled) {
+        debugPrint('[Data Mule] ⚠️ Data Mule is disabled on this device. Rejected relay.');
+        return;
+      }
+      final envMap = json['envelope'] as Map<String, dynamic>?;
+      if (envMap == null) return;
+      final envelope = MuleEnvelope.fromJson(envMap);
+
+      // ถ้าตัวเราคือผู้รับเป้าหมาย ให้ส่งมอบข้อความเข้าแชทโดยตรงทันที
+      if (envelope.recipientNodeId == nodeId) {
+        debugPrint('[Data Mule] 🎯 Relayed envelope addressed to ME! Processing as delivered.');
+        await _processDeliveredEnvelope(envelope, fromEndpointId);
+        return;
+      }
+
+      // ถ้าตัวเราคือผู้ส่งเดิม ไม่ต้องรับกลับมา
+      if (envelope.senderNodeId == nodeId) return;
+
+      // ช่วยรับฝากซองเพื่อแบกต่อ
+      final inserted = await ChatDatabaseHelper.instance.insertMuleEnvelope(envelope);
+      if (inserted) {
+        await loadCarriedEnvelopes();
+        debugPrint('[Data Mule] 🎒 Accepted relayed envelope ${envelope.envelopeId} (hop: ${envelope.hopCarryCount}/${envelope.maxHops})');
+        final ackPacket = {
+          'isMuleEnvelope': true,
+          'muleAction': 'RELAY_ACK',
+          'envelopeId': envelope.envelopeId,
+        };
+        try {
+          await Nearby().sendBytesPayload(fromEndpointId, utf8.encode(jsonEncode(ackPacket)));
+        } catch (_) {}
+      }
+    } else if (action == 'DELIVER') {
+      final envMap = json['envelope'] as Map<String, dynamic>?;
+      if (envMap == null) return;
+      final envelope = MuleEnvelope.fromJson(envMap);
+
+      if (envelope.recipientNodeId != nodeId) {
+        debugPrint('[Data Mule] ⚠️ Delivered envelope not intended for this node (${envelope.recipientNodeId} != $nodeId)');
+        return;
+      }
+
+      await _processDeliveredEnvelope(envelope, fromEndpointId);
+    } else if (action == 'DELIVER_ACK') {
+      final envId = json['envelopeId'] as String?;
+      if (envId != null) {
+        debugPrint('[Data Mule] ✅ Received DELIVER_ACK for envelope $envId. Removing from storage.');
+        await ChatDatabaseHelper.instance.deleteMuleEnvelope(envId);
+        await loadCarriedEnvelopes();
+        _deliveredMuleReceipts.add(envId);
+        _showMuleAlert(
+          '✅ ส่งมอบซองจดหมายสำเร็จ',
+          'ซองจดหมายถูกส่งถึงมือผู้รับปลายทางเรียบร้อยแล้ว',
+        );
+
+        // 📢 ส่งต่อใบเสร็จแจ้งยืนยันส่งถึงมือ (DELIVERY_RECEIPT) ให้โหนดข้างเคียงทันที
+        final receiptPacket = {
+          'isMuleEnvelope': true,
+          'muleAction': 'DELIVERY_RECEIPT',
+          'envelopeId': envId,
+        };
+        final receiptBytes = utf8.encode(jsonEncode(receiptPacket));
+        for (final ep in connectedDevices.keys.toList()) {
+          try {
+            await Nearby().sendBytesPayload(ep, receiptBytes);
+          } catch (_) {}
+        }
+      }
+    } else if (action == 'DELIVERY_RECEIPT') {
+      final envId = json['envelopeId'] as String?;
+      if (envId != null) {
+        debugPrint('[Data Mule] 📜 Received DELIVERY_RECEIPT for envelope $envId');
+
+        // 💉 Anti-Packet Vaccine Purge: ลบซองจดหมายนี้ออกจากกระเป๋าคนเดินสารทันทีหากเรามีสำเนาอยู่
+        final deletedCount = await ChatDatabaseHelper.instance.deleteMuleEnvelope(envId);
+        if (deletedCount > 0) {
+          await loadCarriedEnvelopes();
+          debugPrint('[Data Mule Vaccine] 💉 Purged delivered envelope $envId from my bag.');
+        }
+
+        // อัปเดตสถานะแชทของผู้ส่งต้นทาง
+        final idx = messages.indexWhere((m) => m.id == envId);
+        if (idx != -1) {
+          if (messages[idx].status != 'DELIVERED') {
+            messages[idx] = messages[idx].copyWith(status: 'DELIVERED');
+            await ChatDatabaseHelper.instance.updateMessageStatus(envId, 'DELIVERED');
+            notifyListeners();
+            _showMuleAlert(
+              '✅ ข้อความส่งถึงมือแล้ว',
+              'ข้อความที่คุณฝากคนส่งสารถูกนำส่งถึงผู้รับเรียบร้อยแล้ว',
+            );
+          }
+        }
+
+        // กระจายใบเสร็จต่อให้โหนดข้างเคียงที่ยังไม่เคยได้รับ (Gossip Vaccine Propagation)
+        if (!_deliveredMuleReceipts.contains(envId)) {
+          _deliveredMuleReceipts.add(envId);
+          final receiptPacket = {
+            'isMuleEnvelope': true,
+            'muleAction': 'DELIVERY_RECEIPT',
+            'envelopeId': envId,
+          };
+          final receiptBytes = utf8.encode(jsonEncode(receiptPacket));
+          for (final ep in connectedDevices.keys.toList()) {
+            if (ep != fromEndpointId) {
+              try {
+                await Nearby().sendBytesPayload(ep, receiptBytes);
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    }
   }
 
   /// 📍 แชร์พิกัดละติจูด/ลองจิจูด ปัจจุบันเข้าสู่ห้องแชทสาธารณะ
@@ -2327,6 +3241,29 @@ class NearbyService extends ChangeNotifier {
     await _notifications.show(
       204,
       '💬 แชทออฟไลน์: $peerName',
+      content,
+      details,
+    );
+  }
+
+  Future<void> _showMuleAlert(String title, String content) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'mule_msg_channel',
+          'Data Mule Messages',
+          channelDescription: 'Courier and store-and-carry offline messages',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: Color(0xFFFF9800),
+          enableLights: true,
+          enableVibration: true,
+        );
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+    await _notifications.show(
+      205,
+      title,
       content,
       details,
     );

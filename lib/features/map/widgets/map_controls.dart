@@ -1,6 +1,24 @@
+// ============================================================================
+// 🧭 BANTAWAN Floating Map Controls Bar: MapControls
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical GIS Map & Medical POIs)            │
+// ├─────────────────────────────────────────────────────────┤
+// │                     MapControls                         │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Layer Switcher       │    Follow GPS Mode        │  │
+// │  │  (OSM Standard / Sat) │  (Active Target Centering)│  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Hike Tracker Toggle  │   Category Filter Quick   │  │
+// │  │  (Breadcrumb Service) │ (All / Hospital / Clinic) │  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
 // แถบปุ่มลอยควบคุมแผนที่ (Map Floating Controls Bar)
 // รวมปุ่มสลับเลเยอร์แผนที่ (Layers), ปุ่มตามตำแหน่งฉัน (Follow GPS),
 // ปุ่มบันทึกการเดินป่า (Hike Tracker), และปุ่มลัดตัวกรองสถานที่
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,7 +26,7 @@ import 'dart:ui';
 import 'package:flutter1/providers/map_provider.dart';
 import 'package:flutter1/features/survival/services/hike_service.dart';
 
-/// วิดเจ็ตแถบเครื่องมือควบคุมแผนที่ด้านข้าง
+/// 🧭 วิดเจ็ตแถบเครื่องมือควบคุมแผนที่ด้านข้าง (Floating Map Controls Bar)
 class MapControls extends StatelessWidget {
   final VoidCallback onToggleLayer;
   final VoidCallback onToggleFollow;

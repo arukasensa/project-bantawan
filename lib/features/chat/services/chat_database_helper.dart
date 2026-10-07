@@ -30,9 +30,9 @@ class ChatDatabaseHelper {
 
   ChatDatabaseHelper._internal();
 
-  /// ชื่อไฟล์ฐานข้อมูล SQLite และเวอร์ชัน Schema (V6: เพิ่มระบบคนเดินสาร Data Mule)
+  /// ชื่อไฟล์ฐานข้อมูล SQLite และเวอร์ชัน Schema (V7: เพิ่ม maxHops สำหรับระบบคนเดินสารหลายคน Multi-Carrier)
   static const String _dbName = 'bantawan_chat.db';
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 7;
 
   /// ชื่อตารางจัดเก็บข้อความ
   static const String tableMessages = 'messages';
@@ -193,6 +193,7 @@ class ChatDatabaseHelper {
         createdAt TEXT NOT NULL,
         expiresAt TEXT NOT NULL,
         hopCarryCount INTEGER NOT NULL DEFAULT 0,
+        maxHops INTEGER NOT NULL DEFAULT 3,
         status TEXT NOT NULL DEFAULT 'CARRIED'
       )
     ''');
@@ -296,6 +297,13 @@ class ChatDatabaseHelper {
         CREATE INDEX IF NOT EXISTS idx_mule_expires
         ON $tableMuleEnvelopes (expiresAt)
       ''');
+    }
+    if (oldVersion < 7) {
+      try {
+        await db.execute('ALTER TABLE $tableMuleEnvelopes ADD COLUMN maxHops INTEGER NOT NULL DEFAULT 3;');
+      } catch (e) {
+        debugPrint('[SQLITE MIGRATION] maxHops column addition error: $e');
+      }
     }
   }
 
@@ -843,6 +851,12 @@ class ChatDatabaseHelper {
 
       final db = await database;
 
+      // ตรวจสอบว่าเคยรับหรือประมวลผลซองนี้ไปแล้วหรือไม่ (ป้องกันการรับซองที่ส่งถึงแล้ว)
+      if (await isPacketProcessed(envelope.envelopeId)) {
+        debugPrint('[MuleDB] ℹ️ ซองจดหมาย ${envelope.envelopeId} เคยถูกส่งมอบหรือประมวลผลแล้ว');
+        return false;
+      }
+
       // ตรวจสอบว่ามีซองนี้ในเครื่องอยู่แล้วหรือไม่
       final existing = await db.query(
         tableMuleEnvelopes,
@@ -925,7 +939,7 @@ class ChatDatabaseHelper {
       // ไม่ส่งซองที่ส่งมาจาก peer นั้น หรือมีเป้าหมายคือ peer นั้น (เพราะ peer นั้นจะได้รับทาง Handover ปกติอยู่แล้ว)
       final maps = await db.query(
         tableMuleEnvelopes,
-        where: 'status = ? AND expiresAt > ? AND hopCarryCount < ? AND senderNodeId != ? AND recipientNodeId != ?',
+        where: 'status = ? AND expiresAt > ? AND hopCarryCount < ? AND hopCarryCount < maxHops AND senderNodeId != ? AND recipientNodeId != ?',
         whereArgs: ['CARRIED', now, maxHops, peerNodeId, peerNodeId],
         orderBy: 'isUrgentSOS DESC, createdAt ASC',
         limit: 20,
@@ -975,17 +989,21 @@ class ChatDatabaseHelper {
   }
 
   /// 🗑️ ลบซองจดหมายออกจากเครื่องทันทีเมื่อได้รับใบเสร็จการส่งมอบ (Delivery Receipt)
-  Future<void> deleteMuleEnvelope(String envelopeId) async {
+  Future<int> deleteMuleEnvelope(String envelopeId) async {
     try {
       final db = await database;
-      await db.delete(
+      final count = await db.delete(
         tableMuleEnvelopes,
         where: 'envelopeId = ?',
         whereArgs: [envelopeId],
       );
-      debugPrint('[MuleDB] 🗑️ ลบซองจดหมาย $envelopeId คืนพื้นที่ความจำแล้ว');
+      if (count > 0) {
+        debugPrint('[MuleDB] 🗑️ ลบซองจดหมาย $envelopeId คืนพื้นที่ความจำแล้ว ($count รายการ)');
+      }
+      return count;
     } catch (e) {
       debugPrint('[MuleDB Error] deleteMuleEnvelope failed: $e');
+      return 0;
     }
   }
 

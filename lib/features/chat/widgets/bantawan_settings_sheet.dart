@@ -18,10 +18,17 @@ import 'package:provider/provider.dart';
 import '../services/nearby_service.dart';
 import '../services/identity_service.dart';
 import 'package:flutter1/features/home/services/profile_service.dart';
+import 'package:flutter1/features/home/services/language_service.dart';
+import 'package:flutter1/l10n/generated/app_localizations.dart';
 
+/// ⚙️ [BantawanSettingsSheet] หน้าต่างการตั้งค่าและเอกสารสถาปัตยกรรมระบบออฟไลน์
+/// ประกอบด้วย 2 แท็บหลัก:
+/// 1. [ข้อมูล (Info)]: รายละเอียดสถาปัตยกรรม Mesh Routing, สถิติเครือข่าย และความปลอดภัย
+/// 2. [ตั้งค่า (Settings)]: การปรับแต่ง Callsign, พารามิเตอร์เครือข่าย, สวิตช์ Data Mule และเสียง
 class BantawanSettingsSheet extends StatefulWidget {
   const BantawanSettingsSheet({super.key});
 
+  /// 🚀 แสดงหน้าต่างการตั้งค่า [BantawanSettingsSheet] ในรูปแบบ Modal Bottom Sheet
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet(
       context: context,
@@ -37,13 +44,13 @@ class BantawanSettingsSheet extends StatefulWidget {
 
 class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
   int _selectedTab = 1; // 0: ข้อมูล (Info), 1: ตั้งค่า (Settings)
-  String _selectedLanguage = 'ค่าเริ่มต้นของระบบ';
   bool _autoPlayVoice = true;
 
   @override
   Widget build(BuildContext context) {
     final nearbyService = Provider.of<NearbyService>(context);
     final identityService = IdentityService.instance;
+    final l10n = AppLocalizations.of(context);
     final size = MediaQuery.of(context).size;
 
     return Container(
@@ -73,7 +80,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
               _buildTopBar(context),
 
               // 2. Segmented Tab Switcher (ข้อมูล vs ตั้งค่า)
-              _buildSegmentedTab(),
+              _buildSegmentedTab(l10n),
 
               const SizedBox(height: 12),
 
@@ -81,7 +88,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
               Expanded(
                 child: _selectedTab == 0
                     ? _buildInfoTab()
-                    : _buildSettingsTab(nearbyService, identityService),
+                    : _buildSettingsTab(nearbyService, identityService, l10n),
               ),
             ],
           ),
@@ -128,7 +135,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
     );
   }
 
-  Widget _buildSegmentedTab() {
+  Widget _buildSegmentedTab(AppLocalizations? l10n) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(4),
@@ -156,7 +163,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                 ),
                 child: Center(
                   child: Text(
-                    "ข้อมูล (Info)",
+                    l10n?.infoTab ?? "ข้อมูล (Info)",
                     style: TextStyle(
                       color: _selectedTab == 0 ? Colors.white : Colors.white54,
                       fontSize: 14,
@@ -189,7 +196,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                 ),
                 child: Center(
                   child: Text(
-                    "ตั้งค่า (Settings)",
+                    l10n?.settingsTab ?? "ตั้งค่า (Settings)",
                     style: TextStyle(
                       color: _selectedTab == 1 ? Colors.cyanAccent : Colors.white54,
                       fontSize: 14,
@@ -212,13 +219,14 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
   Widget _buildSettingsTab(
     NearbyService service,
     IdentityService identity,
+    AppLocalizations? l10n,
   ) {
     return ListView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
       children: [
         // 1. หมวดตัวตนและการแสดงผล
-        _buildSectionHeader("ลักษณะที่ปรากฏ (Appearance)"),
+        _buildSectionHeader(l10n != null ? (l10n.localeName == 'th' ? "ลักษณะที่ปรากฏ (Appearance)" : "Appearance") : "ลักษณะที่ปรากฏ (Appearance)"),
         _buildCardContainer(
           children: [
             // Callsign Quick Edit
@@ -228,9 +236,9 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "นามเรียกขาน (Callsign)",
-                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    Text(
+                      l10n?.tacticalCallsign ?? "นามเรียกขาน (Callsign)",
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -242,7 +250,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                 TextButton.icon(
                   onPressed: () => _showChangeCallsignDialog(service),
                   icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.cyanAccent),
-                  label: const Text("เปลี่ยนชื่อ", style: TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                  label: Text(l10n?.changeCallsign ?? "เปลี่ยนชื่อ", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.cyanAccent.withValues(alpha: 0.1),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -253,31 +261,70 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
             ),
             const Divider(color: Colors.white10, height: 24),
 
-
-
-            // Language
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "ภาษาของแอป",
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                DropdownButton<String>(
-                  value: _selectedLanguage,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.cyanAccent, fontSize: 13, fontWeight: FontWeight.bold),
-                  underline: const SizedBox.shrink(),
-                  items: const [
-                    DropdownMenuItem(value: 'ค่าเริ่มต้นของระบบ', child: Text('ค่าเริ่มต้นของระบบ')),
-                    DropdownMenuItem(value: 'ไทย (Thai)', child: Text('ไทย (Thai)')),
-                    DropdownMenuItem(value: 'English', child: Text('English')),
+            // Language Selector bound to LanguageProvider
+            Builder(
+              builder: (ctx) {
+                final languageProvider = Provider.of<LanguageProvider>(ctx);
+                final currentCode = languageProvider.appLocale.languageCode;
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.language_rounded, color: Colors.cyanAccent, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n?.appLanguage ?? "ภาษาของแอป",
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: DropdownButton<String>(
+                        value: currentCode,
+                        dropdownColor: const Color(0xFF1E293B),
+                        style: const TextStyle(color: Colors.cyanAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        underline: const SizedBox.shrink(),
+                        icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.cyanAccent),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'th',
+                            child: Row(
+                              children: [
+                                Text('🇹🇭', style: TextStyle(fontSize: 14)),
+                                SizedBox(width: 6),
+                                Text('ภาษาไทย'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'en',
+                            child: Row(
+                              children: [
+                                Text('🇺🇸', style: TextStyle(fontSize: 14)),
+                                SizedBox(width: 6),
+                                Text('English'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null && val != currentCode) {
+                            HapticFeedback.selectionClick();
+                            languageProvider.changeLanguage(Locale(val));
+                          }
+                        },
+                      ),
+                    ),
                   ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedLanguage = val);
-                  },
-                ),
-              ],
+                );
+              },
             ),
           ],
         ),
@@ -285,24 +332,24 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
         const SizedBox(height: 20),
 
         // 2. หมวดโครงข่าย Bluetooth Mesh
-        _buildSectionHeader("การเชื่อมต่อและโครงข่าย Mesh"),
+        _buildSectionHeader(l10n != null && l10n.localeName.startsWith('th') ? "การเชื่อมต่อและโครงข่าย Mesh" : "Connectivity & Mesh Network"),
         _buildCardContainer(
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "บริดจ์และการส่งต่อทอด (Mesh Relay)",
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        l10n?.meshRelayTitle ?? "บริดจ์และการส่งต่อทอด (Mesh Relay)",
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 3),
+                      const SizedBox(height: 3),
                       Text(
-                        "ส่งต่อแพ็กเก็ตข้อความและ SOS ข้ามโหนดในรัศมีบลูทูธแบบ Multi-hop",
-                        style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.3),
+                        l10n?.meshRelayDesc ?? "ส่งต่อแพ็กเก็ตข้อความและ SOS ข้ามโหนดในรัศมีบลูทูธแบบ Multi-hop",
+                        style: const TextStyle(color: Colors.white54, fontSize: 11, height: 1.3),
                       ),
                     ],
                   ),
@@ -326,7 +373,10 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("รัศมีการส่งต่อสูงสุด (Max TTL)", style: TextStyle(color: Colors.white, fontSize: 13)),
+                Text(
+                  l10n != null && l10n.localeName.startsWith('th') ? "รัศมีการส่งต่อสูงสุด (Max TTL)" : "Maximum Relay Radius (Max TTL)",
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -334,7 +384,10 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
                   ),
-                  child: const Text("5 HOPS (ทอด)", style: TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.w900)),
+                  child: Text(
+                    l10n != null && l10n.localeName.startsWith('th') ? "5 HOPS (ทอด)" : "5 HOPS",
+                    style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.w900),
+                  ),
                 ),
               ],
             ),
@@ -343,10 +396,8 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
 
         const SizedBox(height: 20),
 
-
-
         // 4. หมวดความปลอดภัยและการเข้ารหัส (E2EE)
-        _buildSectionHeader("กุญแจและความปลอดภัย (E2EE Cryptography)"),
+        _buildSectionHeader(l10n != null && l10n.localeName.startsWith('th') ? "กุญแจและความปลอดภัย (E2EE Cryptography)" : "Keys & Security (E2EE Cryptography)"),
         _buildCardContainer(
           children: [
             Row(
@@ -365,7 +416,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                       const SizedBox(height: 2),
                       Text(
                         identity.myNodeId,
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Color(0xFFF1F5F9), fontSize: 13, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 10),
                       const Text(
@@ -375,7 +426,7 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
                       const SizedBox(height: 2),
                       Text(
                         identity.myFingerprint.replaceAll('\n', ' • '),
-                        style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Color(0xFF4ADE80), fontSize: 11.5, fontFamily: 'monospace', fontWeight: FontWeight.w600, letterSpacing: 0.8),
                       ),
                     ],
                   ),
@@ -388,24 +439,26 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
         const SizedBox(height: 20),
 
         // 5. หมวดเสียงและสื่อ (Voice & Media Limits)
-        _buildSectionHeader("เสียงและกฎความปลอดภัยสื่อฉุกเฉิน"),
+        _buildSectionHeader(l10n != null && l10n.localeName.startsWith('th') ? "เสียงและกฎความปลอดภัยสื่อฉุกเฉิน" : "Audio & Emergency Media Rules"),
         _buildCardContainer(
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "เล่นเสียงสดอัตโนมัติ (Live Voice Messages)",
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        l10n?.autoPlayVoice ?? "เล่นเสียงสดอัตโนมัติ (Live Voice Messages)",
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(height: 3),
+                      const SizedBox(height: 3),
                       Text(
-                        "สตรีมขณะพูด เสียงสดขาเข้าจะเล่นอัตโนมัติทันทีที่ได้รับ",
-                        style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.3),
+                        l10n != null && l10n.localeName.startsWith('th')
+                            ? "สตรีมขณะพูด เสียงสดขาเข้าจะเล่นอัตโนมัติทันทีที่ได้รับ"
+                            : "Stream while speaking, incoming voice plays automatically upon receipt",
+                        style: const TextStyle(color: Colors.white54, fontSize: 11, height: 1.3),
                       ),
                     ],
                   ),
@@ -422,9 +475,11 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
               ],
             ),
             const Divider(color: Colors.white10, height: 20),
-            const Text(
-              "• กฎความปลอดภัย BLE 32KB Strict Safety Cap:\n  - ภาพถ่ายบีบอัดระดับยุทธวิธี 360x360 WebP (< 25KB)\n  - ข้อความเสียงจำกัดเวลาสูงสุด 6 วินาที (< 18KB)",
-              style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.4),
+            Text(
+              l10n != null && l10n.localeName.startsWith('th')
+                  ? "• กฎความปลอดภัย BLE 32KB Strict Safety Cap:\n  - ภาพถ่ายบีบอัดระดับยุทธวิธี 360x360 WebP (< 25KB)\n  - ข้อความเสียงจำกัดเวลาสูงสุด 6 วินาที (< 18KB)"
+                  : "• BLE 32KB Strict Safety Cap Rules:\n  - Tactical compressed photos 360x360 WebP (< 25KB)\n  - Voice messages limited to max 6 seconds (< 18KB)",
+              style: const TextStyle(color: Colors.white38, fontSize: 11, height: 1.4),
             ),
           ],
         ),
@@ -609,23 +664,33 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
 
   void _showChangeCallsignDialog(NearbyService service) {
     final controller = TextEditingController(text: service.deviceName);
+    final l10n = AppLocalizations.of(context);
+    final isThai = Localizations.localeOf(context).languageCode == 'th';
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.cyanAccent, width: 1)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.badge_rounded, color: Colors.cyanAccent, size: 22),
-            SizedBox(width: 8),
-            Text("เปลี่ยนนามเรียกขาน (@)", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.badge_rounded, color: Colors.cyanAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              l10n?.changeCallsign ?? (isThai ? "เปลี่ยนนามเรียกขาน (@)" : "Change Callsign (@)"),
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("ชื่อนี้จะแสดงในห้องแชทสาธารณะ #mesh และรายชื่อผู้ใช้ใกล้เคียง:", style: TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(
+              isThai
+                  ? "ชื่อนี้จะแสดงในห้องแชทสาธารณะ #mesh และรายชื่อผู้ใช้ใกล้เคียง:"
+                  : "This callsign is visible on #mesh and nearby peer discovery:",
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
@@ -645,7 +710,10 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text("ยกเลิก", style: TextStyle(color: Colors.white54)),
+            child: Text(
+              l10n?.cancelButton ?? (isThai ? "ยกเลิก" : "Cancel"),
+              style: const TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -664,7 +732,10 @@ class _BantawanSettingsSheetState extends State<BantawanSettingsSheet> {
               }
               if (dialogCtx.mounted) Navigator.pop(dialogCtx);
             },
-            child: const Text("บันทึกชื่อ", style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(
+              isThai ? "บันทึกชื่อ" : "Save Callsign",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

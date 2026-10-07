@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'SOS Premier'**
+  /// **'BANTAWAN'**
   String get appTitle;
 
   /// No description provided for @sos.
@@ -817,6 +817,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send again'**
   String get reSendLimit;
+
+  /// No description provided for @tabPublic.
+  ///
+  /// In en, this message translates to:
+  /// **'Public'**
+  String get tabPublic;
+
+  /// No description provided for @tabPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get tabPrivate;
+
+  /// No description provided for @onlinePeers.
+  ///
+  /// In en, this message translates to:
+  /// **'Nearby Nodes'**
+  String get onlinePeers;
+
+  /// No description provided for @meshRelayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mesh Relay & Bridging'**
+  String get meshRelayTitle;
+
+  /// No description provided for @meshRelayDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Multi-hop message and SOS forwarding across Bluetooth nodes'**
+  String get meshRelayDesc;
+
+  /// No description provided for @dataMuleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency Data Mule'**
+  String get dataMuleTitle;
+
+  /// No description provided for @dataMuleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Store-carry-and-forward messages via passing peers when out of range'**
+  String get dataMuleDesc;
+
+  /// No description provided for @tacticalCallsign.
+  ///
+  /// In en, this message translates to:
+  /// **'Tactical Callsign'**
+  String get tacticalCallsign;
+
+  /// No description provided for @changeCallsign.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Callsign'**
+  String get changeCallsign;
+
+  /// No description provided for @appLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'App Language'**
+  String get appLanguage;
+
+  /// No description provided for @carrierBag.
+  ///
+  /// In en, this message translates to:
+  /// **'Courier Tactical Bag'**
+  String get carrierBag;
+
+  /// No description provided for @selectCarrier.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Carrier (Data Mule)'**
+  String get selectCarrier;
+
+  /// No description provided for @dispatchAllConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatch to All Connected'**
+  String get dispatchAllConnected;
+
+  /// No description provided for @autoPlayVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-play Voice Messages'**
+  String get autoPlayVoice;
+
+  /// No description provided for @systemInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'System Architecture & Info'**
+  String get systemInfo;
+
+  /// No description provided for @settingsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTab;
+
+  /// No description provided for @infoTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get infoTab;
+
+  /// No description provided for @sendSos.
+  ///
+  /// In en, this message translates to:
+  /// **'Send SOS'**
+  String get sendSos;
+
+  /// No description provided for @shareLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Location'**
+  String get shareLocation;
+
+  /// No description provided for @recordVoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to record voice'**
+  String get recordVoice;
+
+  /// No description provided for @offlineBagEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your tactical bag is currently empty'**
+  String get offlineBagEmpty;
 }
 
 class _AppLocalizationsDelegate

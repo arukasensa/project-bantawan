@@ -1,11 +1,29 @@
+// ============================================================================
+// 🔍 BANTAWAN Map Floating Search Bar Header: GoogleMapHeader
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical GIS Map & Medical POIs)            │
+// ├─────────────────────────────────────────────────────────┤
+// │                  GoogleMapHeader                        │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Search Text Field    │    Clear / Loading State  │  │
+// │  │  (POI Keyword Query)  │ (Active Spinner / Clear)  │  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Back Navigation      │   Frosted Glass UI        │  │
+// │  │  (Pop Navigation)     │ (Dark Translucent Capsule)│  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
 // ส่วนหัวค้นหาพิกัดและสถานที่บนแผนที่ (Map Search Header)
 // ช่องค้นหาแบบลอยด้านบน (Floating Search Bar) พร้อมปุ่มย้อนกลับและสถานะการค้นหา
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter1/providers/map_provider.dart';
 
-/// วิดเจ็ตแถบค้นหาสถานที่ด้านบนของหน้าจอแผนที่
+/// 🔍 วิดเจ็ตแถบค้นหาสถานที่ด้านบนของหน้าจอแผนที่ (Floating Search Bar Header)
 class GoogleMapHeader extends StatelessWidget {
   final TextEditingController searchController;
   final Function(String) onSearch;

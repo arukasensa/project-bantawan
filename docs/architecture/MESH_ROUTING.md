@@ -81,9 +81,139 @@ Google Nearby Connections มีข้อจำกัดทางเทคนิ
 
 ---
 
-## 🎒 5. ระบบคนเดินสาร (Data Mule: Store-Carry-and-Forward)
+---
 
-ในกรณีที่ผู้รับอยู่ห่างเกินกว่ารัศมีของ Mesh Relay (เช่น อยู่คนละหมู่บ้าน หรือหุบเขาที่ไม่มีโหนดกั้นกลาง):
-* ผู้ส่งสามารถเลือกส่งข้อความแบบ **"ฝากคนเดินสาร (Data Mule Envelope)"**
-* ซองจดหมายเข้ารหัสจะถูกจัดเก็บลงใน SQLite (`mule_envelopes`) ของอุปกรณ์เคลื่อนที่ (เช่น รถกู้ภัย หรือนักเดินป่าที่เดินทางผ่าน)
-* เมื่อคนเดินสารเดินทางไปถึงพื้นที่ที่มีสัญญาณของโหนดปลายทาง ซองจดหมายจะถูกส่งมอบให้ผู้รับโดยอัตโนมัติ (Carry & Forward) พร้อมส่งใบเสร็จยืนยันกลับมา
+## 🎒 5. สถาปัตยกรรมระบบคนเดินสาร (Data Mule: Store-Carry-and-Forward Protocol)
+
+### 5.1 ภาพรวมและปัญหาทางกายภาพ (Overcoming Network Partitioning)
+ในสถานการณ์ที่โหนดผู้รับปลายทาง (Node C) อยู่นอกรัศมีการสื่อสารของโครงข่ายเมชทั้งแบบ 1-hop และ Multi-hop (เช่น อยู่คนละหมู่บ้าน ลึกเข้าไปในหุบเขา หรือพื้นที่ภัยพิบัติที่ไม่มีโหนดตัวกลางเชื่อมต่อถึงกัน):
+* ระบบแชทปกติ (Real-time Mesh) จะไม่สามารถส่งถึงได้ทันที
+* **BANTAWAN Data Mule** นำหลักการ **Delay-Tolerant Networking (DTN: RFC 4838)** มาประยุกต์ใช้ โดยเปลี่ยนอุปกรณ์ข้างเคียงที่กำลังเคลื่อนที่ (เช่น รถกู้ภัย, โดรน, หรือผู้ประสบภัยที่เดินสัญจร) ให้ทำหน้าที่เป็น **"คนเดินสาร (Courier Carrier)"** รับฝากซองจดหมายเข้ารหัสลับ (E2EE Envelope) เดินทางข้ามพื้นที่ทางกายภาพ แล้วส่งมอบให้ปลายทางโดยอัตโนมัติเมื่อพบกัน
+
+### 5.2 ผังลำดับการทำงานและโปรโตคอลแพ็กเก็ต (End-to-End Handshake Flow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as โหนด A (ผู้ส่งต้นทาง)
+    actor B as โหนด B (คนเดินสาร / Data Mule)
+    actor C as โหนด C (ผู้รับปลายทาง)
+
+    Note over A,C: โหนด C อยู่นอกรัศมีวิทยุ (Offline)
+    Note over A,B: โหนด A และ B เชื่อมต่อกันอยู่โดยตรง
+
+    A->>A: 1. ตรวจพบ C ออฟไลน์ -> แสดง Modal ให้เลือกระหว่าง<br/>[ฝากคนเดินสาร (Data Mule)] หรือ [รอส่งเอง (Store & Forward)]
+    A->>A: 2. เข้ารหัสลับเนื้อหาด้วย X25519 ECDH + AES-256-GCM<br/>สร้างซองจดหมาย MuleEnvelope (Zero-Knowledge)
+    
+    A->>B: 3. ส่งแพ็กเก็ต DISPATCH (ส่งมอบซองจดหมายให้ B)
+    Note over B: 4. ตรวจสอบ isDataMuleEnabled == true<br/>บันทึกลงตาราง SQLite mule_envelopes (CARRIED)<br/>อัปเดตไอคอนกระเป๋า 🎒 และแจ้งเตือน Notification
+    B-->>A: 5. ส่งแพ็กเก็ต DISPATCH_ACK
+    Note over A: 6. ปรับปรุงสถานะข้อความเป็น MULE_CARRIED (🎒)
+
+    Note over B: 7. โหนด B เดินทางข้ามพื้นที่ทางกายภาพ (Physical Mobility)...
+    Note over B,C: 8. โหนด B เดินเข้ามาในรัศมีของโหนด C (ตรวจพบผ่าน Nearby Connection / PEER_ANNOUNCE)
+
+    Note over B: 9. Auto-Handover Trigger:<br/>ตรวจพบซองในกระเป๋าที่มี recipientNodeId ตรงกับ C
+    B->>C: 10. ส่งแพ็กเก็ต DELIVER (ส่งมอบซองจดหมายให้ C)
+    Note over C: 11. ตรวจสอบ Deduplication Check<br/>ถอดรหัสลับ E2EE ด้วยกุญแจของ C<br/>บันทึกลงแชท แจ้งเตือน และเด้งข้อความบนหน้าจอ C ทันที
+    C-->>B: 12. ส่งแพ็กเก็ต DELIVER_ACK
+    Note over B: 13. B ลบซองจดหมายออกจาก SQLite (Auto-Purge)<br/>อัปเดตตัวเลขกระเป๋า 🎒 และแจ้งเตือนส่งมอบสำเร็จ
+```
+
+### 5.3 โครงสร้างแพ็กเก็ตโปรโตคอล Data Mule (Protocol Specifications)
+การสื่อสารในโหมดคนเดินสารทำงานผ่าน Nearby Connections `BYTES` payload โดยมีคีย์ระบุ `isMuleEnvelope: true` และจำแนกประเภทคำสั่งผ่าน `muleAction`:
+
+1. **`DISPATCH` Packet**: ผู้ส่งต้นทางฝากซองจดหมายให้คนเดินสาร
+   ```json
+   {
+     "isMuleEnvelope": true,
+     "muleAction": "DISPATCH",
+     "envelope": {
+       "envelopeId": "uuid-v4",
+       "senderNodeId": "NODE_78F2A",
+       "senderCallsign": "Survivor Alpha",
+       "recipientNodeId": "NODE_99E1B",
+       "encryptedPayload": "BASE64_AES_256_GCM_CIPHERTEXT",
+       "payloadIv": "iv_random_hex",
+       "payloadAuthTag": "auth_tag_hex",
+       "senderSignature": "ed25519_signature_hex",
+       "isUrgentSOS": false,
+       "createdAt": "2026-10-07T10:00:00Z",
+       "expiresAt": "2026-10-09T10:00:00Z",
+       "hopCarryCount": 1,
+       "status": "CARRIED"
+     }
+   }
+   ```
+2. **`DISPATCH_ACK` Packet**: คนเดินสารตอบรับว่าบันทึกลงกระเป๋าสำเร็จ
+   ```json
+   {
+     "isMuleEnvelope": true,
+     "muleAction": "DISPATCH_ACK",
+     "envelopeId": "uuid-v4"
+   }
+   ```
+3. **`DELIVER` Packet**: คนเดินสารส่งมอบซองให้ผู้รับปลายทางเมื่อพบตัว
+   ```json
+   {
+     "isMuleEnvelope": true,
+     "muleAction": "DELIVER",
+     "envelope": { ... }
+   }
+   ```
+4. **`DELIVER_ACK` Packet**: ผู้รับปลายทางยืนยันว่าได้รับและถอดรหัสสำเร็จ เพื่อให้คนเดินสารทำลายซอง
+   ```json
+   {
+     "isMuleEnvelope": true,
+     "muleAction": "DELIVER_ACK",
+     "envelopeId": "uuid-v4"
+   }
+   ```
+
+### 5.4 จุดกระตุ้นการส่งมอบอัตโนมัติ (Auto-Handover Delivery Triggers)
+ระบบใน [`nearby_service.dart`](file:///f:/flutter1/flutter1/lib/features/chat/services/nearby_service.dart) ฝังตัวเรียกฟังก์ชัน `_deliverMuleEnvelopes(endpointId, peerNodeId)` ไว้ใน 3 จุดสำคัญ:
+1. **Advertiser Connection Callback**: เมื่อมีโหนดใหม่เชื่อมต่อเข้ามาในฐานะไคลเอนต์
+2. **Discoverer Connection Callback**: เมื่อเครื่องเราเชื่อมต่อสำเร็จกับโหนดโฆษณา
+3. **`_handlePeerAnnounce` Handler**: เมื่อได้รับคลื่นกระจายตัวตน `PEER_ANNOUNCE` จากโหนดที่อยู่ในรัศมี
+
+### 5.5 ความปลอดภัยแบบ Zero-Knowledge Privacy Guarantee
+* **End-to-End Encryption (E2EE)**: ข้อความภายในเพย์โหลดถูกเข้ารหัสด้วยกุญแจลับเฉพาะระหว่าง A และ C ตั้งแต่ต้นทาง
+* **Zero-Knowledge Carrier**: คนเดินสาร (Node B) มีสถานะเป็นเพียงผู้ถือซองจดหมาย (Blind Carrier) ไม่สามารถแอบเปิดอ่าน ปลอมแปลง หรือแก้ไขข้อมูลในซองได้ เนื่องจากไม่มีกุญแจลับส่วนตัวของ C และไม่สามารถปลอมลายเซ็นดิจิทัลของ A ได้
+* **Storage Protection**: ซองจดหมายมีอายุขัย `expiresAt` (ค่าเริ่มต้น 48 ชั่วโมง) และระบบจะทำการเรียก `purgeExpiredMuleEnvelopes()` ทุกครั้งที่เปิดแอปเพื่อป้องกันพื้นที่เต็ม
+
+---
+
+## 🧭 6. กลไกการตรวจวัดสถานะโหนดแบบพลวัต (Dynamic Topology & Anti-Ghosting)
+
+เพื่อแก้ไขปัญหา **โหนดค้าง (Ghost Node)** เมื่อมีอุปกรณ์ปิดบลูทูธกะทันหัน หรือเดินหลุดจากระยะโดยที่ระบบปฏิบัติการไม่ส่งเหตุการณ์แจ้งตัดสาย ระบบ BANTAWAN นำเสนอกลไกประเมินสถานะ 3 ระดับ:
+
+```mermaid
+flowchart TD
+    Eval["ประเมินสถานะโหนด (getPeerConnectionStatus)"] --> CheckConnected{"ตาราง connectedDevices<br/>ของเครื่องเรามีใครต่ออยู่ไหม?"}
+    
+    CheckConnected -- "ไม่มีใครต่ออยู่เลย (0 เครื่อง)" --> ForceOffline["โหนดทั้งหมดในระบบเป็น Offline ทันที"]
+    
+    CheckConnected -- "มีโหนดต่ออยู่" --> CheckHop{"ระยะ Hop ของโหนดเป้าหมาย?"}
+    
+    CheckHop -- "1-Hop (Direct BLE)" --> HeartbeatDirect{"ได้รับสัญญาณภายใน 20 วินาที<br/>และ directEndpoint อยู่ในตาราง?"}
+    HeartbeatDirect -- "ผ่าน" --> StatusDirect["สถานะ: Direct Online (จุดสีฟ้า)"]
+    HeartbeatDirect -- "ไม่ผ่าน" --> StatusOff1["สถานะ: Offline (หลุดจากระยะ)"]
+    
+    CheckHop -- "2+ Hops (Relayed Mesh)" --> HeartbeatRelay{"isReachable == true<br/>และได้รับสัญญาณภายใน 45 วินาที?"}
+    HeartbeatRelay -- "ไม่ผ่าน" --> StatusOff2["สถานะ: Offline"]
+    HeartbeatRelay -- "ผ่าน" --> ReverseCheck{"Reverse Path ชี้ไปยังโหนดตรง<br/>ที่ยังเชื่อมต่ออยู่หรือไม่?"}
+    ReverseCheck -- "ผ่าน" --> StatusRelayed["สถานะ: Relayed Online (จุดสีม่วง)"]
+    ReverseCheck -- "ไม่ผ่าน" --> StatusOff3["สถานะ: Offline (สะพานหลุด)"]
+```
+
+---
+
+## 📊 7. วงจรชีวิตสถานะการจัดส่งข้อความ (Message Status Lifecycle)
+
+| สถานะ | รหัสไอคอน / สี | ความหมายทางวิศวกรรม |
+| :--- | :---: | :--- |
+| **`SENDING`** | ⏱️ สีเทา / นาฬิกา | ข้อความถูกบันทึกลงในเครื่อง และกำลังแพร่กระจายบนเครือข่ายเมช |
+| **`MULE_CARRIED`** | 🎒 สีทอง / กระเป๋า | ข้อความถูกฝากไว้กับคนเดินสาร (Data Mule) เรียบร้อยแล้ว กำลังเดินทางไปหาผู้รับ |
+| **`DELIVERED`** | ✓✓ สีฟ้า / ดับเบิ้ลเช็ค | ข้อความเดินทางถึงเครื่องผู้รับเรียบร้อยแล้ว (ได้รับ Reverse Unicast ACK) |
+| **`READ`** | ✓✓ สีเขียว / อ่านแล้ว | ผู้รับเปิดหน้าจออ่านข้อความนั้นแล้ว (Read Receipt) |
+

@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'SOS Premier';
+  String get appTitle => 'BANTAWAN';
 
   @override
   String get sos => 'SOS';
@@ -385,4 +385,69 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reSendLimit => 'Send again';
+
+  @override
+  String get tabPublic => 'Public';
+
+  @override
+  String get tabPrivate => 'Private';
+
+  @override
+  String get onlinePeers => 'Nearby Nodes';
+
+  @override
+  String get meshRelayTitle => 'Mesh Relay & Bridging';
+
+  @override
+  String get meshRelayDesc =>
+      'Multi-hop message and SOS forwarding across Bluetooth nodes';
+
+  @override
+  String get dataMuleTitle => 'Emergency Data Mule';
+
+  @override
+  String get dataMuleDesc =>
+      'Store-carry-and-forward messages via passing peers when out of range';
+
+  @override
+  String get tacticalCallsign => 'Tactical Callsign';
+
+  @override
+  String get changeCallsign => 'Change Callsign';
+
+  @override
+  String get appLanguage => 'App Language';
+
+  @override
+  String get carrierBag => 'Courier Tactical Bag';
+
+  @override
+  String get selectCarrier => 'Select Carrier (Data Mule)';
+
+  @override
+  String get dispatchAllConnected => 'Dispatch to All Connected';
+
+  @override
+  String get autoPlayVoice => 'Auto-play Voice Messages';
+
+  @override
+  String get systemInfo => 'System Architecture & Info';
+
+  @override
+  String get settingsTab => 'Settings';
+
+  @override
+  String get infoTab => 'Info';
+
+  @override
+  String get sendSos => 'Send SOS';
+
+  @override
+  String get shareLocation => 'Share Location';
+
+  @override
+  String get recordVoice => 'Hold to record voice';
+
+  @override
+  String get offlineBagEmpty => 'Your tactical bag is currently empty';
 }

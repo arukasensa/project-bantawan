@@ -1,6 +1,24 @@
+// ============================================================================
+// 🏥 BANTAWAN Medical Facility Detail BottomSheet: GoogleFacilitySheet
+// 
+// ┌─────────────────────────────────────────────────────────┐
+// │                     BANTAWAN App                        │
+// │            (Tactical GIS Map & Medical POIs)            │
+// ├─────────────────────────────────────────────────────────┤
+// │                  GoogleFacilitySheet                    │
+// │  ┌───────────────────────┬───────────────────────────┐  │
+// │  │  Draggable Sheet HUD │    Distance & Travel Est. │  │
+// │  │  (Snap 0.15 - 0.85)   │  (Haversine / Route Dist) │  │
+// │  ├───────────────────────┼───────────────────────────┤  │
+// │  │  Emergency Call (1669)│    Route Guidance & Audio │  │
+// │  │  (CallService Direct) │ (Polyline Draw & StartNav)│  │
+// │  └───────────────────────┴───────────────────────────┘  │
+// └─────────────────────────────────────────────────────────┘
+// 
 // แถบเลื่อนแสดงรายละเอียดสถานที่ (Facility Details BottomSheet)
 // Draggable BottomSheet สไตล์โมเดิร์น กระจกฝ้า (Glassmorphism)
 // แสดงข้อมูลสถานพยาบาล เบอร์โทร เวลาเปิด-ปิด ปุ่มนำทาง และปุ่มโทรออกฉุกเฉิน
+// ============================================================================
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -9,7 +27,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter1/providers/map_provider.dart';
 import 'package:flutter1/features/emergency/services/call_service.dart';
 
-/// วิดเจ็ต BottomSheet แสดงรายละเอียดของสถานพยาบาลที่เลือก
+/// 🏥 วิดเจ็ต BottomSheet แสดงรายละเอียดของสถานพยาบาลที่เลือก (Facility Details BottomSheet)
 class GoogleFacilitySheet extends StatelessWidget {
   final VoidCallback? onTranslate;
 

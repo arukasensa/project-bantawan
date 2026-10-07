@@ -84,5 +84,17 @@ void main() {
 
       expect(envelope.isExpired, isTrue);
     });
+
+    test('DELIVERY_RECEIPT packet serializes and parses properly', () {
+      final receiptPacket = {
+        'isMuleEnvelope': true,
+        'muleAction': 'DELIVERY_RECEIPT',
+        'envelopeId': 'env_delivered_999',
+      };
+
+      expect(receiptPacket['isMuleEnvelope'], isTrue);
+      expect(receiptPacket['muleAction'], 'DELIVERY_RECEIPT');
+      expect(receiptPacket['envelopeId'], 'env_delivered_999');
+    });
   });
 }

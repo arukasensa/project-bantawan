@@ -17,13 +17,24 @@ import 'package:provider/provider.dart';
 import '../services/identity_service.dart';
 import '../services/nearby_service.dart';
 import '../models/mesh_peer.dart';
+import '../screens/peer_verification_screen.dart';
 import 'package:flutter1/core/widgets/tactical_decorations_painter.dart';
 
+/// 📱 [PeerQrVerificationSheet]
+/// วิดเจ็ตหน้าต่าง Bottom Sheet สำหรับการยืนยันตัวตนแบบ Out-of-Band (OOB Physical Verification)
+/// ทำหน้าที่ป้องกันการโจมตีแบบสวมรอย (Impersonation Attack) และ Man-in-the-Middle (MITM)
+/// ประกอบด้วย 2 โหมดการทำงาน:
+/// 1. แสดง QR Code ประจำตัวตนเอง (My Identity QR) เพื่อให้เพื่อนสแกนตรวจสอบ
+/// 2. กล้องสแกน QR Code ของเพื่อน (Scan Peer QR) พร้อมตัวเลือกกรอก Hex Key ด้วยตนเอง
 class PeerQrVerificationSheet extends StatefulWidget {
+  /// ไอดีของโหนดเพื่อนที่ต้องการยืนยันตัวตนเบื้องต้น (หากมี)
   final String? initialPeerId;
 
   const PeerQrVerificationSheet({super.key, this.initialPeerId});
 
+  /// 🚀 เมธอด Static สะดวกใช้สำหรับเปิดแสดงโมดัล Bottom Sheet นี้จากทุกที่ในแอป
+  /// @param context BuildContext ของหน้าจอที่เรียก
+  /// @param peerId (ทางเลือก) รหัสของโหนดเพื่อนที่ต้องการเปิดเจาะจงเพื่อยืนยันตัวตน
   static Future<void> show(BuildContext context, {String? peerId}) {
     return showModalBottomSheet(
       context: context,
@@ -309,9 +320,10 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
           Text(
             "Node ID: ${identity.myNodeId}",
             style: const TextStyle(
-              color: Colors.white54,
+              color: Color(0xFF94A3B8),
               fontSize: 12,
               fontFamily: 'monospace',
+              fontWeight: FontWeight.w500,
             ),
           ),
 
@@ -342,10 +354,11 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                 SelectableText(
                   identity.myFingerprint.replaceAll('\n', ' • '),
                   style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 11.5,
+                    color: Color(0xFF4ADE80),
+                    fontSize: 12,
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
                   ),
                 ),
               ],
@@ -367,6 +380,51 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
               ),
             ],
           ),
+
+          // ปุ่มลัดไปหน้าตรวจ Fingerprint & กดยืนยันตัวตนคู่สนทนา (หากเปิดมาจากแชทเพื่อน)
+          if (widget.initialPeerId != null) ...[
+            const SizedBox(height: 20),
+            Builder(
+              builder: (ctx) {
+                final targetPeer = nearby.discoveredMeshPeers[widget.initialPeerId];
+                final peerName = targetPeer?.peerName ?? 'คู่สนทนา';
+                return SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent.withValues(alpha: 0.15),
+                      foregroundColor: Colors.cyanAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Colors.cyanAccent),
+                      ),
+                    ),
+                    icon: const Icon(Icons.verified_user_rounded, size: 18),
+                    label: Text(
+                      'ตรวจสอบ Fingerprint และกดยืนยันตัวตน @$peerName',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      final resolved = targetPeer ?? MeshPeer(
+                        peerId: widget.initialPeerId!,
+                        peerName: peerName,
+                        publicKeyHex: '',
+                        hopCount: 1,
+                      );
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PeerVerificationScreen(peer: resolved),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -477,36 +535,72 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
           ),
         ),
 
-        // Bottom Controls: Torch + Paste Key
+        // Bottom Controls: Torch + Paste Key + Manual Verify Option
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _scannerController?.toggleTorch(),
+                      icon: const Icon(Icons.flashlight_on_rounded, color: Colors.white, size: 18),
+                      label: const Text("เปิด/ปิด ไฟฉาย", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    ),
                   ),
-                  onPressed: () => _scannerController?.toggleTorch(),
-                  icon: const Icon(Icons.flashlight_on_rounded, color: Colors.white, size: 18),
-                  label: const Text("เปิด/ปิด ไฟฉาย", style: TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.purpleAccent.withValues(alpha: 0.15),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        backgroundColor: Colors.purpleAccent.withValues(alpha: 0.15),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _showManualPasteDialog(identity, nearby),
+                      icon: const Icon(Icons.paste_rounded, color: Colors.purpleAccent, size: 18),
+                      label: const Text("กรอก Key ด้วยตนเอง", style: TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
                   ),
-                  onPressed: () => _showManualPasteDialog(identity, nearby),
-                  icon: const Icon(Icons.paste_rounded, color: Colors.purpleAccent, size: 18),
-                  label: const Text("กรอก Key ด้วยตนเอง", style: TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                ),
+                ],
               ),
+              if (widget.initialPeerId != null) ...[
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.cyanAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  icon: const Icon(Icons.verified_user_rounded, size: 16),
+                  label: const Text(
+                    "หรือ ตรวจสอบ Fingerprint และกดยืนยันด้วยตนเอง",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  onPressed: () {
+                    final targetPeer = nearby.discoveredMeshPeers[widget.initialPeerId];
+                    final peerName = targetPeer?.peerName ?? 'คู่สนทนา';
+                    Navigator.pop(context);
+                    final resolved = targetPeer ?? MeshPeer(
+                      peerId: widget.initialPeerId!,
+                      peerName: peerName,
+                      publicKeyHex: '',
+                      hopCount: 1,
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PeerVerificationScreen(peer: resolved),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -518,6 +612,12 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
   // 🔍 Section 4: Payload Processing & Manual Paste
   // ============================================================================
 
+  /// 🔍 ถอดรหัสและประมวลผลข้อมูลที่ได้จากการสแกน QR Code หรือกรอกด้วยตนเอง
+  /// รองรับ 3 รูปแบบข้อมูล:
+  /// 1. Custom URI: `bantawan://peer?id=...&key=...&name=...`
+  /// 2. โครงสร้าง JSON: `{"id": "...", "key": "...", "name": "..."}`
+  /// 3. Raw Hex String: กุญแจ X25519 Public Key 64 ตัวอักษร
+  /// เมื่อตรวจสอบพบ Key จะทำการผูกความเชื่อถือลงใน IdentityService ทันที
   void _processScannedPayload(
     String raw,
     IdentityService identity,
@@ -579,6 +679,8 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
     }
   }
 
+  /// 📋 แสดงกล่องโต้ตอบสำหรับวางรหัส Public Key หรือ URI ด้วยตนเอง (Manual Fallback)
+  /// ใช้ในกรณีที่กล้องสมาร์ตโฟนไม่สามารถโฟกัส QR Code ได้ หรืออยู่ในที่มืดสนิท
   void _showManualPasteDialog(IdentityService identity, NearbyService nearby) {
     final controller = TextEditingController();
     showDialog(

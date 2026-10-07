@@ -1,3 +1,11 @@
+// ============================================================================
+// 🔔 BANTAWAN App Notification Model: AppNotification
+// 
+// โมเดลข้อมูลการแจ้งเตือนส่วนกลางของระบบ (Centralized Emergency Notification)
+// รองรับการจัดเก็บลง SQLite แบบ Offline-First ครอบคลุมทั้งหมวด SOS ฉุกเฉิน,
+// สภาพอากาศ, ซองคนเดินสาร (Data Mule), ศูนย์พักพิง และสถานะระบบ
+// ============================================================================
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -19,15 +27,30 @@ enum NotificationCategory {
   system,
 }
 
-/// 📦 โมเดลข้อมูลการแจ้งเตือน
+/// 📦 โมเดลข้อมูลการแจ้งเตือนส่วนกลาง (App Notification Record)
 class AppNotification {
+  /// 🆔 รหัสประจำรายการแจ้งเตือน (UUID หรือ Timestamp String)
   final String id;
+
+  /// 📌 หัวข้อการแจ้งเตือน
   final String title;
+
+  /// 📝 เนื้อหารายละเอียดของการแจ้งเตือน
   final String body;
+
+  /// 🏷️ หมวดหมู่ประเภทการแจ้งเตือน (SOS, Weather, Mule, Shelter, System)
   final NotificationCategory category;
+
+  /// ⏱️ วันและเวลาที่สร้างการแจ้งเตือน
   final DateTime timestamp;
+
+  /// 👁️ สถานะว่าเปิดอ่านแล้วหรือไม่ (true = อ่านแล้ว)
   final bool isRead;
+
+  /// 🧭 เส้นทางหน้าจอปลายทางสำหรับกดเปิดดู (Deep Link Route)
   final String? actionRoute;
+
+  /// 📦 ข้อมูลเมทาดาทาเพิ่มเติมในรูปแบบ Map (เช่น พิกัด, Node ID, Envelope ID)
   final Map<String, dynamic>? metadata;
 
   const AppNotification({

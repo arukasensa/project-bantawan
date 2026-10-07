@@ -58,10 +58,13 @@ class MeshPeer {
   /// 📶 ตรวจสอบว่าเป็นการเชื่อมต่อบลูทูธโดยตรงระยะ 1 hop หรือไม่
   bool get isDirect => hopCount == 1;
 
-  /// ⏱️ ตรวจสอบว่าโหนดนี้ยังออนไลน์อยู่หรือไม่ (ได้รับสัญญาณ Announce ล่าสุดภายใน 3 นาที)
+  /// ⏱️ ตรวจสอบว่าโหนดนี้ยังออนไลน์อยู่หรือไม่ (ได้รับสัญญาณ Announce ล่าสุดภายในช่วงเวลาที่กำหนด)
   bool get isReachable {
     final diff = DateTime.now().difference(lastSeen);
-    return diff.inMinutes < 3;
+    if (hopCount == 1) {
+      return diff.inSeconds <= 20; // โหนดต่อตรง 1-hop หลุดถ้าเงียบเกิน 20 วินาที
+    }
+    return diff.inSeconds <= 45; // โหนดรีเลย์ Multi-hop หลุดถ้าเงียบเกิน 45 วินาที
   }
 
   /// 🌐 ดึงสถานะการเชื่อมต่อปัจจุบันของโหนด (Direct BLE 🟢 / Relayed 🟣 / Offline ⚪)
