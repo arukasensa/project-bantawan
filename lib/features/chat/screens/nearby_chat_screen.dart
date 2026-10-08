@@ -36,6 +36,7 @@ import '../widgets/notice_board_sheet.dart';
 import '../widgets/bantawan_settings_sheet.dart';
 import '../widgets/peer_qr_verification_sheet.dart';
 import '../widgets/data_mule_bag_sheet.dart';
+import '../widgets/tactical_callsign_text.dart';
 import 'package:flutter1/features/home/services/profile_service.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
 import 'dart:ui';
@@ -317,22 +318,17 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Flexible(
-                          child: Text(
-                            '🔒 $activeDisplayName',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.3,
-                            ),
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
+                          child: TacticalCallsignText(
+                            name: activeDisplayName,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            showLock: true,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         const Icon(
                           Icons.info_outline_rounded,
-                          size: 14,
+                          size: 15,
                           color: Colors.purpleAccent,
                         ),
                       ],
@@ -1666,14 +1662,10 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
           title: Row(
             children: [
               Flexible(
-                child: Text(
-                  peer.peerName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                child: TacticalCallsignText(
+                  name: peer.peerName,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 8),
@@ -2950,6 +2942,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       if (lower == 'survivor') return true;
       if (lower == 'unknown') return true;
       if (lower.startsWith('survivor ')) return true;
+      if (lower.startsWith('survivor_')) return true;
+      if (lower.startsWith('survivor #')) return true;
       if (RegExp(r'^[0-9a-fA-F]{6,}$').hasMatch(trimmed.replaceAll(' ', ''))) return true;
       return false;
     }
@@ -2957,7 +2951,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     bool isCustomRealName(String? name) {
       if (isUgly(name)) return false;
       final trimmed = name!.trim();
-      return !trimmed.startsWith('Survivor_');
+      return !trimmed.startsWith('Survivor_') &&
+          !trimmed.startsWith('Survivor #') &&
+          !trimmed.startsWith('Survivor ');
     }
 
     // 1. ตรวจสอบชื่อจริงจาก Identity Trust Store ก่อนเป็นอันดับแรก
@@ -3012,6 +3008,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       if (lower == 'survivor') return true;
       if (lower == 'unknown') return true;
       if (lower.startsWith('survivor ')) return true;
+      if (lower.startsWith('survivor_')) return true;
+      if (lower.startsWith('survivor #')) return true;
+      if (RegExp(r'^[0-9a-fA-F]{6,}$').hasMatch(name.trim().replaceAll(' ', ''))) return true;
       return false;
     }
 

@@ -366,7 +366,8 @@ class NearbyService extends ChangeNotifier {
     final lower = peerDisplayName.toLowerCase();
     final isGeneric = lower == 'survivor' ||
         lower == 'nearby peer' ||
-        lower.startsWith('survivor_');
+        lower.startsWith('survivor_') ||
+        lower.startsWith('survivor #');
     if (!isGeneric) {
       if (connectedDevices.containsValue(peerDisplayName)) return true;
       if (_pendingPeerNames.containsValue(peerDisplayName)) return true;
@@ -637,16 +638,16 @@ class NearbyService extends ChangeNotifier {
     await loadCarriedEnvelopes();
   }
 
-  /// 🏷️ สร้างนามเรียกขานฉุกเฉินตามด้วยตัวเลข (เช่น "Survivor_1234")
+  /// 🏷️ สร้างนามเรียกขานฉุกเฉินตามด้วยตัวเลข (เช่น "Survivor #1234")
   /// คำนวณรหัสตัวเลข 4 หลักจาก nodeId แบบ Deterministic เพื่อให้อุปกรณ์เดิมได้หมายเลขเดิมเสมอ
   static String generateTacticalCallsign(String nodeId) {
-    if (nodeId.isEmpty) return 'Survivor_1000';
+    if (nodeId.isEmpty) return 'Survivor #1000';
     int hash = 0;
     for (int i = 0; i < nodeId.length; i++) {
       hash = (hash * 31 + nodeId.codeUnitAt(i)) & 0x7FFFFFFF;
     }
     final numSuffix = (hash % 9000) + 1000;
-    return 'Survivor_$numSuffix';
+    return 'Survivor #$numSuffix';
   }
 
   /// 👤 ดึงข้อมูลชื่อผู้ใช้จาก ProfileService เพื่อตั้งเป็น Callsign และอัปเดตข้อมูลทางการแพทย์ในเครือข่าย Mesh
@@ -1777,6 +1778,7 @@ class NearbyService extends ChangeNotifier {
     final String chosenName = (profileName.isNotEmpty &&
             !profileName.startsWith('node_') &&
             !profileName.startsWith('Survivor_') &&
+            !profileName.startsWith('Survivor #') &&
             profileName.toLowerCase() != 'survivor')
         ? profileName
         : effectiveRawName;
@@ -1785,7 +1787,9 @@ class NearbyService extends ChangeNotifier {
         chosenName.startsWith('node_') ||
         chosenName.toLowerCase() == 'survivor' ||
         chosenName.toLowerCase() == 'unknown' ||
-        chosenName.toLowerCase().startsWith('survivor ');
+        chosenName.toLowerCase().startsWith('survivor ') ||
+        chosenName.toLowerCase().startsWith('survivor_') ||
+        chosenName.toLowerCase().startsWith('survivor #');
     final cleanSenderName = !isUgly
         ? chosenName
         : (existingPeer != null &&
@@ -1793,6 +1797,8 @@ class NearbyService extends ChangeNotifier {
                 existingPeer.peerName.toLowerCase() != 'survivor' &&
                 existingPeer.peerName.toLowerCase() != 'unknown' &&
                 !existingPeer.peerName.toLowerCase().startsWith('survivor ') &&
+                !existingPeer.peerName.toLowerCase().startsWith('survivor_') &&
+                !existingPeer.peerName.toLowerCase().startsWith('survivor #') &&
                 existingPeer.peerName.trim().isNotEmpty)
             ? existingPeer.peerName
             : NearbyService.generateTacticalCallsign(msg.senderId);
@@ -3228,7 +3234,10 @@ class NearbyService extends ChangeNotifier {
           lower == 'survivor' ||
           lower == 'unknown' ||
           lower.startsWith('survivor ') ||
+          lower.startsWith('survivor_') ||
+          lower.startsWith('survivor #') ||
           trimmed.startsWith('Survivor_') ||
+          trimmed.startsWith('Survivor #') ||
           RegExp(r'^[0-9a-fA-F]{6,}$').hasMatch(trimmed.replaceAll(' ', ''))) {
         return false;
       }

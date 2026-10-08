@@ -175,16 +175,16 @@ void main() {
       );
     });
 
-    test('generateTacticalCallsign returns Survivor_<4-digit numbers> deterministically', () {
+    test('generateTacticalCallsign returns Survivor #<4-digit numbers> deterministically', () {
       final callsignA1 = NearbyService.generateTacticalCallsign('node_a1b2c3d4e5f6');
       final callsignA2 = NearbyService.generateTacticalCallsign('node_a1b2c3d4e5f6');
       final callsignB = NearbyService.generateTacticalCallsign('node_9876543210ab');
 
       expect(callsignA1, equals(callsignA2), reason: 'Must be deterministic for same nodeId');
-      expect(RegExp(r'^Survivor_\d{4}$').hasMatch(callsignA1), isTrue,
-          reason: 'Must match Survivor_<4 digits>');
-      expect(RegExp(r'^Survivor_\d{4}$').hasMatch(callsignB), isTrue,
-          reason: 'Must match Survivor_<4 digits>');
+      expect(RegExp(r'^Survivor #\d{4}$').hasMatch(callsignA1), isTrue,
+          reason: 'Must match Survivor #<4 digits>');
+      expect(RegExp(r'^Survivor #\d{4}$').hasMatch(callsignB), isTrue,
+          reason: 'Must match Survivor #<4 digits>');
     });
 
     test('resolvePeerDisplayName prioritizes real custom names over generic fallback', () {
@@ -200,10 +200,10 @@ void main() {
         lastSeen: DateTime.now(),
       );
 
-      // Even if fallbackName is a generic callsign like Survivor_1234
+      // Even if fallbackName is a generic callsign like Survivor #1234 or Survivor_1234
       final resolved = service.resolvePeerDisplayName(
         'node_somchai',
-        fallbackName: 'Survivor_1234',
+        fallbackName: 'Survivor #1234',
       );
       expect(resolved, equals('สมชาย ใจดี'),
           reason: 'Should prioritize real profile name over generic callsign');
@@ -218,7 +218,7 @@ void main() {
         fallbackName: 'node_a1b2c3d4e5f6',
       );
       expect(resolved, equals(NearbyService.generateTacticalCallsign('node_a1b2c3d4e5f6')),
-          reason: 'Should return deterministic Survivor_<4 digits> instead of node_xxx');
+          reason: 'Should return deterministic Survivor #<4 digits> instead of node_xxx');
     });
   });
 }

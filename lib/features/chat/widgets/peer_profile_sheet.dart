@@ -6,6 +6,7 @@ import '../models/peer_trust.dart';
 import '../services/nearby_service.dart';
 import '../services/identity_service.dart';
 import '../screens/peer_verification_screen.dart';
+import 'tactical_callsign_text.dart';
 
 /// ============================================================================
 /// 🪪 BANTAWAN Offline Tactical Survivor & Emergency Medical Profile Sheet
@@ -147,15 +148,10 @@ class PeerProfileSheet extends StatelessWidget {
                         Row(
                           children: [
                             Flexible(
-                              child: Text(
-                                peer.peerName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.3,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                              child: TacticalCallsignText(
+                                name: peer.peerName,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(width: 8),

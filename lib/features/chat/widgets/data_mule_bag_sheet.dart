@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
 import '../models/mule_envelope.dart';
 import '../services/nearby_service.dart';
+import 'tactical_callsign_text.dart';
 
 /// 🎒 [DataMuleBagSheet]
 /// วิดเจ็ตหน้าต่าง Bottom Sheet แสดงข้อมูลกระเป๋าคนเดินสาร (Data Mule Tactical Bag)
@@ -368,14 +369,15 @@ class DataMuleBagSheet extends StatelessWidget {
             children: [
               const Icon(Icons.arrow_forward_rounded, color: Colors.cyanAccent, size: 14),
               const SizedBox(width: 6),
+              Text(
+                '${isThai ? 'ส่งถึง' : 'To'}: ',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
               Expanded(
-                child: Text(
-                  '${isThai ? 'ส่งถึง' : 'To'}: $recipientCallsign',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: TacticalCallsignText(
+                  name: recipientCallsign,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -386,8 +388,16 @@ class DataMuleBagSheet extends StatelessWidget {
               const Icon(Icons.person_outline_rounded, color: Colors.white38, size: 14),
               const SizedBox(width: 6),
               Text(
-                '${isThai ? 'ผู้ฝาก' : 'From'}: ${env.senderCallsign}',
+                '${isThai ? 'ผู้ฝาก' : 'From'}: ',
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Expanded(
+                child: TacticalCallsignText(
+                  name: env.senderCallsign,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
               ),
             ],
           ),

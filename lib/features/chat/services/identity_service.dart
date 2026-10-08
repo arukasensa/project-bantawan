@@ -120,7 +120,10 @@ class IdentityService extends ChangeNotifier {
         lower.startsWith('node_') ||
         lower == 'survivor' ||
         lower == 'unknown' ||
-        lower.startsWith('survivor ');
+        lower.startsWith('survivor ') ||
+        lower.startsWith('survivor_') ||
+        lower.startsWith('survivor #') ||
+        RegExp(r'^[0-9a-fA-F]{6,}$').hasMatch(trimmed.replaceAll(' ', ''));
     if (isUgly) {
       return NearbyService.generateTacticalCallsign(peerId);
     }
@@ -179,9 +182,11 @@ class IdentityService extends ChangeNotifier {
       final existing = _trustStore[peerId];
       if (existing != null && cleanName.isNotEmpty && existing.displayName != cleanName) {
         final isOldGeneric = existing.displayName.startsWith('Survivor_') ||
+            existing.displayName.startsWith('Survivor #') ||
             existing.displayName.startsWith('node_') ||
             existing.displayName.toLowerCase() == 'survivor';
         final isNewCustom = !cleanName.startsWith('Survivor_') &&
+            !cleanName.startsWith('Survivor #') &&
             !cleanName.startsWith('node_') &&
             cleanName.toLowerCase() != 'survivor';
 
