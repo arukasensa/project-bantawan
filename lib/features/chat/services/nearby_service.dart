@@ -293,10 +293,10 @@ class NearbyService extends ChangeNotifier {
   /// อนุญาตให้แต่ละอุปกรณ์ทำหน้าที่เป็นทั้งโหนดค้นหา (Discoverer) และโหนดโฆษณาสัญญาณ (Advertiser)
   final Strategy strategy = Strategy.P2P_CLUSTER;
 
-  String deviceName = "Survivor Alpha"; // ชื่อเรียกประจำอุปกรณ์ (Device Callsign)
+  String deviceName = "Survivor"; // ชื่อเรียกประจำอุปกรณ์ (Device Callsign)
 
   /// 🏷️ ชื่อที่ใช้ประกาศผ่าน Google Nearby BLE/Wi-Fi (Advertised Name)
-  /// รูปแบบ: `BW:[nodeIdPrefix]:[deviceName]` (เช่น `BW:a1b2c3d4e5f6:Survivor Alpha`)
+  /// รูปแบบ: `BW:[nodeIdPrefix]:[deviceName]` (เช่น `BW:a1b2c3d4e5f6:Survivor_1234`)
   String get advertisedName {
     final cleanId = nodeId.replaceFirst('node_', '');
     return 'BW:$cleanId:$deviceName';
@@ -630,38 +630,16 @@ class NearbyService extends ChangeNotifier {
     await loadCarriedEnvelopes();
   }
 
-  /// 🏷️ สร้างนามเรียกขานฉุกเฉินสไตล์ Tactical (เช่น "Survivor Alpha", "Survivor Phoenix", "Survivor Falcon")
-  /// แทนที่จะใช้ตัวเลขสุ่ม hex เช่น "Survivor_d76b" ที่ดูเหมือนรหัสคอมพิวเตอร์
+  /// 🏷️ สร้างนามเรียกขานฉุกเฉินตามด้วยตัวเลข (เช่น "Survivor_1234")
+  /// คำนวณรหัสตัวเลข 4 หลักจาก nodeId แบบ Deterministic เพื่อให้อุปกรณ์เดิมได้หมายเลขเดิมเสมอ
   static String generateTacticalCallsign(String nodeId) {
-    const callsigns = [
-      'Alpha',
-      'Phoenix',
-      'Falcon',
-      'Echo',
-      'Sierra',
-      'Delta',
-      'Orion',
-      'Scout',
-      'Titan',
-      'Raven',
-      'Victor',
-      'Ranger',
-      'Maverick',
-      'Bravo',
-      'Hawk',
-      'Shadow',
-      'Apex',
-      'Viper',
-      'Specter',
-      'Cobra',
-    ];
-
+    if (nodeId.isEmpty) return 'Survivor_1000';
     int hash = 0;
     for (int i = 0; i < nodeId.length; i++) {
       hash = (hash * 31 + nodeId.codeUnitAt(i)) & 0x7FFFFFFF;
     }
-    final selectedCallsign = callsigns[hash % callsigns.length];
-    return 'Survivor $selectedCallsign';
+    final numSuffix = (hash % 9000) + 1000;
+    return 'Survivor_$numSuffix';
   }
 
   /// 👤 ดึงข้อมูลชื่อผู้ใช้จาก ProfileService เพื่อตั้งเป็น Callsign และอัปเดตข้อมูลทางการแพทย์ในเครือข่าย Mesh
@@ -1744,13 +1722,18 @@ class NearbyService extends ChangeNotifier {
     final rawSenderName = msg.senderName.trim();
     final parsedRaw = parseAdvertisedName(rawSenderName);
     final effectiveRawName = parsedRaw.peerName;
-    final cleanSenderName = (effectiveRawName.isNotEmpty &&
-            !effectiveRawName.startsWith('node_') &&
-            !RegExp(r'^Survivor_[0-9a-fA-F]{4}$').hasMatch(effectiveRawName))
+    final isUgly = effectiveRawName.isEmpty ||
+        effectiveRawName.startsWith('node_') ||
+        effectiveRawName.toLowerCase() == 'survivor' ||
+        effectiveRawName.toLowerCase() == 'unknown' ||
+        effectiveRawName.toLowerCase().startsWith('survivor ');
+    final cleanSenderName = !isUgly
         ? effectiveRawName
         : (existingPeer != null &&
                 !existingPeer.peerName.startsWith('node_') &&
-                !RegExp(r'^Survivor_[0-9a-fA-F]{4}$').hasMatch(existingPeer.peerName) &&
+                existingPeer.peerName.toLowerCase() != 'survivor' &&
+                existingPeer.peerName.toLowerCase() != 'unknown' &&
+                !existingPeer.peerName.toLowerCase().startsWith('survivor ') &&
                 existingPeer.peerName.trim().isNotEmpty)
             ? existingPeer.peerName
             : NearbyService.generateTacticalCallsign(msg.senderId);

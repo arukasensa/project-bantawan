@@ -119,9 +119,8 @@ class IdentityService extends ChangeNotifier {
     final isUgly = trimmed.isEmpty ||
         lower.startsWith('node_') ||
         lower == 'survivor' ||
-        lower.startsWith('survivor_') ||
-        (lower.startsWith('survivor ') &&
-            RegExp(r'^[0-9a-f]+$').hasMatch(lower.substring('survivor '.length).replaceAll(' ', '')));
+        lower == 'unknown' ||
+        lower.startsWith('survivor ');
     if (isUgly) {
       return NearbyService.generateTacticalCallsign(peerId);
     }

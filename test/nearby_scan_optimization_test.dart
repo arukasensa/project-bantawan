@@ -174,5 +174,17 @@ void main() {
         reason: 'If device has 0 Bluetooth links, all peers must report offline',
       );
     });
+
+    test('generateTacticalCallsign returns Survivor_<4-digit numbers> deterministically', () {
+      final callsignA1 = NearbyService.generateTacticalCallsign('node_a1b2c3d4e5f6');
+      final callsignA2 = NearbyService.generateTacticalCallsign('node_a1b2c3d4e5f6');
+      final callsignB = NearbyService.generateTacticalCallsign('node_9876543210ab');
+
+      expect(callsignA1, equals(callsignA2), reason: 'Must be deterministic for same nodeId');
+      expect(RegExp(r'^Survivor_\d{4}$').hasMatch(callsignA1), isTrue,
+          reason: 'Must match Survivor_<4 digits>');
+      expect(RegExp(r'^Survivor_\d{4}$').hasMatch(callsignB), isTrue,
+          reason: 'Must match Survivor_<4 digits>');
+    });
   });
 }

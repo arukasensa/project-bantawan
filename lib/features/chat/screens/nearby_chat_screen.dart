@@ -2948,12 +2948,9 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       final lower = trimmed.toLowerCase();
       if (lower.startsWith('node_')) return true;
       if (lower == 'survivor') return true;
-      if (lower.startsWith('survivor_')) return true;
-      if (lower.startsWith('survivor ')) {
-        final remainder = lower.substring('survivor '.length).replaceAll(' ', '');
-        if (RegExp(r'^[0-9a-f]+$').hasMatch(remainder)) return true;
-      }
-      if (RegExp(r'^[0-9a-fA-F]{4,}$').hasMatch(trimmed.replaceAll(' ', ''))) return true;
+      if (lower == 'unknown') return true;
+      if (lower.startsWith('survivor ')) return true;
+      if (RegExp(r'^[0-9a-fA-F]{6,}$').hasMatch(trimmed.replaceAll(' ', ''))) return true;
       return false;
     }
 
@@ -2986,11 +2983,8 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       final lower = name.trim().toLowerCase();
       if (lower.startsWith('node_')) return true;
       if (lower == 'survivor') return true;
-      if (lower.startsWith('survivor_')) return true;
-      if (lower.startsWith('survivor ')) {
-        final remainder = lower.substring('survivor '.length).replaceAll(' ', '');
-        if (RegExp(r'^[0-9a-f]+$').hasMatch(remainder)) return true;
-      }
+      if (lower == 'unknown') return true;
+      if (lower.startsWith('survivor ')) return true;
       return false;
     }
 
