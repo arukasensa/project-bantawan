@@ -1089,7 +1089,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                     content: Text(
                       ok
                           ? '🔄 กำลังรีเฟรชการสแกนบลูทูธ...'
-                          : '⏳ กรุณารอสักครู่ก่อนรีเฟรชการสแกนซ้ำ (จำกัด 5 วิ)',
+                          : '⏳ กรุณารอสักครู่ก่อนรีเฟรชการสแกนซ้ำ (จำกัด 1.5 วิ)',
                     ),
                     duration: const Duration(seconds: 2),
                     backgroundColor: const Color(0xFF1E293B),

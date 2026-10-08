@@ -335,6 +335,9 @@ class NearbyService extends ChangeNotifier {
   /// ป้องกันการยิงคำขอเชื่อมต่อซ้ำรัวๆ รบกวนช่องสัญญาณ BLE
   final Map<String, DateTime> _failedConnectionCooldowns = {};
 
+  /// 🔄 ตารางบันทึกจำนวนครั้งที่พยายาม Fast Retry เชื่อมต่อ (endpointId -> retryCount)
+  final Map<String, int> _endpointRetryAttempts = {};
+
   /// 🏷️ แคชชื่อของ Endpoint ที่อยู่ระหว่าง Handshake (endpointId -> peerDisplayName)
   final Map<String, String> _pendingPeerNames = {};
 
@@ -408,7 +411,7 @@ class NearbyService extends ChangeNotifier {
 
   void _setFailedCooldown(String endpointId) {
     _failedConnectionCooldowns[endpointId] =
-        DateTime.now().add(const Duration(seconds: 3));
+        DateTime.now().add(const Duration(milliseconds: 1500));
   }
 
   Map<String, String> connectedDevices = {}; // ตารางเก็บอุปกรณ์ที่เชื่อมต่อโดยตรง (endpointId -> deviceName)
@@ -420,6 +423,21 @@ class NearbyService extends ChangeNotifier {
   /// 🌐 ตารางจัดเก็บข้อมูลโหนดที่ค้นพบในเครือข่าย Multi-hop Mesh (peerId -> MeshPeer)
   final Map<String, MeshPeer> discoveredMeshPeers = {};
   Timer? _peerAnnounceTimer;
+  int _peerAnnounceTickCount = 0;
+
+  /// 📦 สร้างแพ็กเก็ต Lightweight Keep-Alive Ping (~45 bytes) สำหรับลดแบนด์วิดท์ BLE radio
+  static Map<String, dynamic> createPingPacket(String nodeId, {int? timestamp}) {
+    return {
+      'type': 'PING',
+      's': nodeId,
+      't': timestamp ?? DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  /// 🔍 ตรวจสอบว่าแพ็กเก็ตเป็น Lightweight Keep-Alive Ping หรือไม่
+  static bool isPingPacket(dynamic json) {
+    return json is Map<String, dynamic> && json['type'] == 'PING' && json['s'] is String;
+  }
 
   /// 🌐 ตรวจสอบสถานะการเชื่อมต่อจริงของโหนดในโครงข่าย Mesh แบบ Real-time
   /// ป้องกัน Ghost Node (สถานะค้าง): หากเครื่องเราไม่มีอุปกรณ์เชื่อมต่อตรงเหลืออยู่เลย
@@ -434,8 +452,8 @@ class NearbyService extends ChangeNotifier {
 
     // 2. กรณีเป็น Direct BLE Node (1 hop)
     if (peer.hopCount == 1) {
-      // ⏱️ หากไม่ได้รับ Heartbeat/สัญญาณใดๆ เกิน 15 วินาที ถือว่าหลุดการเชื่อมต่อไปแล้ว (แก้ปัญหาปิดบลูทูธแต่ค้าง)
-      if (diff.inSeconds > 15) {
+      // ⏱️ หากไม่ได้รับ Heartbeat/สัญญาณใดๆ เกิน 22 วินาที ถือว่าหลุดการเชื่อมต่อไปแล้ว (รองรับ 8s Ping cycle)
+      if (diff.inSeconds > 22) {
         return PeerConnectionStatus.offline;
       }
       if (peer.directEndpoint != null && connectedDevices.containsKey(peer.directEndpoint)) {
@@ -792,24 +810,18 @@ class NearbyService extends ChangeNotifier {
       }
       _isManuallyStopped = false;
 
-      // ⏳ Warm-up Delay 300ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เคลียร์ GATT Server ให้เรียบร้อย
-      await Future.delayed(const Duration(milliseconds: 300));
+      // ⏳ Warm-up Delay สั้นลง 120ms เพื่อให้ระบบปฏิบัติการ Android เคลียร์ GATT Server
+      await Future.delayed(const Duration(milliseconds: 120));
 
-      // 🎲 1. Randomized Startup Jitter (80ms - 200ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
-      final jitterMs = 80 + Random().nextInt(120);
+      // 🎲 1. Randomized Startup Jitter (20ms - 60ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
+      final jitterMs = 20 + Random().nextInt(40);
       await Future.delayed(Duration(milliseconds: jitterMs));
 
       // ----------------------------------------------------------------------
-      // Step 1: Start Advertising (ลองเปิดโฆษณาสัญญาณด้วย Retry Loop 4 ครั้ง)
+      // Step 1: Start Advertising & Discovery (Pipeline ขนาน รวดเร็ว)
       // ----------------------------------------------------------------------
       await _startAdvertisingInternal();
-
-      // ⏳ หน่วงเวลา 200ms ระหว่าง Advertising และ Discovery เพื่อให้ BLE Radio พร้อมทำงาน
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      // ----------------------------------------------------------------------
-      // Step 2: Start Discovery (ลองเปิดสแกนค้นหาด้วย Retry Loop 4 ครั้ง)
-      // ----------------------------------------------------------------------
+      await Future.delayed(const Duration(milliseconds: 60));
       await _startDiscoveryInternal();
 
       _startPeerAnnounceTimer();
@@ -837,6 +849,7 @@ class NearbyService extends ChangeNotifier {
           onConnectionResult: (id, status) {
             _pendingConnectionEndpoints.remove(id);
             if (status == Status.CONNECTED) {
+              _endpointRetryAttempts.remove(id);
               _endpointLastActivity[id] = DateTime.now();
               _failedConnectionCooldowns.remove(id);
               final pName = _pendingPeerNames.remove(id) ?? connectedDevices[id] ?? 'Nearby Peer';
@@ -859,11 +872,15 @@ class NearbyService extends ChangeNotifier {
               notifyListeners();
             } else {
               // เชื่อมต่อไม่สำเร็จ — เอา id ออก และตั้ง Negative Cache Cooldown
+              _endpointRetryAttempts.remove(id);
               _endpointLastActivity.remove(id);
               _pendingPeerNames.remove(id);
               connectedDevices.remove(id);
               _setFailedCooldown(id);
               debugPrint('[Nearby Advertiser] ❌ Connection failed: $id status=$status');
+              if (connectedDevices.isEmpty && isDiscovering) {
+                _triggerFastDiscoveryRestart();
+              }
               notifyListeners();
             }
           },
@@ -960,11 +977,11 @@ class NearbyService extends ChangeNotifier {
                     ? deviceName.compareTo(peerDisplayName) > 0
                     : id.hashCode % 2 == 0);
 
-            // ⚡ Master (Initiator): ยิงคำขอเชื่อมต่อทันทีหลัง Jitter สั้นๆ 30-80ms
-            // ⏳ Responder: รอรับคำขอเชื่อมต่อเท่านั้น (มี Safe Fallback 1200-1500ms เผื่อ Master หลุด)
+            // ⚡ Master (Initiator): ยิงคำขอเชื่อมต่อทันทีหลัง Jitter สั้นๆ 15-35ms
+            // ⏳ Responder: รอรับคำขอเชื่อมต่อเพียง 120-180ms (หาก Master ยังไม่ทักมา จะยิงเชื่อมต่อเองทันที)
             final delayMs = shouldInitiateImmediately
-                ? (30 + Random().nextInt(50))
-                : (1200 + Random().nextInt(300));
+                ? (15 + Random().nextInt(20))
+                : (120 + Random().nextInt(60));
 
             if (!shouldInitiateImmediately) {
               debugPrint('[Nearby Discovery] ⏳ Responder role: Waiting ${delayMs}ms for Master peer ($peerDisplayName) to initiate...');
@@ -982,67 +999,11 @@ class NearbyService extends ChangeNotifier {
                   connectedDevices.length >= 4) {
                 return;
               }
-              _pendingConnectionEndpoints.add(id);
-              _pendingPeerNames[id] = peerDisplayName;
-              debugPrint('[Nearby Discovery] 🚀 Requesting connection to: $id ($peerDisplayName)');
-
-              // ร้องขอการเชื่อมต่อยิงจับคู่ (Pairing Connection)
-              Nearby().requestConnection(
-                advertisedName,
-                id,
-                onConnectionInitiated: (connId, info) {
-                  _pendingConnectionEndpoints.add(connId);
-                  final p = parseAdvertisedName(info.endpointName);
-                  _pendingPeerNames[connId] = p.peerName;
-                  _onConnectionInitiated(connId, info);
-                },
-                onConnectionResult: (connResultId, status) {
-                  _pendingConnectionEndpoints.remove(connResultId);
-                  if (status == Status.CONNECTED) {
-                    _endpointLastActivity[connResultId] = DateTime.now();
-                    _failedConnectionCooldowns.remove(connResultId);
-                    final actualName = _pendingPeerNames.remove(connResultId) ?? peerDisplayName;
-                    if (actualName != deviceName) {
-                      connectedDevices[connResultId] = actualName;
-                      syncPeersToNewNode(connResultId);
-                      broadcastPeerAnnounce(targetEndpointId: connResultId);
-                      _broadcastMeshUpdateToExistingNodes(connResultId);
-                      _notifyProximity(peerNodeId ?? connResultId, actualName);
-                      debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($actualName)');
-                      // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
-                      Future.delayed(const Duration(seconds: 2), () {
-                        final pNodeId = discoveredMeshPeers.entries
-                            .where((e) => e.value.directEndpoint == connResultId)
-                            .map((e) => e.key)
-                            .firstOrNull;
-                        if (pNodeId != null) {
-                          _deliverPendingMessages(connResultId, pNodeId);
-                          _deliverMuleEnvelopes(connResultId, pNodeId);
-                        }
-                      });
-                      _checkAndAdjustDiscoveryState();
-                      notifyListeners();
-                    }
-                  } else {
-                    // เชื่อมต่อล้มเหลว — ล้าง id ออก และตั้ง Negative Cache Cooldown
-                    _endpointLastActivity.remove(connResultId);
-                    _pendingPeerNames.remove(connResultId);
-                    connectedDevices.remove(connResultId);
-                    _setFailedCooldown(connResultId);
-                    debugPrint('[Nearby Discovery] ❌ Connection failed: $connResultId ($peerDisplayName) status=$status');
-                    notifyListeners();
-                  }
-                },
-                onDisconnected: (discId) {
-                  _handleEndpointDisconnected(discId, source: 'Discovery');
-                },
-              ).catchError((e) {
-                _pendingConnectionEndpoints.remove(id);
-                _pendingPeerNames.remove(id);
-                _setFailedCooldown(id);
-                debugPrint('[Nearby Discovery] ⚠️ requestConnection error: $e');
-                return false;
-              });
+              _requestConnectionInternal(
+                id: id,
+                peerDisplayName: peerDisplayName,
+                peerNodeId: peerNodeId,
+              );
             });
           },
           onEndpointLost: (id) {
@@ -1057,6 +1018,112 @@ class NearbyService extends ChangeNotifier {
         await Future.delayed(Duration(milliseconds: 600 * attempt));
       }
     }
+  }
+
+  /// 🚀 ยิงคำขอเชื่อมต่อไปยัง Endpoint พร้อมระบบ Fast In-Session Retry อัตโนมัติ (สูงสุด 2 ครั้ง)
+  /// ป้องกันอาการสแกนติดขัดจากจังหวะ BLE Handshake Collision หรือชิปเซ็ตประมวลผลไม่ทัน
+  void _requestConnectionInternal({
+    required String id,
+    required String peerDisplayName,
+    String? peerNodeId,
+  }) {
+    if (_isPeerAlreadyConnectedOrPending(
+          peerNodeId: peerNodeId,
+          peerDisplayName: peerDisplayName,
+          endpointId: id,
+        ) ||
+        !isDiscovering ||
+        connectedDevices.length >= 4) {
+      return;
+    }
+
+    _pendingConnectionEndpoints.add(id);
+    _pendingPeerNames[id] = peerDisplayName;
+    debugPrint('[Nearby Discovery] 🚀 Requesting connection to: $id ($peerDisplayName)');
+
+    Nearby().requestConnection(
+      advertisedName,
+      id,
+      onConnectionInitiated: (connId, info) {
+        _pendingConnectionEndpoints.add(connId);
+        final p = parseAdvertisedName(info.endpointName);
+        _pendingPeerNames[connId] = p.peerName;
+        _onConnectionInitiated(connId, info);
+      },
+      onConnectionResult: (connResultId, status) {
+        _pendingConnectionEndpoints.remove(connResultId);
+        if (status == Status.CONNECTED) {
+          _endpointRetryAttempts.remove(connResultId);
+          _endpointLastActivity[connResultId] = DateTime.now();
+          _failedConnectionCooldowns.remove(connResultId);
+          final actualName = _pendingPeerNames.remove(connResultId) ?? peerDisplayName;
+          if (actualName != deviceName) {
+            connectedDevices[connResultId] = actualName;
+            syncPeersToNewNode(connResultId);
+            broadcastPeerAnnounce(targetEndpointId: connResultId);
+            _broadcastMeshUpdateToExistingNodes(connResultId);
+            _notifyProximity(peerNodeId ?? connResultId, actualName);
+            debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($actualName)');
+            Future.delayed(const Duration(seconds: 1), () {
+              final pNodeId = discoveredMeshPeers.entries
+                  .where((e) => e.value.directEndpoint == connResultId)
+                  .map((e) => e.key)
+                  .firstOrNull;
+              if (pNodeId != null) {
+                _deliverPendingMessages(connResultId, pNodeId);
+                _deliverMuleEnvelopes(connResultId, pNodeId);
+              }
+            });
+            _checkAndAdjustDiscoveryState();
+            notifyListeners();
+          }
+        } else {
+          // เชื่อมต่อไม่สำเร็จ — ตรวจสอบการทำ Fast Retry อัตโนมัติ (สูงสุด 2 ครั้ง)
+          final retries = _endpointRetryAttempts[connResultId] ?? 0;
+          if (retries < 2 &&
+              isDiscovering &&
+              connectedDevices.length < 4 &&
+              !connectedDevices.containsKey(connResultId)) {
+            _endpointRetryAttempts[connResultId] = retries + 1;
+            final retryDelay = 250 + (retries * 150) + Random().nextInt(80);
+            debugPrint('[Nearby Discovery] 🔄 Retrying connection to $connResultId (attempt ${retries + 1}/2) in ${retryDelay}ms...');
+            Future.delayed(Duration(milliseconds: retryDelay), () {
+              if (!isDiscovering || connectedDevices.length >= 4) return;
+              _requestConnectionInternal(
+                id: connResultId,
+                peerDisplayName: peerDisplayName,
+                peerNodeId: peerNodeId,
+              );
+            });
+          } else {
+            _endpointRetryAttempts.remove(connResultId);
+            _endpointLastActivity.remove(connResultId);
+            _pendingPeerNames.remove(connResultId);
+            connectedDevices.remove(connResultId);
+            _setFailedCooldown(connResultId);
+            debugPrint('[Nearby Discovery] ❌ Connection failed after retries: $connResultId ($peerDisplayName) status=$status');
+            // ⚡ หากยังไม่มีการเชื่อมต่อกับอุปกรณ์ใดเลย ให้กระตุ้น Discovery สั้นๆ เพื่อล้างแคชให้ Nearby รายงานโหนดใหม่
+            if (connectedDevices.isEmpty && isDiscovering) {
+              _triggerFastDiscoveryRestart();
+            }
+            notifyListeners();
+          }
+        }
+      },
+      onDisconnected: (discId) {
+        _endpointRetryAttempts.remove(discId);
+        _handleEndpointDisconnected(discId, source: 'Discovery');
+      },
+    ).catchError((e) {
+      _pendingConnectionEndpoints.remove(id);
+      _pendingPeerNames.remove(id);
+      _setFailedCooldown(id);
+      debugPrint('[Nearby Discovery] ⚠️ requestConnection error: $e');
+      if (connectedDevices.isEmpty && isDiscovering) {
+        _triggerFastDiscoveryRestart();
+      }
+      return false;
+    });
   }
 
   /// 🌐 กระจายข้อมูลให้โหนดเดิมใน Mesh ทราบว่ามีโหนดใหม่เชื่อมต่อเข้ามา (Instant Mesh Discovery Propagation)
@@ -1169,14 +1236,14 @@ class NearbyService extends ChangeNotifier {
   }
 
   /// 🚀 บังคับรีเฟรชการสแกนบลูทูธทันที (Force Rescan) พร้อมเคลียร์ Cooldown และตรวจสอบความพร้อมของระบบ
-  /// มีระบบ Rate Limit 2-4 วินาที เพื่อป้องกัน Android BLE Scan Throttling
+  /// มีระบบ Rate Limit 1.5 วินาที เพื่อป้องกัน Android BLE Scan Throttling
   Future<bool> forceRescan() async {
     final now = DateTime.now();
-    final cooldownLimit = connectedDevices.isEmpty ? 2 : 4;
+    const cooldownLimitMs = 1500;
     if (_lastForceRescanTime != null &&
-        now.difference(_lastForceRescanTime!).inSeconds < cooldownLimit) {
-      final remaining = cooldownLimit - now.difference(_lastForceRescanTime!).inSeconds;
-      debugPrint('[Nearby Force Rescan] ⏳ Rate limited. Please wait $remaining s.');
+        now.difference(_lastForceRescanTime!).inMilliseconds < cooldownLimitMs) {
+      final remaining = (cooldownLimitMs - now.difference(_lastForceRescanTime!).inMilliseconds) / 1000.0;
+      debugPrint('[Nearby Force Rescan] ⏳ Rate limited. Please wait ${remaining.toStringAsFixed(1)} s.');
       return false;
     }
     _lastForceRescanTime = now;
@@ -1184,8 +1251,9 @@ class NearbyService extends ChangeNotifier {
     // 1. ตรวจสอบสถานะฮาร์ดแวร์ GPS/Location
     await checkHardwareReadiness();
 
-    // 2. เคลียร์ Cooldown แคชเพื่อเปิดโอกาสเชื่อมต่อใหม่
+    // 2. เคลียร์ Cooldown แคชและ Retry Counter ทั้งหมดเพื่อเปิดโอกาสเชื่อมต่อใหม่ทันที
     _failedConnectionCooldowns.clear();
+    _endpointRetryAttempts.clear();
     _pendingConnectionEndpoints.clear();
     _pendingPeerNames.clear();
 
@@ -1201,10 +1269,10 @@ class NearbyService extends ChangeNotifier {
       await Nearby().stopDiscovery();
       if (connectedDevices.isEmpty && isAdvertising) {
         await Nearby().stopAdvertising();
-        await Future.delayed(const Duration(milliseconds: 150));
+        await Future.delayed(const Duration(milliseconds: 80));
         await _startAdvertisingInternal();
       }
-      await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 100));
       await _startDiscoveryInternal();
       notifyListeners();
       return true;
@@ -1411,6 +1479,12 @@ class NearbyService extends ChangeNotifier {
             // 📌 ตรวจสอบว่าเป็นแพ็กเก็ตกระดานประกาศฉุกเฉินออฟไลน์ (Offline Mesh Notice) หรือไม่
             if (json is Map<String, dynamic> && json['isNotice'] == true) {
               await _handleIncomingNotice(json, endpointId);
+              return;
+            }
+
+            // 💓 ตรวจสอบว่าเป็นแพ็กเก็ตฮาร์ตบีตขนาดเล็ก (Lightweight Keep-Alive Ping) หรือไม่
+            if (isPingPacket(json)) {
+              _handleIncomingPing(json as Map<String, dynamic>, endpointId);
               return;
             }
 
@@ -2003,42 +2077,91 @@ class NearbyService extends ChangeNotifier {
     }
   }
 
+  /// 💓 จัดการกับแพ็กเก็ต Lightweight Keep-Alive Ping ที่ได้รับจากเพื่อนบ้าน
+  void _handleIncomingPing(Map<String, dynamic> json, String endpointId) {
+    final now = DateTime.now();
+    _endpointLastActivity[endpointId] = now;
+    final senderNodeId = json['s'] as String?;
+    if (senderNodeId != null && senderNodeId.isNotEmpty) {
+      _reversePathTable[senderNodeId] = endpointId;
+      final existingPeer = discoveredMeshPeers[senderNodeId];
+      if (existingPeer != null) {
+        discoveredMeshPeers[senderNodeId] = existingPeer.copyWith(
+          lastSeen: now,
+          directEndpoint: endpointId,
+        );
+        notifyListeners();
+      }
+    }
+  }
+
+  /// 💓 ส่งสัญญาณ Ping สั้นๆ (~45 bytes) เพื่อรักษา Heartbeat ระดับ Transport โดยไม่เปลืองแบนด์วิดท์ BLE
+  Future<void> sendHeartbeatPing({String? targetEndpointId}) async {
+    if (connectedDevices.isEmpty && targetEndpointId == null) return;
+    final pingPacket = createPingPacket(nodeId);
+    final bytes = utf8.encode(jsonEncode(pingPacket));
+    if (targetEndpointId != null) {
+      if (connectedDevices.containsKey(targetEndpointId)) {
+        try {
+          await Nearby().sendBytesPayload(targetEndpointId, bytes);
+        } catch (_) {}
+      }
+    } else {
+      for (final endpointId in connectedDevices.keys.toList()) {
+        try {
+          await Nearby().sendBytesPayload(endpointId, bytes);
+        } catch (_) {}
+      }
+    }
+  }
+
   /// ⏱️ ตัวตั้งเวลาส่งสัญญาณประกาศตัวตนเป็นระยะเพื่อรักษา Heartbeat ของโหนดใน Mesh
   void _startPeerAnnounceTimer() {
     _peerAnnounceTimer?.cancel();
-    // ⚡ ปรับเป็นทุก 6 วินาที เพื่อให้ Dynamic Mesh สลับ 1-hop / 2-hop ตอบสนองรวดเร็วในภาคสนาม
-    _peerAnnounceTimer = Timer.periodic(const Duration(seconds: 6), (_) async {
+    _peerAnnounceTickCount = 0;
+    // ⚡ รอบการทำงาน Heartbeat ทุก 8 วินาที:
+    // - ทุก Tick (8s): ส่ง Lightweight Ping (~45 bytes) ประหยัดแบนด์วิดท์ BLE radio >80%
+    // - ทุกๆ 6 Ticks (~48s): ส่ง Full PEER_ANNOUNCE และ syncBridgeAnnounces()
+    _peerAnnounceTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
       if (_isManuallyStopped || (!isAdvertising && !isDiscovering && connectedDevices.isEmpty)) return;
 
       if (isAdvertising || isDiscovering || connectedDevices.isNotEmpty) {
-        await broadcastPeerAnnounce();
-        await syncBridgeAnnounces();
+        _peerAnnounceTickCount++;
 
-        // 🧹 Active Dead-Peer & Ghost-Link Pruning (แก้ปัญหาเครื่องปลายทางปิดบลูทูธฉับพลันแล้วสถานะค้าง):
+        // 💓 1. ส่ง Lightweight Ping ทุกรอบ (8 วินาที)
+        await sendHeartbeatPing();
+
+        // 📢 2. ส่ง Full Cryptographic Announce & Bridge Sync ทุกๆ 6 รอบ (~48 วินาที)
+        if (_peerAnnounceTickCount % 6 == 0) {
+          await broadcastPeerAnnounce();
+          await syncBridgeAnnounces();
+        }
+
+        // 🧹 Active Dead-Peer & Ghost-Link Pruning (Timeout 22 วินาที = พลาด Ping 2-3 ครั้ง):
         // 1. ตรวจสอบระดับ Endpoint ใน connectedDevices ทุกตัว โดยอิงจาก _endpointLastActivity
-        // หากไม่มีข้อมูลหรือ Heartbeat ตอบรับจาก Endpoint นั้นเกิน 15 วินาที
+        // หากไม่มีข้อมูลหรือ Heartbeat ตอบรับจาก Endpoint นั้นเกิน 22 วินาที
         // ให้ตัดการเชื่อมต่อที่ระดับ Nearby() ทันที และล้างสถานะออกจากคลัสเตอร์
         final now = DateTime.now();
         final staleEndpoints = <String>[];
         for (final endpointId in connectedDevices.keys.toList()) {
           final lastAct = _endpointLastActivity[endpointId] ?? now;
-          if (now.difference(lastAct).inSeconds > 15) {
+          if (now.difference(lastAct).inSeconds > 22) {
             staleEndpoints.add(endpointId);
           }
         }
         for (final staleId in staleEndpoints) {
-          debugPrint('[Liveness Watchdog] ⚠️ Endpoint $staleId silent for >15s (Ghost Node). Purging connection.');
+          debugPrint('[Liveness Watchdog] ⚠️ Endpoint $staleId silent for >22s (Ghost Node). Purging connection.');
           try {
             await Nearby().disconnectFromEndpoint(staleId);
           } catch (_) {}
           await _handleEndpointDisconnected(staleId, source: 'LivenessWatchdog');
         }
 
-        // 2. ตรวจสอบโหนดใน discoveredMeshPeers (Heartbeat timeout 15 วินาที)
+        // 2. ตรวจสอบโหนดใน discoveredMeshPeers (Heartbeat timeout 22 วินาที)
         for (final peer in discoveredMeshPeers.values.toList()) {
           if (peer.peerId != nodeId && peer.directEndpoint != null) {
             final silentSec = now.difference(peer.lastSeen).inSeconds;
-            if (silentSec > 15) {
+            if (silentSec > 22) {
               debugPrint('[Heartbeat Watchdog] ⚠️ Peer ${peer.peerName} (${peer.directEndpoint}) silent for ${silentSec}s. Purging stale link.');
               try {
                 await Nearby().disconnectFromEndpoint(peer.directEndpoint!);

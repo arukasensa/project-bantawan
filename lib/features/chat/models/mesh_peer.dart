@@ -62,7 +62,7 @@ class MeshPeer {
   bool get isReachable {
     final diff = DateTime.now().difference(lastSeen);
     if (hopCount == 1) {
-      return diff.inSeconds <= 20; // โหนดต่อตรง 1-hop หลุดถ้าเงียบเกิน 20 วินาที
+      return diff.inSeconds <= 25; // โหนดต่อตรง 1-hop หลุดถ้าเงียบเกิน 25 วินาที (Watchdog timeout 22s + buffer)
     }
     return diff.inSeconds <= 45; // โหนดรีเลย์ Multi-hop หลุดถ้าเงียบเกิน 45 วินาที
   }

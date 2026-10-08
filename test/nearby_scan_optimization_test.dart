@@ -121,7 +121,7 @@ void main() {
       );
     });
 
-    test('getPeerConnectionStatus detects ghost nodes when silent > 15 seconds', () {
+    test('getPeerConnectionStatus detects ghost nodes when silent > 22 seconds (3 missed 8s pings)', () {
       final service = NearbyService();
       service.connectedDevices.clear();
       service.connectedDevices['ep_test'] = 'Peer Test';
@@ -140,20 +140,87 @@ void main() {
         equals(PeerConnectionStatus.direct),
       );
 
-      // Stale peer (20s ago - Ghost Node)
+      // In-grace peer (16s ago - 1 missed ping, still within 22s grace window)
+      final inGracePeer = MeshPeer(
+        peerId: 'peer_grace',
+        peerName: 'Peer Grace',
+        publicKeyHex: '0123456789abcdef',
+        hopCount: 1,
+        directEndpoint: 'ep_test',
+        lastSeen: DateTime.now().subtract(const Duration(seconds: 16)),
+      );
+      expect(
+        service.getPeerConnectionStatus(inGracePeer),
+        equals(PeerConnectionStatus.direct),
+        reason: 'Should stay connected if only 1-2 pings are missed during radio scanning',
+      );
+
+      // Stale peer (26s ago - Ghost Node after 3 missed pings)
       final ghostPeer = MeshPeer(
         peerId: 'peer_ghost',
         peerName: 'Peer Ghost',
         publicKeyHex: '0123456789abcdef',
         hopCount: 1,
         directEndpoint: 'ep_test',
-        lastSeen: DateTime.now().subtract(const Duration(seconds: 20)),
+        lastSeen: DateTime.now().subtract(const Duration(seconds: 26)),
       );
       expect(
         service.getPeerConnectionStatus(ghostPeer),
         equals(PeerConnectionStatus.offline),
-        reason: 'Should mark direct peer offline after 15s of silence (Ghost Node prevention)',
+        reason: 'Should mark direct peer offline after >22s of silence (Ghost Node prevention)',
       );
+    });
+
+    test('createPingPacket creates ultra-lightweight JSON payload (< 60 bytes)', () {
+      final ping = NearbyService.createPingPacket('node_a1b2c3d4e5f6', timestamp: 1728400000000);
+      expect(ping['type'], equals('PING'));
+      expect(ping['s'], equals('node_a1b2c3d4e5f6'));
+      expect(ping['t'], equals(1728400000000));
+
+      final jsonStr = '{"type":"${ping['type']}","s":"${ping['s']}","t":${ping['t']}}';
+      expect(jsonStr.length, lessThan(60), reason: 'Lightweight keep-alive ping must not saturate BLE radio');
+      expect(NearbyService.isPingPacket(ping), isTrue);
+      expect(NearbyService.isPingPacket({'type': 'CHAT'}), isFalse);
+      expect(NearbyService.isPingPacket('invalid'), isFalse);
+    });
+
+    test('MeshPeer.isReachable honors 25s threshold for 1-hop and 45s for multi-hop', () {
+      final now = DateTime.now();
+      final directReachable = MeshPeer(
+        peerId: 'p1',
+        peerName: 'P1',
+        publicKeyHex: 'pk1',
+        hopCount: 1,
+        lastSeen: now.subtract(const Duration(seconds: 24)),
+      );
+      expect(directReachable.isReachable, isTrue);
+
+      final directExpired = MeshPeer(
+        peerId: 'p2',
+        peerName: 'P2',
+        publicKeyHex: 'pk2',
+        hopCount: 1,
+        lastSeen: now.subtract(const Duration(seconds: 26)),
+      );
+      expect(directExpired.isReachable, isFalse);
+
+      final multiHopReachable = MeshPeer(
+        peerId: 'p3',
+        peerName: 'P3',
+        publicKeyHex: 'pk3',
+        hopCount: 2,
+        lastSeen: now.subtract(const Duration(seconds: 40)),
+      );
+      expect(multiHopReachable.isReachable, isTrue);
+
+      final multiHopExpired = MeshPeer(
+        peerId: 'p4',
+        peerName: 'P4',
+        publicKeyHex: 'pk4',
+        hopCount: 2,
+        lastSeen: now.subtract(const Duration(seconds: 50)),
+      );
+      expect(multiHopExpired.isReachable, isFalse);
     });
 
     test('getPeerConnectionStatus marks all nodes offline when connectedDevices is empty', () {
