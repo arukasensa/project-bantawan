@@ -174,11 +174,25 @@ class IdentityService extends ChangeNotifier {
       await _saveTrustStore();
       notifyListeners();
       debugPrint('[Identity] New peer registered (unverified): $peerId ($cleanName)');
-    } else if (currentState == PeerTrustState.changed) {
-      // Key เปลี่ยน: อัปเดตชื่อใหม่ แต่คงสถานะ CHANGED
-      notifyListeners();
+    } else {
+      // ตรวจสอบและอัปเดตชื่อแสดงผลหาก Peer มีการตั้งชื่อจริง หรือชื่อเปลี่ยนไป
+      final existing = _trustStore[peerId];
+      if (existing != null && cleanName.isNotEmpty && existing.displayName != cleanName) {
+        final isOldGeneric = existing.displayName.startsWith('Survivor_') ||
+            existing.displayName.startsWith('node_') ||
+            existing.displayName.toLowerCase() == 'survivor';
+        final isNewCustom = !cleanName.startsWith('Survivor_') &&
+            !cleanName.startsWith('node_') &&
+            cleanName.toLowerCase() != 'survivor';
+
+        if (isOldGeneric || isNewCustom || existing.trustState != PeerTrustState.verified) {
+          _trustStore[peerId] = existing.copyWith(displayName: cleanName);
+          await _saveTrustStore();
+          notifyListeners();
+          debugPrint('[Identity] Peer display name updated: $peerId -> $cleanName');
+        }
+      }
     }
-    // ถ้า VERIFIED/UNVERIFIED และ key ไม่เปลี่ยน → ไม่ต้องทำอะไร
   }
 
   /// ⚠️ อัปเดตสถานะเป็น CHANGED เมื่อ Peer ใช้ Public Key ใหม่

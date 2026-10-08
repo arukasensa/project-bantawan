@@ -689,6 +689,11 @@ class NearbyService extends ChangeNotifier {
 
     notifyListeners();
 
+    // 🔄 หากชื่อเปลี่ยนไป และกำลังเปิด Advertising อยู่ ให้รีสตาร์ท Advertising ด้วยชื่อใหม่ทันที
+    if (oldName != deviceName && isAdvertising) {
+      await _restartAdvertisingInternal();
+    }
+
     // หากเปิดระบบ Mesh อยู่ ให้กระจายข้อมูลโปรไฟล์ใหม่ให้เพื่อนในเครือข่ายรับทราบทันที
     if (isAdvertising || isDiscovering || connectedDevices.isNotEmpty) {
       broadcastPeerAnnounce();
@@ -781,79 +786,25 @@ class NearbyService extends ChangeNotifier {
     }
 
     try {
-      await stopEmergencyNetwork();
+      if (isAdvertising || isDiscovering) {
+        await stopEmergencyNetwork();
+      }
       _isManuallyStopped = false;
 
-      // ⏳ Warm-up Delay 600ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เคลียร์ GATT Server ให้เรียบร้อย
-      await Future.delayed(const Duration(milliseconds: 600));
+      // ⏳ Warm-up Delay 300ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เคลียร์ GATT Server ให้เรียบร้อย
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      // 🎲 1. Randomized Startup Jitter (100ms - 300ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
-      final jitterMs = 100 + Random().nextInt(200);
+      // 🎲 1. Randomized Startup Jitter (80ms - 200ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
+      final jitterMs = 80 + Random().nextInt(120);
       await Future.delayed(Duration(milliseconds: jitterMs));
 
       // ----------------------------------------------------------------------
-      // Step 1: Start Advertising (ลองเปิดโฆษณาสัญญาณด้วย Retry Loop 4 ครั้ง + Exponential Backoff)
+      // Step 1: Start Advertising (ลองเปิดโฆษณาสัญญาณด้วย Retry Loop 4 ครั้ง)
       // ----------------------------------------------------------------------
-      bool adSuccess = false;
-      for (int attempt = 1; attempt <= 4; attempt++) {
-        try {
-          await Nearby().startAdvertising(
-            advertisedName,
-            strategy,
-            onConnectionInitiated: (id, info) {
-              _pendingConnectionEndpoints.add(id);
-              final parsed = parseAdvertisedName(info.endpointName);
-              _pendingPeerNames[id] = parsed.peerName;
-              _onConnectionInitiated(id, info);
-            },
-            onConnectionResult: (id, status) {
-              _pendingConnectionEndpoints.remove(id);
-              if (status == Status.CONNECTED) {
-                _endpointLastActivity[id] = DateTime.now();
-                _failedConnectionCooldowns.remove(id);
-                final pName = _pendingPeerNames.remove(id) ?? connectedDevices[id] ?? 'Nearby Peer';
-                connectedDevices[id] = pName;
-                syncPeersToNewNode(id);
-                broadcastPeerAnnounce(targetEndpointId: id);
-                _broadcastMeshUpdateToExistingNodes(id);
-                debugPrint('[Nearby Advertiser] ✅ Connected: $id ($pName)');
-                // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
-                final peerNodeId = discoveredMeshPeers.entries
-                    .where((e) => e.value.directEndpoint == id)
-                    .map((e) => e.key)
-                    .firstOrNull;
-                if (peerNodeId != null) {
-                  _deliverPendingMessages(id, peerNodeId);
-                  _deliverMuleEnvelopes(id, peerNodeId);
-                }
-                _checkAndAdjustDiscoveryState();
-                notifyListeners();
-              } else {
-                // เชื่อมต่อไม่สำเร็จ — เอา id ออก และตั้ง Negative Cache Cooldown
-                _endpointLastActivity.remove(id);
-                _pendingPeerNames.remove(id);
-                connectedDevices.remove(id);
-                _setFailedCooldown(id);
-                debugPrint('[Nearby Advertiser] ❌ Connection failed: $id status=$status');
-                notifyListeners();
-              }
-            },
-            onDisconnected: (id) {
-              _handleEndpointDisconnected(id, source: 'Advertiser');
-            },
-            serviceId: "com.bantawan.emergency",
-          );
-          adSuccess = true;
-          break;
-        } catch (e) {
-          debugPrint("[Nearby Advertising Attempt $attempt Failed]: $e");
-          await Future.delayed(Duration(milliseconds: 600 * attempt));
-        }
-      }
-      isAdvertising = adSuccess;
+      await _startAdvertisingInternal();
 
-      // ⏳ หน่วงเวลา 250ms ระหว่าง Advertising และ Discovery เพื่อให้ BLE Radio พร้อมทำงาน
-      await Future.delayed(const Duration(milliseconds: 250));
+      // ⏳ หน่วงเวลา 200ms ระหว่าง Advertising และ Discovery เพื่อให้ BLE Radio พร้อมทำงาน
+      await Future.delayed(const Duration(milliseconds: 200));
 
       // ----------------------------------------------------------------------
       // Step 2: Start Discovery (ลองเปิดสแกนค้นหาด้วย Retry Loop 4 ครั้ง)
@@ -865,6 +816,83 @@ class NearbyService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint("Nearby Start Error: $e");
+    }
+  }
+
+  /// 📡 เริ่มโฆษณาสัญญาณ BLE/Nearby ภายใน พร้อม Callback จับคู่ (Auto-Retry 4 ครั้ง)
+  Future<bool> _startAdvertisingInternal() async {
+    bool adSuccess = false;
+    for (int attempt = 1; attempt <= 4; attempt++) {
+      try {
+        await Nearby().startAdvertising(
+          advertisedName,
+          strategy,
+          onConnectionInitiated: (id, info) {
+            _pendingConnectionEndpoints.add(id);
+            final parsed = parseAdvertisedName(info.endpointName);
+            _pendingPeerNames[id] = parsed.peerName;
+            _onConnectionInitiated(id, info);
+          },
+          onConnectionResult: (id, status) {
+            _pendingConnectionEndpoints.remove(id);
+            if (status == Status.CONNECTED) {
+              _endpointLastActivity[id] = DateTime.now();
+              _failedConnectionCooldowns.remove(id);
+              final pName = _pendingPeerNames.remove(id) ?? connectedDevices[id] ?? 'Nearby Peer';
+              connectedDevices[id] = pName;
+              syncPeersToNewNode(id);
+              broadcastPeerAnnounce(targetEndpointId: id);
+              _broadcastMeshUpdateToExistingNodes(id);
+              _notifyProximity(id, pName);
+              debugPrint('[Nearby Advertiser] ✅ Connected: $id ($pName)');
+              // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
+              final peerNodeId = discoveredMeshPeers.entries
+                  .where((e) => e.value.directEndpoint == id)
+                  .map((e) => e.key)
+                  .firstOrNull;
+              if (peerNodeId != null) {
+                _deliverPendingMessages(id, peerNodeId);
+                _deliverMuleEnvelopes(id, peerNodeId);
+              }
+              _checkAndAdjustDiscoveryState();
+              notifyListeners();
+            } else {
+              // เชื่อมต่อไม่สำเร็จ — เอา id ออก และตั้ง Negative Cache Cooldown
+              _endpointLastActivity.remove(id);
+              _pendingPeerNames.remove(id);
+              connectedDevices.remove(id);
+              _setFailedCooldown(id);
+              debugPrint('[Nearby Advertiser] ❌ Connection failed: $id status=$status');
+              notifyListeners();
+            }
+          },
+          onDisconnected: (id) {
+            _handleEndpointDisconnected(id, source: 'Advertiser');
+          },
+          serviceId: "com.bantawan.emergency",
+        );
+        adSuccess = true;
+        break;
+      } catch (e) {
+        debugPrint("[Nearby Advertising Attempt $attempt Failed]: $e");
+        await Future.delayed(Duration(milliseconds: 300 * attempt));
+      }
+    }
+    isAdvertising = adSuccess;
+    return adSuccess;
+  }
+
+  /// 🔄 รีสตาร์ท Advertising สั้นๆ เพื่ออัปเดต Advertised Name ใหม่บน BLE
+  Future<void> _restartAdvertisingInternal() async {
+    if (_isManuallyStopped) return;
+    try {
+      debugPrint('[Nearby] 🔄 Refreshing BLE advertising beacon with: $advertisedName');
+      await Nearby().stopAdvertising();
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (_isManuallyStopped) return;
+      await _startAdvertisingInternal();
+    } catch (e) {
+      debugPrint('[Nearby] Error restarting advertising: $e');
     }
   }
 
@@ -978,7 +1006,7 @@ class NearbyService extends ChangeNotifier {
                       syncPeersToNewNode(connResultId);
                       broadcastPeerAnnounce(targetEndpointId: connResultId);
                       _broadcastMeshUpdateToExistingNodes(connResultId);
-                      _showProximityAlert(actualName);
+                      _notifyProximity(peerNodeId ?? connResultId, actualName);
                       debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($actualName)');
                       // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
                       Future.delayed(const Duration(seconds: 2), () {
@@ -1140,12 +1168,13 @@ class NearbyService extends ChangeNotifier {
   }
 
   /// 🚀 บังคับรีเฟรชการสแกนบลูทูธทันที (Force Rescan) พร้อมเคลียร์ Cooldown และตรวจสอบความพร้อมของระบบ
-  /// มีระบบ Rate Limit 5 วินาที เพื่อป้องกัน Android BLE Scan Throttling
+  /// มีระบบ Rate Limit 2-4 วินาที เพื่อป้องกัน Android BLE Scan Throttling
   Future<bool> forceRescan() async {
     final now = DateTime.now();
+    final cooldownLimit = connectedDevices.isEmpty ? 2 : 4;
     if (_lastForceRescanTime != null &&
-        now.difference(_lastForceRescanTime!).inSeconds < 5) {
-      final remaining = 5 - now.difference(_lastForceRescanTime!).inSeconds;
+        now.difference(_lastForceRescanTime!).inSeconds < cooldownLimit) {
+      final remaining = cooldownLimit - now.difference(_lastForceRescanTime!).inSeconds;
       debugPrint('[Nearby Force Rescan] ⏳ Rate limited. Please wait $remaining s.');
       return false;
     }
@@ -1165,11 +1194,16 @@ class NearbyService extends ChangeNotifier {
       return true;
     }
 
-    // 4. หากระบบเปิดอยู่ ให้ Refresh Discovery
+    // 4. หากระบบเปิดอยู่ ให้ Refresh ทั้ง Discovery และ Advertising (หากไม่มี peer ต่อตรง)
     try {
       isDiscoveryPaused = false;
       await Nearby().stopDiscovery();
-      await Future.delayed(const Duration(milliseconds: 300));
+      if (connectedDevices.isEmpty && isAdvertising) {
+        await Nearby().stopAdvertising();
+        await Future.delayed(const Duration(milliseconds: 150));
+        await _startAdvertisingInternal();
+      }
+      await Future.delayed(const Duration(milliseconds: 200));
       await _startDiscoveryInternal();
       notifyListeners();
       return true;
@@ -1181,24 +1215,32 @@ class NearbyService extends ChangeNotifier {
 
   DateTime? _lastDiscoveryRestartTime;
 
-  /// 🔄 กระตุ้นการรีสตาร์ท Discovery สั้นๆ เพื่อล้างแคช Bluetooth GATT Stack ของ Android
+  /// 🔄 กระตุ้นการรีสตาร์ท Discovery และ Advertising สั้นๆ เพื่อล้างแคช Bluetooth GATT Stack ของ Android
   void _triggerFastDiscoveryRestart() {
-    if (_isManuallyStopped || !isDiscovering) return;
+    if (_isManuallyStopped || (!isDiscovering && !isAdvertising)) return;
 
     final now = DateTime.now();
     if (_lastDiscoveryRestartTime != null &&
-        now.difference(_lastDiscoveryRestartTime!).inSeconds < 8) {
-      return; // Cooldown 8 วินาที ป้องกันวนซ้ำถี่เกินไป
+        now.difference(_lastDiscoveryRestartTime!).inSeconds < 3) {
+      return; // Cooldown 3 วินาที ป้องกันวนซ้ำถี่เกินไป
     }
     _lastDiscoveryRestartTime = now;
-    Future.delayed(const Duration(milliseconds: 1200), () async {
-      if (_isManuallyStopped || !isDiscovering) return;
+    Future.delayed(const Duration(milliseconds: 300), () async {
+      if (_isManuallyStopped) return;
       // รีเฟรชได้เสมอหากอุปกรณ์เชื่อมต่อตรงยังไม่เต็มโควต้า (< 4 โหนด)
       if (connectedDevices.length < 4 && !isDiscoveryPaused) {
-        debugPrint('[Nearby] 🔄 Auto-recovering: Fast cycling discovery scanner...');
+        debugPrint('[Nearby] 🔄 Auto-recovering: Fast cycling discovery scanner & beacon...');
         try {
-          await Nearby().stopDiscovery();
-          await Future.delayed(const Duration(milliseconds: 400));
+          if (isDiscovering) {
+            await Nearby().stopDiscovery();
+          }
+          if (connectedDevices.isEmpty && isAdvertising) {
+            await Nearby().stopAdvertising();
+            await Future.delayed(const Duration(milliseconds: 150));
+            if (_isManuallyStopped) return;
+            await _startAdvertisingInternal();
+          }
+          await Future.delayed(const Duration(milliseconds: 150));
           if (_isManuallyStopped) return;
           await _startDiscoveryInternal();
         } catch (e) {
@@ -1283,8 +1325,8 @@ class NearbyService extends ChangeNotifier {
     isDiscovering = false;
     isDiscoveryPaused = false;
     notifyListeners();
-    // ⏳ หน่วงเวลา Cool-down 800ms ให้ระบบปฏิบัติการ Android Bluetooth Stack เคลียร์ซ็อกเก็ต GATT ให้เรียบร้อย
-    await Future.delayed(const Duration(milliseconds: 800));
+    // ⏳ หน่วงเวลา Cool-down 350ms ให้ระบบปฏิบัติการ Android Bluetooth Stack เคลียร์ซ็อกเก็ต GATT ให้เรียบร้อย
+    await Future.delayed(const Duration(milliseconds: 350));
   }
 
   /// 💾 บันทึกไฟล์สื่อ Base64 ที่ได้รับลงพื้นที่เก็บข้อมูลของอุปกรณ์
@@ -1564,13 +1606,15 @@ class NearbyService extends ChangeNotifier {
                 myDeviceName: deviceName,
               );
 
+              final displaySenderName = resolvePeerDisplayName(msg.senderId, fallbackName: msg.senderName);
+
               // แสดงสัญญาณเตือนตามประเภทข้อความ
               if (msg.isSOS) {
-                _showSOSAlert(msg.senderName, msg.content);
+                _showSOSAlert(displaySenderName, msg.content);
               } else if (isPrivateToMe) {
                 // แจ้งเตือนข้อความส่วนตัว (หากไม่ได้เปิดแชทกับคนนี้อยู่ตรงหน้า)
                 if (activeChatPeerId != msg.senderId) {
-                  _showPrivateMessageAlert(msg.senderName, processedMsg.content);
+                  _showPrivateMessageAlert(displaySenderName, processedMsg.content);
                 }
 
                 // 📬 ส่งสัญญาณ DELIVERY ACK ตอบกลับไปยังผู้ส่งต้นทาง (Reverse Mesh)
@@ -1581,7 +1625,7 @@ class NearbyService extends ChangeNotifier {
                 );
               } else {
                 // ข้อความแชทสาธารณะ (Public Mesh Message) แจ้งเตือนข้อความเข้า
-                _showPublicMessageAlert(msg.senderName, processedMsg.content);
+                _showPublicMessageAlert(displaySenderName, processedMsg.content);
               }
               notifyListeners();
             } else {
@@ -1729,13 +1773,21 @@ class NearbyService extends ChangeNotifier {
     final rawSenderName = msg.senderName.trim();
     final parsedRaw = parseAdvertisedName(rawSenderName);
     final effectiveRawName = parsedRaw.peerName;
-    final isUgly = effectiveRawName.isEmpty ||
-        effectiveRawName.startsWith('node_') ||
-        effectiveRawName.toLowerCase() == 'survivor' ||
-        effectiveRawName.toLowerCase() == 'unknown' ||
-        effectiveRawName.toLowerCase().startsWith('survivor ');
+    final profileName = trustedProfile?['name']?.trim() ?? '';
+    final String chosenName = (profileName.isNotEmpty &&
+            !profileName.startsWith('node_') &&
+            !profileName.startsWith('Survivor_') &&
+            profileName.toLowerCase() != 'survivor')
+        ? profileName
+        : effectiveRawName;
+
+    final isUgly = chosenName.isEmpty ||
+        chosenName.startsWith('node_') ||
+        chosenName.toLowerCase() == 'survivor' ||
+        chosenName.toLowerCase() == 'unknown' ||
+        chosenName.toLowerCase().startsWith('survivor ');
     final cleanSenderName = !isUgly
-        ? effectiveRawName
+        ? chosenName
         : (existingPeer != null &&
                 !existingPeer.peerName.startsWith('node_') &&
                 existingPeer.peerName.toLowerCase() != 'survivor' &&
@@ -1755,6 +1807,12 @@ class NearbyService extends ChangeNotifier {
       lastSeen: DateTime.now(),
       emergencyProfile: trustedProfile ?? existingPeer?.emergencyProfile,
     );
+
+    // หากต่อตรง ให้ซิงก์ชื่อใน connectedDevices และแจ้งเตือนระยะบลูทูธด้วยชื่อจริง
+    if (bestHop == 1 && fromEndpointId.isNotEmpty) {
+      connectedDevices[fromEndpointId] = cleanSenderName;
+      _notifyProximity(msg.senderId, cleanSenderName);
+    }
 
     // บันทึก Routing Table ชี้ทางกลับไปยังโหนดผู้ส่ง
     _reversePathTable[msg.senderId] = fromEndpointId;
@@ -3145,6 +3203,72 @@ class NearbyService extends ChangeNotifier {
   // --------------------------------------------------------------------------
   // 🔔 Local System Notifications (ระบบส่งการแจ้งเตือนเตือนภัยบนแถบสถานะ Android/iOS)
   // --------------------------------------------------------------------------
+
+  /// บันทึกเวลาที่แจ้งเตือนผู้ใช้งานใกล้เคียงล่าสุด ป้องกันแจ้งเตือนซ้ำถี่เกินไป (peerId -> DateTime)
+  final Map<String, DateTime> _lastProximityAlertTimes = {};
+
+  Future<void> _notifyProximity(String peerId, String displayName) async {
+    final now = DateTime.now();
+    final lastTime = _lastProximityAlertTimes[peerId];
+    if (lastTime != null && now.difference(lastTime).inSeconds < 60) {
+      return; // ไม่เตือนซ้ำหากเพิ่งเตือนไปใน 60 วินาที
+    }
+    _lastProximityAlertTimes[peerId] = now;
+    final resolved = resolvePeerDisplayName(peerId, fallbackName: displayName);
+    await _showProximityAlert(resolved);
+  }
+
+  /// 🏷️ แปลงรหัส Peer ID เป็นชื่อที่แท้จริงของผู้ใช้ โดยตรวจสอบจาก Trust Store และ Discovered Peers
+  String resolvePeerDisplayName(String peerId, {String? fallbackName}) {
+    bool isCustomRealName(String? name) {
+      if (name == null || name.trim().isEmpty) return false;
+      final trimmed = name.trim();
+      final lower = trimmed.toLowerCase();
+      if (lower.startsWith('node_') ||
+          lower == 'survivor' ||
+          lower == 'unknown' ||
+          lower.startsWith('survivor ') ||
+          trimmed.startsWith('Survivor_') ||
+          RegExp(r'^[0-9a-fA-F]{6,}$').hasMatch(trimmed.replaceAll(' ', ''))) {
+        return false;
+      }
+      return true;
+    }
+
+    // 1. ตรวจสอบชื่อจริงจาก Identity Trust Store ก่อน
+    final storedTrust = IdentityService.instance.getStoredTrust(peerId);
+    if (storedTrust != null && isCustomRealName(storedTrust.displayName)) {
+      return storedTrust.displayName.trim();
+    }
+
+    // 2. ตรวจสอบชื่อจาก Mesh Peer ที่ค้นพบ
+    final meshPeer = discoveredMeshPeers[peerId];
+    if (meshPeer != null && isCustomRealName(meshPeer.peerName)) {
+      return meshPeer.peerName.trim();
+    }
+
+    // 3. ตรวจสอบจาก fallbackName
+    if (isCustomRealName(fallbackName)) {
+      return fallbackName!.trim();
+    }
+
+    // 4. กรณีมี Callsign อยู่แล้ว
+    if (meshPeer != null &&
+        meshPeer.peerName.isNotEmpty &&
+        !meshPeer.peerName.startsWith('node_') &&
+        meshPeer.peerName.toLowerCase() != 'survivor') {
+      return meshPeer.peerName.trim();
+    }
+
+    if (fallbackName != null &&
+        fallbackName.trim().isNotEmpty &&
+        !fallbackName.startsWith('node_') &&
+        fallbackName.toLowerCase() != 'survivor') {
+      return fallbackName.trim();
+    }
+
+    return generateTacticalCallsign(peerId);
+  }
 
   Future<void> _showProximityAlert(String peerName) async {
     const AndroidNotificationDetails androidDetails =

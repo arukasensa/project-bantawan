@@ -2942,7 +2942,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
     String peerId, [
     String? fallbackName,
   ]) {
-    bool isUglyName(String? name) {
+    bool isUgly(String? name) {
       if (name == null || name.trim().isEmpty) return true;
       final trimmed = name.trim();
       final lower = trimmed.toLowerCase();
@@ -2954,24 +2954,51 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
       return false;
     }
 
-    if (!isUglyName(fallbackName)) {
-      return fallbackName!.trim();
+    bool isCustomRealName(String? name) {
+      if (isUgly(name)) return false;
+      final trimmed = name!.trim();
+      return !trimmed.startsWith('Survivor_');
     }
+
+    // 1. ตรวจสอบชื่อจริงจาก Identity Trust Store ก่อนเป็นอันดับแรก
+    final storedTrust = IdentityService.instance.getStoredTrust(peerId);
+    if (storedTrust != null && isCustomRealName(storedTrust.displayName)) {
+      return storedTrust.displayName.trim();
+    }
+
+    // 2. ตรวจสอบชื่อจริงจาก resolvedPeer ในเครือข่าย Mesh
     final resolvedPeer = _resolveActivePeer(service, peerId);
-    if (resolvedPeer != null && !isUglyName(resolvedPeer.peerName)) {
+    if (resolvedPeer != null && isCustomRealName(resolvedPeer.peerName)) {
       return resolvedPeer.peerName.trim();
     }
+
+    // 3. ตรวจสอบชื่อจริงจาก fallbackName
+    if (isCustomRealName(fallbackName)) {
+      return fallbackName!.trim();
+    }
+
+    // 4. ตรวจสอบชื่อจริงจากประวัติข้อความ
     for (final msg in service.messages.reversed) {
-      if (msg.senderId == peerId && !isUglyName(msg.senderName)) {
+      if (msg.senderId == peerId && isCustomRealName(msg.senderName)) {
         return msg.senderName.trim();
       }
-      if (msg.recipientId == peerId && !isUglyName(msg.recipientName)) {
+      if (msg.recipientId == peerId && isCustomRealName(msg.recipientName)) {
         return msg.recipientName!.trim();
       }
     }
-    if (fallbackName != null && !isUglyName(fallbackName)) {
+
+    // 5. หากไม่มีชื่อจริง ให้เลือก Tactical Callsign ที่เหมาะสม (ไม่ ugly)
+    if (storedTrust != null && !isUgly(storedTrust.displayName)) {
+      return storedTrust.displayName.trim();
+    }
+    if (resolvedPeer != null && !isUgly(resolvedPeer.peerName)) {
+      return resolvedPeer.peerName.trim();
+    }
+    if (fallbackName != null && !isUgly(fallbackName)) {
       return fallbackName.trim();
     }
+
+    // 6. Fallback สร้างตาม peerId แบบ deterministic
     return NearbyService.generateTacticalCallsign(peerId);
   }
 
@@ -3379,6 +3406,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
 
   Widget _buildChatBubble(NearbyMessage msg, bool isMe) {
     final l10n = AppLocalizations.of(context)!;
+    final service = Provider.of<NearbyService>(context, listen: false);
     return Padding(
       padding: EdgeInsets.only(
         left: isMe ? 60 : 0,
@@ -3414,7 +3442,11 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            msg.senderName,
+                            _resolvePeerDisplayName(
+                              service,
+                              msg.senderId,
+                              msg.senderName,
+                            ),
                             style: TextStyle(
                               color: Colors.blueAccent.shade100,
                               fontSize: 10,

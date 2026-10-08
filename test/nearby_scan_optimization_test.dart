@@ -186,5 +186,39 @@ void main() {
       expect(RegExp(r'^Survivor_\d{4}$').hasMatch(callsignB), isTrue,
           reason: 'Must match Survivor_<4 digits>');
     });
+
+    test('resolvePeerDisplayName prioritizes real custom names over generic fallback', () {
+      final service = NearbyService();
+      service.discoveredMeshPeers.clear();
+
+      // Peer with custom real name in Mesh
+      service.discoveredMeshPeers['node_somchai'] = MeshPeer(
+        peerId: 'node_somchai',
+        peerName: 'สมชาย ใจดี',
+        publicKeyHex: '1234abcd',
+        hopCount: 1,
+        lastSeen: DateTime.now(),
+      );
+
+      // Even if fallbackName is a generic callsign like Survivor_1234
+      final resolved = service.resolvePeerDisplayName(
+        'node_somchai',
+        fallbackName: 'Survivor_1234',
+      );
+      expect(resolved, equals('สมชาย ใจดี'),
+          reason: 'Should prioritize real profile name over generic callsign');
+    });
+
+    test('resolvePeerDisplayName falls back to deterministic callsign when name is generic or ugly', () {
+      final service = NearbyService();
+      service.discoveredMeshPeers.clear();
+
+      final resolved = service.resolvePeerDisplayName(
+        'node_a1b2c3d4e5f6',
+        fallbackName: 'node_a1b2c3d4e5f6',
+      );
+      expect(resolved, equals(NearbyService.generateTacticalCallsign('node_a1b2c3d4e5f6')),
+          reason: 'Should return deterministic Survivor_<4 digits> instead of node_xxx');
+    });
   });
 }
