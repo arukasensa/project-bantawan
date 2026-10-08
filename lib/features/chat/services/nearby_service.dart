@@ -353,8 +353,6 @@ class NearbyService extends ChangeNotifier {
   }) {
     if (connectedDevices.containsKey(endpointId)) return true;
     if (_pendingConnectionEndpoints.contains(endpointId)) return true;
-    if (connectedDevices.containsValue(peerDisplayName)) return true;
-    if (_pendingPeerNames.containsValue(peerDisplayName)) return true;
     if (peerNodeId != null) {
       final existingPeer = discoveredMeshPeers[peerNodeId];
       if (existingPeer != null &&
@@ -363,6 +361,15 @@ class NearbyService extends ChangeNotifier {
           connectedDevices.containsKey(existingPeer.directEndpoint)) {
         return true;
       }
+    }
+    // สำหรับชื่อที่ไม่ใช่ชื่อ Default Callsign ทั่วไป
+    final lower = peerDisplayName.toLowerCase();
+    final isGeneric = lower == 'survivor' ||
+        lower == 'nearby peer' ||
+        lower.startsWith('survivor_');
+    if (!isGeneric) {
+      if (connectedDevices.containsValue(peerDisplayName)) return true;
+      if (_pendingPeerNames.containsValue(peerDisplayName)) return true;
     }
     return false;
   }
@@ -777,12 +784,11 @@ class NearbyService extends ChangeNotifier {
       await stopEmergencyNetwork();
       _isManuallyStopped = false;
 
-      // ⏳ Warm-up Delay 200ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เปิดทำงานอย่างสมบูรณ์
-      // ปรับลดจาก 1200ms เพื่อความรวดเร็วในการเริ่มระบบฉุกเฉิน
-      await Future.delayed(const Duration(milliseconds: 200));
+      // ⏳ Warm-up Delay 600ms ให้ระบบปฏิบัติการ Android และชิป Bluetooth เคลียร์ GATT Server ให้เรียบร้อย
+      await Future.delayed(const Duration(milliseconds: 600));
 
-      // 🎲 1. Randomized Startup Jitter (50ms - 150ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
-      final jitterMs = 50 + Random().nextInt(100);
+      // 🎲 1. Randomized Startup Jitter (100ms - 300ms) ป้องกันสองเครื่องชนกันในเสี้ยววินาทีเดียวกัน
+      final jitterMs = 100 + Random().nextInt(200);
       await Future.delayed(Duration(milliseconds: jitterMs));
 
       // ----------------------------------------------------------------------
@@ -846,7 +852,8 @@ class NearbyService extends ChangeNotifier {
       }
       isAdvertising = adSuccess;
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      // ⏳ หน่วงเวลา 250ms ระหว่าง Advertising และ Discovery เพื่อให้ BLE Radio พร้อมทำงาน
+      await Future.delayed(const Duration(milliseconds: 250));
 
       // ----------------------------------------------------------------------
       // Step 2: Start Discovery (ลองเปิดสแกนค้นหาด้วย Retry Loop 4 ครั้ง)
@@ -879,9 +886,8 @@ class NearbyService extends ChangeNotifier {
             final peerNodeId = parsed.peerNodeId;
             final peerDisplayName = parsed.peerName;
 
-            // ✅ Fix 1: ข้ามเครื่องตัวเอง (ตรวจทั้งชื่อและ Node ID)
-            if (name == deviceName ||
-                name == advertisedName ||
+            // ✅ Fix 1: ข้ามเครื่องตัวเอง (ตรวจจาก Node ID ถาวร หรือ Advertised Name ตัวเอง)
+            if (name == advertisedName ||
                 (peerNodeId != null && peerNodeId == nodeId)) {
               return;
             }
@@ -1202,11 +1208,11 @@ class NearbyService extends ChangeNotifier {
     });
   }
 
-  /// 🐕 เริ่มระบบ Watchdog ตรวจสอบสถานะทุก 40 วินาที
+  /// 🐕 เริ่มระบบ Watchdog ตรวจสอบสถานะทุก 25 วินาที
   /// ป้องกัน BLE Scanner หลับหรือค้างบน Android
   void _startDiscoveryWatchdog() {
     _discoveryWatchdogTimer?.cancel();
-    _discoveryWatchdogTimer = Timer.periodic(const Duration(seconds: 40), (_) async {
+    _discoveryWatchdogTimer = Timer.periodic(const Duration(seconds: 25), (_) async {
       if (_isManuallyStopped || (!isAdvertising && !isDiscovering)) return;
       // หากสล็อตเต็มแล้ว ไม่ต้องปลุกสแกนเนอร์
       if (isDiscoveryPaused) return;
@@ -1308,26 +1314,27 @@ class NearbyService extends ChangeNotifier {
   void _onConnectionInitiated(String id, ConnectionInfo info) {
     final parsed = parseAdvertisedName(info.endpointName);
 
-    // ✅ Fix 1: ปฏิเสธการเชื่อมต่อกับตัวเอง (ตรวจสอบทั้ง Node ID และชื่อ)
+    // ✅ Fix 1: ปฏิเสธการเชื่อมต่อกับตัวเอง (ตรวจสอบจาก Node ID ถาวร หรือ Advertised Name ของเครื่องตนเอง)
     final isSelf = (parsed.peerNodeId != null && parsed.peerNodeId == nodeId) ||
-        info.endpointName == deviceName ||
-        info.endpointName == advertisedName ||
-        parsed.peerName == deviceName;
+        info.endpointName == advertisedName;
     if (isSelf) {
       debugPrint('[Nearby] 🚫 Rejected connection attempt from self: $id (${info.endpointName})');
       Nearby().rejectConnection(id);
       return;
     }
 
-    // ✅ Fix 1.5: ปฏิเสธหากเป็น Duplicate Connection (เชื่อมต่ออยู่แล้วหรืออยู่ระหว่าง Handshake)
-    if (_isPeerAlreadyConnectedOrPending(
-      peerNodeId: parsed.peerNodeId,
-      peerDisplayName: parsed.peerName,
-      endpointId: id,
-    )) {
-      debugPrint('[Nearby] 🚫 Rejected duplicate connection attempt from: $id (${parsed.peerName})');
-      Nearby().rejectConnection(id);
-      return;
+    // ✅ Fix 1.5: ปฏิเสธหากเชื่อมต่อกับโหนดนี้สำเร็จอยู่แล้วบน endpoint อื่น (Duplicate Connection Prevention)
+    if (parsed.peerNodeId != null) {
+      final existingPeer = discoveredMeshPeers[parsed.peerNodeId];
+      if (existingPeer != null &&
+          existingPeer.hopCount == 1 &&
+          existingPeer.directEndpoint != null &&
+          existingPeer.directEndpoint != id &&
+          connectedDevices.containsKey(existingPeer.directEndpoint)) {
+        debugPrint('[Nearby] 🚫 Rejected duplicate connection for already connected peer: ${parsed.peerNodeId}');
+        Nearby().rejectConnection(id);
+        return;
+      }
     }
 
     // ✅ Fix 2: ปฏิเสธหากโควต้าเชื่อมต่อตรงเต็ม 4 โหนด
