@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
@@ -136,6 +138,42 @@ void main() {
       expect(daily.getDayName(false), 'Today');
       expect(daily.getCondition(true), 'แจ่มใส ท้องฟ้าโปร่ง');
       expect(daily.getCondition(false), 'Clear Sky');
+    });
+
+    test('100% ARB File Keys Parity & Non-Empty Values Test', () {
+      final enFile = File('lib/l10n/app_en.arb');
+      final thFile = File('lib/l10n/app_th.arb');
+
+      expect(enFile.existsSync(), isTrue, reason: 'app_en.arb must exist');
+      expect(thFile.existsSync(), isTrue, reason: 'app_th.arb must exist');
+
+      final Map<String, dynamic> enJson = jsonDecode(enFile.readAsStringSync());
+      final Map<String, dynamic> thJson = jsonDecode(thFile.readAsStringSync());
+
+      final enKeys = enJson.keys.where((k) => !k.startsWith('@')).toSet();
+      final thKeys = thJson.keys.where((k) => !k.startsWith('@')).toSet();
+
+      final missingInTh = enKeys.difference(thKeys);
+      final missingInEn = thKeys.difference(enKeys);
+
+      expect(missingInTh, isEmpty, reason: 'All English keys must exist in Thai ARB');
+      expect(missingInEn, isEmpty, reason: 'All Thai keys must exist in English ARB');
+
+      // Verify no empty values
+      for (final key in enKeys) {
+        final valEn = enJson[key];
+        final valTh = thJson[key];
+        expect(valEn, isNotNull, reason: 'Key $key in en must not be null');
+        expect(valTh, isNotNull, reason: 'Key $key in th must not be null');
+        if (valEn is String) {
+          expect(valEn.trim(), isNotEmpty, reason: 'Key $key in en must not be empty');
+        }
+        if (valTh is String) {
+          expect(valTh.trim(), isNotEmpty, reason: 'Key $key in th must not be empty');
+        }
+      }
+
+      expect(enKeys.length, greaterThanOrEqualTo(200), reason: 'Must have at least 200 localized keys');
     });
   });
 }

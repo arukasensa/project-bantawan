@@ -457,6 +457,15 @@ class NearbyService extends ChangeNotifier {
       if (peer.directEndpoint != null && connectedDevices.containsKey(peer.directEndpoint)) {
         return PeerConnectionStatus.direct;
       }
+      // 🛡️ Auto-Heal: หาก Reverse Path Table ชี้ไปยัง endpoint ที่ยังต่ออยู่
+      final rEndpoint = _reversePathTable[peer.peerId];
+      if (rEndpoint != null && connectedDevices.containsKey(rEndpoint)) {
+        return PeerConnectionStatus.direct;
+      }
+      // 🛡️ Auto-Heal: หากมีอุปกรณ์ต่อตรง 1 เครื่องและเวลาไม่เกิน 45 วินาที
+      if (connectedDevices.length == 1 && diff.inSeconds <= 45) {
+        return PeerConnectionStatus.direct;
+      }
       return PeerConnectionStatus.offline;
     }
 
@@ -475,8 +484,21 @@ class NearbyService extends ChangeNotifier {
       return PeerConnectionStatus.relayed;
     }
 
+    // 🛡️ Auto-Heal Check 4: กรณีที่ peer มี hopCount = 99 (ดึงมาจาก IdentityService/ประวัติเดิม)
+    // แต่จริงๆ เครื่องเชื่อมต่อตรงกับโหนดนี้อยู่ หรือมี 1 อุปกรณ์ต่อตรง
+    final rEndpoint = _reversePathTable[peer.peerId];
+    if (rEndpoint != null && connectedDevices.containsKey(rEndpoint) && diff.inSeconds <= 45) {
+      return PeerConnectionStatus.direct;
+    }
+    if (connectedDevices.length == 1 && diff.inSeconds <= 45) {
+      return PeerConnectionStatus.direct;
+    }
+
     return PeerConnectionStatus.offline;
   }
+
+  /// 🧭 ดึงค่า Reverse Path Endpoint สำหรับโหนดปลายทาง
+  String? getReversePath(String peerId) => _reversePathTable[peerId];
 
   /// 🛡️ ตารางบันทึก Endpoint ที่กำลังอยู่ระหว่าง Handshake / Request Connection
   /// ป้องกัน Dual-Initiator Collision เมื่อทั้ง 2 ฝั่งค้นพบกันพร้อมกัน
