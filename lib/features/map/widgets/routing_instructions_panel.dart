@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:flutter1/providers/map_provider.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🛣️ วิดเจ็ตแผงแสดงขั้นตอนการนำทางแบบเลี้ยวต่อเลี้ยว (Turn-by-Turn Routing Panel)
 class RoutingInstructionsPanel extends StatelessWidget {
@@ -69,7 +70,7 @@ class RoutingInstructionsPanel extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final step = instructions[index];
                       final maneuver = step['maneuver'] as Map<String, dynamic>;
-                      final instruction = maneuver['instruction'] ?? 'ขับตรงไป';
+                      final instruction = maneuver['instruction'] ?? (context.isThai ? 'ขับตรงไป' : 'Head straight');
                       final distance = step['distance'] ?? 0;
                       
                       return ListTile(
@@ -94,7 +95,9 @@ class RoutingInstructionsPanel extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          '${(distance as num).toStringAsFixed(0)} เมตร',
+                          context.isThai
+                              ? '${(distance as num).toStringAsFixed(0)} เมตร'
+                              : '${(distance as num).toStringAsFixed(0)} m',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.5),
                             fontSize: 11,
@@ -133,13 +136,15 @@ class RoutingInstructionsPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ไปยัง ${provider.selectedFacility?.name}',
+                      context.isThai ? 'ไปยัง ${provider.selectedFacility?.name}' : 'To ${provider.selectedFacility?.name}',
                       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      '${provider.eta} • ${provider.routeDistance?.toStringAsFixed(1)} กม.',
+                      context.isThai
+                          ? '${provider.eta} • ${provider.routeDistance?.toStringAsFixed(1)} กม.'
+                          : '${provider.eta} • ${provider.routeDistance?.toStringAsFixed(1)} km',
                       style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ],

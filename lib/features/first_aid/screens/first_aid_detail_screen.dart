@@ -271,10 +271,12 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 25),
-                      if (widget.topic.warning != null)
+                      const SizedBox(height: 20),
+                      _buildTacticalProtocolHUD(topicColor),
+                      if (widget.topic.warning != null) ...[
                         _buildWarningCard(topicColor),
-                      const SizedBox(height: 30),
+                        const SizedBox(height: 24),
+                      ],
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -292,7 +294,7 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
                             _buildCprMetronomeButton(topicColor),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -306,6 +308,9 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
                     index == _currentStepIndex,
                   );
                 }, childCount: widget.topic.steps.length),
+              ),
+              SliverToBoxAdapter(
+                child: _buildDosAndDontsSection(topicColor),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
@@ -503,10 +508,44 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
                 const SizedBox(height: 60),
                 Hero(
                   tag: 'icon_${widget.topic.id}',
-                  child: Text(
-                    widget.topic.icon,
-                    style: const TextStyle(fontSize: 80),
-                  ),
+                  child: widget.topic.iconAsset != null
+                      ? Container(
+                          width: 110,
+                          height: 110,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: color.withValues(alpha: 0.6),
+                              width: 2.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: color.withValues(alpha: 0.45),
+                                blurRadius: 28,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              widget.topic.iconAsset!,
+                              width: 110,
+                              height: 110,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Center(
+                                child: Text(
+                                  widget.topic.icon,
+                                  style: const TextStyle(fontSize: 80),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Text(
+                          widget.topic.icon,
+                          style: const TextStyle(fontSize: 80),
+                        ),
                 ),
                 const SizedBox(height: 15),
                 Text(
@@ -530,6 +569,212 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTacticalProtocolHUD(Color color) {
+    final isThai = _isThai;
+    final urgency = widget.topic.getUrgency(isThai);
+    final keyMetric = widget.topic.getKeyMetric(isThai);
+    final quickTip = widget.topic.getQuickTip(isThai);
+
+    if (urgency == null && keyMetric == null && quickTip == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Protocol Cards
+        if (urgency != null || keyMetric != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color.withValues(alpha: 0.16),
+                      Colors.black.withValues(alpha: 0.4),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.15),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (urgency != null) ...[
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.redAccent.withValues(alpha: 0.45),
+                              ),
+                            ),
+                            child: Text(
+                              isThai ? 'ระดับความฉุกเฉิน' : 'URGENCY LEVEL',
+                              style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              urgency,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (keyMetric != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.timer_outlined,
+                                color: color,
+                                size: 16,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isThai
+                                        ? 'ตัวชี้วัดช่วยชีวิต (Key Metric)'
+                                        : 'LIFESAVING KEY METRIC',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.5),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    keyMetric,
+                                    style: TextStyle(
+                                      color: color,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // Quick Tip Directive Banner
+        if (quickTip != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color.withValues(alpha: 0.15),
+                  Colors.white.withValues(alpha: 0.03),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.bolt_rounded, color: color, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isThai ? 'คำแนะนำด่วนทันที' : 'TACTICAL QUICK ACTION',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        quickTip,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -706,48 +951,110 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
                             ),
                             if (step.imageAsset != null) ...[
                               const SizedBox(height: 20),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: SizedBox(
-                                  height: 180,
-                                  width: double.infinity,
-                                  child: FutureBuilder<Uint8List>(
-                                    future: rootBundle
-                                        .load(step.imageAsset!)
-                                        .then(
-                                          (data) => data.buffer.asUint8List(),
-                                        ),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.hasData) {
-                                        return Image.memory(
-                                          snapshot.data!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  _buildImagePlaceholder(color),
-                                        );
-                                      } else if (snapshot.hasError) {
-                                        return _buildImagePlaceholder(color);
-                                      }
-                                      return Container(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.04,
-                                        ),
-                                        child: Center(
-                                          child: SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: color.withValues(
-                                                alpha: 0.5,
-                                              ),
-                                            ),
+                              GestureDetector(
+                                onTap: () => _showFullscreenImage(
+                                  context,
+                                  step,
+                                  color,
+                                ),
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Container(
+                                        height: 190,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.12),
+                                            width: 1,
                                           ),
                                         ),
-                                      );
-                                    },
-                                  ),
+                                        child: FutureBuilder<Uint8List>(
+                                          future: rootBundle
+                                              .load(step.imageAsset!)
+                                              .then(
+                                                (data) => data.buffer.asUint8List(),
+                                              ),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.hasData) {
+                                              return Image.memory(
+                                                snapshot.data!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (context, error, stackTrace) =>
+                                                        _buildImagePlaceholder(color),
+                                              );
+                                            } else if (snapshot.hasError) {
+                                              return _buildImagePlaceholder(color);
+                                            }
+                                            return Container(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.04,
+                                              ),
+                                              child: Center(
+                                                child: SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: color.withValues(
+                                                      alpha: 0.5,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    // Zoom Hint Badge Overlay
+                                    Positioned(
+                                      bottom: 10,
+                                      right: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.72),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.25),
+                                            width: 0.8,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.5),
+                                              blurRadius: 8,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.zoom_in_rounded,
+                                              color: Colors.white,
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _isThai ? 'แตะขยายภาพ' : 'Tap to zoom',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ] else if (step.visualType != null) ...[
@@ -766,6 +1073,314 @@ class _FirstAidDetailScreenState extends State<FirstAidDetailScreen>
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showFullscreenImage(BuildContext context, FirstAidStep step, Color color) {
+    if (step.imageAsset == null) return;
+    HapticFeedback.lightImpact();
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (dialogCtx) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Modal Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.95),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _isThai ? 'ขั้นตอนที่ ${step.stepNumber}' : 'Step ${step.stepNumber}',
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          step.getTitle(_isThai),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+                // Zoomable Image View
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                  child: Container(
+                    color: Colors.black,
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.65,
+                    ),
+                    child: InteractiveViewer(
+                      minScale: 1.0,
+                      maxScale: 4.0,
+                      clipBehavior: Clip.hardEdge,
+                      child: Image.asset(
+                        step.imageAsset!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Icon(
+                            Icons.broken_image_rounded,
+                            color: color,
+                            size: 48,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _isThai ? 'หนีบนิ้วเพื่อซูมขยายภาพ (Pinch to Zoom)' : 'Pinch to Zoom & Pan',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.45),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDosAndDontsSection(Color color) {
+    final isThai = _isThai;
+    final dos = widget.topic.getDos(isThai);
+    final donts = widget.topic.getDonts(isThai);
+
+    if (dos.isEmpty && donts.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isThai ? 'แนวทางปฏิบัติ & ข้อควรระวัง' : 'Clinical Protocol & Safety Guidelines',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // DOs Card
+          if (dos.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check_circle_rounded,
+                              color: Color(0xFF10B981),
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            isThai ? 'สิ่งที่ควรทำ (DOs)' : 'RECOMMENDED (DOs)',
+                            style: const TextStyle(
+                              color: Color(0xFF34D399),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...dos.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Icon(
+                                  Icons.check_rounded,
+                                  color: Color(0xFF34D399),
+                                  size: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 13,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // DON'Ts Card
+          if (donts.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.cancel_rounded,
+                              color: Color(0xFFEF4444),
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            isThai
+                                ? 'สิ่งที่ห้ามทำเด็ดขาด (DON\'Ts)'
+                                : 'STRICTLY PROHIBITED (DON\'Ts)',
+                            style: const TextStyle(
+                              color: Color(0xFFF87171),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ...donts.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  color: Color(0xFFF87171),
+                                  size: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 13,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

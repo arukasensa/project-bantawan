@@ -26,6 +26,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter1/providers/map_provider.dart';
 import 'package:flutter1/features/emergency/services/call_service.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🏥 วิดเจ็ต BottomSheet แสดงรายละเอียดของสถานพยาบาลที่เลือก (Facility Details BottomSheet)
 class GoogleFacilitySheet extends StatelessWidget {
@@ -140,17 +141,17 @@ class GoogleFacilitySheet extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 if (facility.isOpen24Hours)
-                                  const Row(
+                                  Row(
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.circle,
                                         color: Colors.greenAccent,
                                         size: 6,
                                       ),
-                                      SizedBox(width: 4),
+                                      const SizedBox(width: 4),
                                       Text(
-                                        'เปิด 24 ชั่วโมง',
-                                        style: TextStyle(
+                                        context.isThai ? 'เปิด 24 ชั่วโมง' : 'Open 24 Hours',
+                                        style: const TextStyle(
                                           color: Colors.greenAccent,
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
@@ -175,7 +176,9 @@ class GoogleFacilitySheet extends StatelessWidget {
                             // Navigate Button
                             _buildPillAction(
                               icon: Icons.directions_rounded,
-                              label: hasActiveRoute ? 'กำลังนำทาง' : 'นำทาง',
+                              label: hasActiveRoute
+                                  ? (context.isThai ? 'กำลังนำทาง' : 'Navigating')
+                                  : (context.isThai ? 'นำทาง' : 'Directions'),
                               bgColor: hasActiveRoute
                                   ? Colors.blueAccent
                                   : Colors.blueAccent.withValues(alpha: 0.15),
@@ -190,7 +193,7 @@ class GoogleFacilitySheet extends StatelessWidget {
                             const SizedBox(width: 10),
                             _buildPillAction(
                               icon: Icons.call_rounded,
-                              label: 'โทรออก',
+                              label: context.isThai ? 'โทรออก' : 'Call',
                               bgColor: Colors.greenAccent.withValues(alpha: 0.15),
                               textColor: Colors.greenAccent,
                               iconColor: Colors.greenAccent,
@@ -200,9 +203,13 @@ class GoogleFacilitySheet extends StatelessWidget {
                                   CallService.makeCall(facility.phone);
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('ไม่มีเบอร์โทรศัพท์ติดต่อสำหรับสถานที่นี้'),
-                                      duration: Duration(seconds: 2),
+                                    SnackBar(
+                                      content: Text(
+                                        context.isThai
+                                            ? 'ไม่มีเบอร์โทรศัพท์ติดต่อสำหรับสถานที่นี้'
+                                            : 'No phone number available for this facility',
+                                      ),
+                                      duration: const Duration(seconds: 2),
                                     ),
                                   );
                                 }
@@ -226,7 +233,7 @@ class GoogleFacilitySheet extends StatelessWidget {
                               const SizedBox(width: 10),
                               _buildPillAction(
                                 icon: Icons.navigation_rounded,
-                                label: 'สิ้นสุดนำทาง',
+                                label: context.isThai ? 'สิ้นสุดนำทาง' : 'End Route',
                                 bgColor: Colors.redAccent.withValues(alpha: 0.15),
                                 textColor: Colors.redAccent,
                                 iconColor: Colors.redAccent,
@@ -248,19 +255,21 @@ class GoogleFacilitySheet extends StatelessWidget {
                       ),
                       _buildInfoRow(
                         Icons.near_me_rounded,
-                        'ระยะทางจากพิกัดคุณ: ${facility.distanceFrom(provider.currentPosition.latitude, provider.currentPosition.longitude).toStringAsFixed(1)} กม.',
+                        context.isThai
+                            ? 'ระยะทางจากพิกัดคุณ: ${facility.distanceFrom(provider.currentPosition.latitude, provider.currentPosition.longitude).toStringAsFixed(1)} กม.'
+                            : 'Distance from you: ${facility.distanceFrom(provider.currentPosition.latitude, provider.currentPosition.longitude).toStringAsFixed(1)} km',
                         Colors.orangeAccent,
                       ),
                       if (facility.phone.isNotEmpty)
                         _buildInfoRow(
                           Icons.phone_rounded,
-                          'ติดต่อ: ${facility.phone}',
+                          context.isThai ? 'ติดต่อ: ${facility.phone}' : 'Phone: ${facility.phone}',
                           Colors.greenAccent,
                         ),
                       if (facility.openingHours != null && facility.openingHours!.isNotEmpty)
                         _buildInfoRow(
                           Icons.access_time_rounded,
-                          'เวลาทำการ: ${facility.openingHours}',
+                          context.isThai ? 'เวลาทำการ: ${facility.openingHours}' : 'Hours: ${facility.openingHours}',
                           Colors.amberAccent,
                         ),
                       if (facility.website != null && facility.website!.isNotEmpty)
@@ -273,14 +282,18 @@ class GoogleFacilitySheet extends StatelessWidget {
                           },
                           child: _buildInfoRow(
                             Icons.language_rounded,
-                            'เว็บไซต์: ${facility.website} (แตะเพื่อเปิด)',
+                            context.isThai
+                                ? 'เว็บไซต์: ${facility.website} (แตะเพื่อเปิด)'
+                                : 'Website: ${facility.website} (tap to open)',
                             Colors.cyanAccent,
                           ),
                         ),
                       if (facility.wheelchair != null && facility.wheelchair!.isNotEmpty)
                         _buildInfoRow(
                           Icons.wheelchair_pickup_rounded,
-                          'การรองรับวีลแชร์: ${facility.wheelchair == 'yes' ? 'รองรับ' : 'ไม่ระบุ/ไม่รองรับ'}',
+                          context.isThai
+                              ? 'การรองรับวีลแชร์: ${facility.wheelchair == 'yes' ? 'รองรับ' : 'ไม่ระบุ/ไม่รองรับ'}'
+                              : 'Wheelchair access: ${facility.wheelchair == 'yes' ? 'Accessible' : 'Not specified'}',
                           Colors.purpleAccent,
                         ),
                       if (facility.description != null && facility.description!.isNotEmpty) ...[

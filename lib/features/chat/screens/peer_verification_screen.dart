@@ -20,6 +20,7 @@ import '../models/mesh_peer.dart';
 import '../models/peer_trust.dart';
 import '../services/identity_service.dart';
 import '../widgets/peer_qr_verification_sheet.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🛡️ หน้าจอแสดงผลและยืนยัน Cryptographic Fingerprint ของ Peer คู่สนทนา
 class PeerVerificationScreen extends StatefulWidget {
@@ -51,9 +52,9 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
         backgroundColor: Colors.black,
         surfaceTintColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'ตรวจสอบตัวตนคู่สนทนา',
-          style: TextStyle(
+        title: Text(
+          context.isThai ? 'ตรวจสอบตัวตนคู่สนทนา' : 'Verify Peer Identity',
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -63,7 +64,7 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.cyanAccent),
-            tooltip: 'สแกน QR Code เพื่อยืนยัน',
+            tooltip: context.isThai ? 'สแกน QR Code เพื่อยืนยัน' : 'Scan QR Code to Verify',
             onPressed: () {
               PeerQrVerificationSheet.show(context, peerId: widget.peer.peerId);
             },
@@ -87,8 +88,12 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
 
             // 🔐 Peer's Fingerprint Card
             _buildFingerprintCard(
-              title: '🔑 Fingerprint ของ ${widget.peer.peerName}',
-              subtitle: 'เปรียบเทียบข้อความนี้กับหน้าจอของ ${widget.peer.peerName}',
+              title: context.isThai
+                  ? '🔑 Fingerprint ของ ${widget.peer.peerName}'
+                  : '🔑 ${widget.peer.peerName}\'s Fingerprint',
+              subtitle: context.isThai
+                  ? 'เปรียบเทียบข้อความนี้กับหน้าจอของ ${widget.peer.peerName}'
+                  : 'Compare this fingerprint with ${widget.peer.peerName}\'s screen',
               fingerprint: peerFingerprint,
               accentColor: trustState == PeerTrustState.verified
                   ? const Color(0xFF4ADE80)
@@ -98,8 +103,12 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
 
             // 📱 My Fingerprint Card
             _buildFingerprintCard(
-              title: '📱 Fingerprint ของเครื่องคุณ',
-              subtitle: 'ให้ ${widget.peer.peerName} ตรวจสอบรหัสนี้บนเครื่องของเขา',
+              title: context.isThai
+                  ? '📱 Fingerprint ของเครื่องคุณ'
+                  : '📱 Your Device Fingerprint',
+              subtitle: context.isThai
+                  ? 'ให้ ${widget.peer.peerName} ตรวจสอบรหัสนี้บนเครื่องของเขา'
+                  : 'Ask ${widget.peer.peerName} to verify this code on their device',
               fingerprint: myFingerprint,
               accentColor: const Color(0xFFA78BFA),
             ),
@@ -113,14 +122,16 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white12),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: Colors.white54, size: 20),
-                  SizedBox(width: 12),
+                  const Icon(Icons.info_outline_rounded, color: Colors.white54, size: 20),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'การยืนยัน Fingerprint จะทำเฉพาะครั้งแรกเพื่อความมั่นใจ โดย Fingerprint สร้างขึ้นจาก Public Key ประจำเครื่องอย่างถาวร',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                      context.isThai
+                          ? 'การยืนยัน Fingerprint จะทำเฉพาะครั้งแรกเพื่อความมั่นใจ โดย Fingerprint สร้างขึ้นจาก Public Key ประจำเครื่องอย่างถาวร'
+                          : 'Fingerprint verification confirms peer identity authenticity. Fingerprints are permanently derived from each device’s cryptographic public key.',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
                     ),
                   ),
                 ],
@@ -146,18 +157,18 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
       case PeerTrustState.verified:
         badgeColor = Colors.greenAccent;
         badgeIcon = Icons.verified_user_rounded;
-        badgeText = 'ยืนยันตัวตนแล้ว (Verified)';
+        badgeText = context.isThai ? 'ยืนยันตัวตนแล้ว (Verified)' : 'Verified';
         break;
       case PeerTrustState.changed:
         badgeColor = Colors.orangeAccent;
         badgeIcon = Icons.warning_amber_rounded;
-        badgeText = 'Key มีการเปลี่ยนแปลง (Identity Changed)';
+        badgeText = context.isThai ? 'Key มีการเปลี่ยนแปลง (Identity Changed)' : 'Identity Key Changed';
         break;
       case PeerTrustState.unverified:
       case PeerTrustState.unknown:
         badgeColor = Colors.white54;
         badgeIcon = Icons.gpp_maybe_rounded;
-        badgeText = 'ยังไม่ได้ยืนยัน (Unverified)';
+        badgeText = context.isThai ? 'ยังไม่ได้ยืนยัน (Unverified)' : 'Unverified';
         break;
     }
 
@@ -232,15 +243,17 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.orangeAccent, width: 1),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
-          SizedBox(width: 12),
+          const Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 24),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'คำเตือน: Public Key ของ Peer นี้ไม่ตรงกับที่เคยยืนยันไว้ก่อนหน้า อาจเกิดจากการลงแอปใหม่ หรือเสี่ยงต่อการถูกแทรกแซงตัวตน (MITM Attack)',
-              style: TextStyle(
+              context.isThai
+                  ? 'คำเตือน: Public Key ของ Peer นี้ไม่ตรงกับที่เคยยืนยันไว้ก่อนหน้า อาจเกิดจากการลงแอปใหม่ หรือเสี่ยงต่อการถูกแทรกแซงตัวตน (MITM Attack)'
+                  : 'Warning: Public Key for this peer does not match previous records. They may have reinstalled the app, or there is an active impersonation / MITM risk.',
+              style: const TextStyle(
                 color: Colors.orangeAccent,
                 fontSize: 12.5,
                 height: 1.4,
@@ -283,22 +296,22 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white54),
-                tooltip: 'คัดลอก Fingerprint',
+                tooltip: context.isThai ? 'คัดลอก Fingerprint' : 'Copy Fingerprint',
                 onPressed: () {
                   if (fingerprint.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('ยังไม่มีข้อมูล Fingerprint ให้คัดลอก'),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: Text(context.isThai ? 'ยังไม่มีข้อมูล Fingerprint ให้คัดลอก' : 'No fingerprint data to copy'),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                     return;
                   }
                   Clipboard.setData(ClipboardData(text: fingerprint.replaceAll('\n', ' ')));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('คัดลอก Fingerprint เรียบร้อย'),
-                      duration: Duration(seconds: 2),
+                    SnackBar(
+                      content: Text(context.isThai ? 'คัดลอก Fingerprint เรียบร้อย' : 'Fingerprint copied to clipboard'),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
@@ -350,10 +363,10 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white12),
                 ),
-                child: const Text(
-                  'ยังไม่มีข้อมูล Public Key (ยังไม่ได้รับ Key)',
+                child: Text(
+                  context.isThai ? 'ยังไม่มีข้อมูล Public Key (ยังไม่ได้รับ Key)' : 'No Public Key data received yet',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -416,20 +429,23 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
               ),
             ),
             icon: const Icon(Icons.check_circle_rounded),
-            label: const Text('ยืนยันตัวตนเรียบร้อยแล้ว', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            label: Text(
+              context.isThai ? 'ยืนยันตัวตนเรียบร้อยแล้ว' : 'Identity Verified',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             onPressed: null,
           ),
           const SizedBox(height: 10),
           TextButton.icon(
             style: TextButton.styleFrom(foregroundColor: Colors.white54),
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('ยกเลิกการยืนยัน (Reset Trust)'),
+            label: Text(context.isThai ? 'ยกเลิกการยืนยัน (Reset Trust)' : 'Reset Verification Trust'),
             onPressed: () async {
               await identityService.resetTrust(widget.peer.peerId);
               setState(() {});
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('ยกเลิกการยืนยันเรียบร้อยแล้ว')),
+                  SnackBar(content: Text(context.isThai ? 'ยกเลิกการยืนยันเรียบร้อยแล้ว' : 'Verification reset successfully')),
                 );
               }
             },
@@ -449,14 +465,16 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.amberAccent.withValues(alpha: 0.4)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 22),
-                SizedBox(width: 10),
+                const Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 22),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'ยังไม่ได้รับ Public Key จากคู่สนทนานี้ในระบบ Mesh กรุณารอให้คู่สนทนาออนไลน์ หรือสแกน QR Code เพื่อแลกเปลี่ยนกุญแจทันที',
-                    style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                    context.isThai
+                        ? 'ยังไม่ได้รับ Public Key จากคู่สนทนานี้ในระบบ Mesh กรุณารอให้คู่สนทนาออนไลน์ หรือสแกน QR Code เพื่อแลกเปลี่ยนกุญแจทันที'
+                        : 'No Public Key received yet from this peer via Mesh. Wait until peer is online or scan QR Code to exchange keys immediately.',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
                   ),
                 ),
               ],
@@ -471,7 +489,10 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             icon: const Icon(Icons.qr_code_scanner_rounded),
-            label: const Text('สแกน QR Code เพื่อรับ Key ทันที', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(
+              context.isThai ? 'สแกน QR Code เพื่อรับ Key ทันที' : 'Scan QR Code to Receive Key',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             onPressed: () {
               PeerQrVerificationSheet.show(context, peerId: widget.peer.peerId);
             },
@@ -492,7 +513,9 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
       ),
       icon: const Icon(Icons.verified_user_rounded),
       label: Text(
-        isChanged ? 'ยืนยันตัวตน Key ใหม่ (Accept New Key)' : 'ยืนยันตัวตนคู่สนทนา (Mark as Verified)',
+        isChanged
+            ? (context.isThai ? 'ยืนยันตัวตน Key ใหม่ (Accept New Key)' : 'Accept New Key')
+            : (context.isThai ? 'ยืนยันตัวตนคู่สนทนา (Mark as Verified)' : 'Mark as Verified'),
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
       onPressed: () async {
@@ -505,7 +528,11 @@ class _PeerVerificationScreenState extends State<PeerVerificationScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('ยืนยันตัวตนของ ${widget.peer.peerName} เรียบร้อยแล้ว'),
+              content: Text(
+                context.isThai
+                    ? 'ยืนยันตัวตนของ ${widget.peer.peerName} เรียบร้อยแล้ว'
+                    : 'Successfully verified ${widget.peer.peerName}',
+              ),
               backgroundColor: Colors.green,
             ),
           );

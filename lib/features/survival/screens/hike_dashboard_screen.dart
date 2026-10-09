@@ -34,6 +34,7 @@ import 'package:path_provider/path_provider.dart';
 import '../services/hike_service.dart';
 import '../widgets/hike_summary_dialog.dart';
 import 'package:flutter1/features/emergency/services/call_service.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🥾 หน้าจอแดชบอร์ดติดตามและบันทึกสถิติการเดินป่า (Hike Dashboard Screen)
 class HikeDashboardScreen extends StatefulWidget {
@@ -386,7 +387,7 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isBacktrack ? 'BACKTRACK ACTIVE' : 'HIKE RECORDING',
+                          isBacktrack ? 'BACKTRACK ACTIVE' : context.l10n.hikeRecording,
                           style: TextStyle(
                             color: isBacktrack ? Colors.orangeAccent : Colors.greenAccent,
                             fontSize: 10,
@@ -395,7 +396,7 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                           ),
                         ),
                         Text(
-                          isBacktrack ? 'กำลังนำทางกลับจุดเริ่มต้น' : 'กำลังบันทึกรอยทางออฟไลน์',
+                          isBacktrack ? context.l10n.backtrackNavActive : context.l10n.hikeRecordingTrail,
                           style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
@@ -432,7 +433,9 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            isBacktrack ? 'ย้อนรอยอยู่' : 'ย้อนรอย',
+                            isBacktrack
+                                ? (context.isThai ? 'ย้อนรอยอยู่' : 'Active')
+                                : (context.isThai ? 'ย้อนรอย' : 'Backtrack'),
                             style: TextStyle(
                               color: isBacktrack ? Colors.black : Colors.white,
                               fontSize: 10,
@@ -479,26 +482,26 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
     return Consumer<HikeService>(
       builder: (context, hikeService, _) {
         final alt = hikeService.currentAltitude;
-        final altStr = alt != null ? '${alt.toStringAsFixed(0)} m' : '-- m';
+        final altStr = alt != null ? '${alt.toStringAsFixed(0)} ${context.l10n.meterUnit}' : '-- ${context.l10n.meterUnit}';
 
         return Row(
           children: [
             _buildStatItem(
-              'DISTANCE',
-              '${_distanceKm.toStringAsFixed(2)} KM',
+              context.l10n.hikeDistance,
+              '${_distanceKm.toStringAsFixed(2)} ${context.l10n.kmUnit.toUpperCase()}',
               Icons.route_rounded,
               Colors.cyanAccent,
             ),
             const SizedBox(width: 10),
             _buildStatItem(
-              'DURATION',
+              context.l10n.hikeDuration,
               _durationStr,
               Icons.timer_outlined,
               Colors.orangeAccent,
             ),
             const SizedBox(width: 10),
             _buildStatItem(
-              'ELEVATION',
+              context.l10n.hikeElevation,
               altStr,
               Icons.landscape_rounded,
               const Color(0xFF10B981),
@@ -567,8 +570,8 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
         final isNearStart = distMeters < 30 && distMeters > 0;
 
         String distStr = distMeters >= 1000
-            ? '${(distMeters / 1000).toStringAsFixed(2)} กม.'
-            : '${distMeters.toStringAsFixed(0)} ม.';
+            ? '${(distMeters / 1000).toStringAsFixed(2)} ${context.l10n.kmUnit}'
+            : '${distMeters.toStringAsFixed(0)} ${context.l10n.meterUnit}';
 
         return Positioned(
           bottom: 110,
@@ -649,8 +652,8 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                               Flexible(
                                 child: Text(
                                   isNearStart
-                                      ? '🎉 ถึงจุดเริ่มต้นแล้ว!'
-                                      : 'จุดเริ่มต้น (Basecamp ⛳)',
+                                      ? context.l10n.backtrackArrived
+                                      : context.l10n.backtrackBasecamp,
                                   style: TextStyle(
                                     color: isNearStart
                                         ? Colors.greenAccent
@@ -683,8 +686,8 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                           const SizedBox(height: 4),
                           Text(
                             isNearStart
-                                ? 'คุณอยู่ในรัศมีจุดเริ่มต้นเรียบร้อย'
-                                : 'ห่างอีก $distStr',
+                                ? (context.isThai ? 'คุณอยู่ในรัศมีจุดเริ่มต้นเรียบร้อย' : 'You are within starting area')
+                                : context.l10n.backtrackDistanceRemaining(distStr),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -692,9 +695,9 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                             ),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
-                            'เดินมุ่งหน้าตามลูกศรและรอยเส้นสีส้ม',
-                            style: TextStyle(
+                          Text(
+                            context.l10n.backtrackFollowArrow,
+                            style: const TextStyle(
                               color: Colors.white60,
                               fontSize: 11,
                             ),
@@ -723,7 +726,7 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
   }
 
   String _getCardinalDirection(double angle) {
-    if (angle >= 337.5 || angle < 22.5) return 'N (เหนือ)';
+    if (angle >= 337.5 || angle < 22.5) return 'N (${context.isThai ? 'เหนือ' : 'North'})';
     if (angle >= 22.5 && angle < 67.5) return 'NE';
     if (angle >= 67.5 && angle < 112.5) return 'E';
     if (angle >= 112.5 && angle < 157.5) return 'SE';
@@ -797,10 +800,10 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                'HOLD TO END',
-                style: TextStyle(
+                context.l10n.hikeHoldToEnd,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
@@ -865,16 +868,16 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.hiking_rounded, color: Colors.greenAccent, size: 28),
-            SizedBox(width: 10),
-            Text('ออกจากหน้าเดินป่า?', style: TextStyle(color: Colors.white)),
+            const Icon(Icons.hiking_rounded, color: Colors.greenAccent, size: 28),
+            const SizedBox(width: 10),
+            Text(context.l10n.hikeExitDialogTitle, style: const TextStyle(color: Colors.white)),
           ],
         ),
-        content: const Text(
-          'กิจกรรมการเดินป่ากำลังบันทึกอยู่ คุณต้องการทำรายการใด?',
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          context.l10n.hikeExitDialogDesc,
+          style: const TextStyle(color: Colors.white70),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
@@ -892,9 +895,9 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                 ),
               ),
               icon: const Icon(Icons.picture_in_picture_alt_rounded),
-              label: const Text(
-                'ย่อหน้าจอ (บันทึกต่อในพื้นหลัง)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: Text(
+                context.l10n.hikeMinimizedBox,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onPressed: () {
                 Navigator.pop(ctx); // ปิด Dialog
@@ -918,9 +921,9 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
                 ),
               ),
               icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text(
-                'สิ้นสุดการเดินป่า (End Hike)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: Text(
+                context.l10n.endHikeBtn,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onPressed: () {
                 Navigator.pop(ctx); // ปิด Dialog
@@ -934,7 +937,7 @@ class _HikeDashboardScreenState extends State<HikeDashboardScreen>
           Center(
             child: TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('เดินป่าต่อ', style: TextStyle(color: Colors.white54)),
+              child: Text(context.l10n.hikeResumeBtn, style: const TextStyle(color: Colors.white54)),
             ),
           ),
         ],

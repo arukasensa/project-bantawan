@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/mesh_notice.dart';
 import '../services/nearby_service.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 📌 [NoticeBoardSheet] กระดานปักประกาศฉุกเฉินสาธารณะออฟไลน์ (Offline Mesh Bulletin Board)
 /// ออกแบบตามแนวคิด Epidemic Gossip Protocol สำหรับกระจายข่าวสารเตือนภัยในพื้นที่ประสบภัย:
@@ -84,8 +85,12 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                 Expanded(
                   child: Text(
                     _isUrgent
-                        ? '🚨 ปักประกาศฉุกเฉินและกระจายสัญญาณไปยังทุกโหนดแล้ว'
-                        : '📌 ปักประกาศออฟไลน์สำเร็จ กระจายต่อแบบ Peer-to-Peer',
+                        ? (context.isThai
+                            ? '🚨 ปักประกาศฉุกเฉินและกระจายสัญญาณไปยังทุกโหนดแล้ว'
+                            : '🚨 Urgent emergency notice broadcast to all nodes')
+                        : (context.isThai
+                            ? '📌 ปักประกาศออฟไลน์สำเร็จ กระจายต่อแบบ Peer-to-Peer'
+                            : '📌 Notice posted offline successfully, propagating P2P'),
                     style: const TextStyle(fontSize: 13, color: Colors.white),
                   ),
                 ),
@@ -108,7 +113,7 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
         setState(() => _isPosting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('เกิดข้อผิดพลาดในการปักประกาศ: $e'),
+            content: Text(context.isThai ? 'เกิดข้อผิดพลาดในการปักประกาศ: $e' : 'Failed to post notice: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -125,24 +130,26 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
-            SizedBox(width: 8),
+            const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
+            const SizedBox(width: 8),
             Text(
-              'ลบประกาศนี้?',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+              context.isThai ? 'ลบประกาศนี้?' : 'Delete this notice?',
+              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
             ),
           ],
         ),
-        content: const Text(
-          'ประกาศจะถูกลบออกจากเครื่องของคุณและไม่ถูกส่งต่อไปยังโหนดอื่นอีก',
-          style: TextStyle(color: Colors.white70, fontSize: 13),
+        content: Text(
+          context.isThai
+              ? 'ประกาศจะถูกลบออกจากเครื่องของคุณและไม่ถูกส่งต่อไปยังโหนดอื่นอีก'
+              : 'Notice will be removed from your device and will no longer propagate to other nodes.',
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก', style: TextStyle(color: Colors.white54)),
+            child: Text(context.isThai ? 'ยกเลิก' : 'Cancel', style: const TextStyle(color: Colors.white54)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -150,7 +157,7 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('ลบประกาศ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(context.isThai ? 'ลบประกาศ' : 'Delete', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -241,9 +248,9 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
             children: [
               const Icon(Icons.campaign_rounded, color: Colors.cyanAccent, size: 24),
               const SizedBox(width: 8),
-              const Text(
-                'ประกาศ @ #mesh',
-                style: TextStyle(
+              Text(
+                context.isThai ? 'ประกาศ @ #mesh' : 'Notices @ #mesh',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 19,
                   fontWeight: FontWeight.bold,
@@ -258,9 +265,11 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            'ปักประกาศสั้น ๆ ให้คนรอบตัว ส่งต่อจากมือถือสู่มือถือได้แม้ออฟไลน์ และหายไปเองหลังผ่านไปสองสามวัน',
-            style: TextStyle(
+          Text(
+            context.isThai
+                ? 'ปักประกาศสั้น ๆ ให้คนรอบตัว ส่งต่อจากมือถือสู่มือถือได้แม้ออฟไลน์ และหายไปเองหลังผ่านไปสองสามวัน'
+                : 'Post short bulletins to nearby survivors offline. Messages propagate peer-to-peer and expire automatically.',
+            style: const TextStyle(
               color: Colors.white60,
               fontSize: 12,
               height: 1.35,
@@ -292,18 +301,20 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
-              'ยังไม่มีประกาศในรัศมีโครงข่าย',
-              style: TextStyle(
+            Text(
+              context.isThai ? 'ยังไม่มีประกาศในรัศมีโครงข่าย' : 'No notices in mesh range',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'เขียนข้อความประกาศคนแรกด้านล่างเพื่อกระจายข่าวสารสำคัญ แจ้งจุดนัดพบ หรือขอความช่วยเหลือแม้ออฟไลน์',
-              style: TextStyle(
+            Text(
+              context.isThai
+                  ? 'เขียนข้อความประกาศคนแรกด้านล่างเพื่อกระจายข่าวสารสำคัญ แจ้งจุดนัดพบ หรือขอความช่วยเหลือแม้ออฟไลน์'
+                  : 'Be the first to post a bulletin below to share critical updates, rendezvous points, or requests for aid offline.',
+              style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 13,
                 height: 1.4,
@@ -392,9 +403,9 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.4)),
                             ),
-                            child: const Text(
-                              'ของคุณ',
-                              style: TextStyle(color: Colors.cyanAccent, fontSize: 10),
+                            child: Text(
+                              context.isThai ? 'ของคุณ' : 'You',
+                              style: const TextStyle(color: Colors.cyanAccent, fontSize: 10),
                             ),
                           ),
                         ],
@@ -412,14 +423,14 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: Colors.redAccent.withValues(alpha: 0.7)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 12),
-                      SizedBox(width: 4),
+                      const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 12),
+                      const SizedBox(width: 4),
                       Text(
-                        'ด่วนพิเศษ',
-                        style: TextStyle(
+                        context.isThai ? 'ด่วนพิเศษ' : 'Urgent',
+                        style: const TextStyle(
                           color: Colors.redAccent,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -433,7 +444,7 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                   icon: const Icon(Icons.delete_outline_rounded, color: Colors.white54, size: 18),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  tooltip: 'ลบประกาศ',
+                  tooltip: context.isThai ? 'ลบประกาศ' : 'Delete notice',
                   onPressed: () => _confirmDeleteNotice(notice),
                 ),
             ],
@@ -473,7 +484,9 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      notice.hopCount == 1 ? 'ได้ยินตรง' : '${notice.hopCount} ทอด',
+                      notice.hopCount == 1
+                          ? (context.isThai ? 'ได้ยินตรง' : 'Direct')
+                          : (context.isThai ? '${notice.hopCount} ทอด' : '${notice.hopCount} hops'),
                       style: const TextStyle(color: Colors.white60, fontSize: 10.5),
                     ),
                   ],
@@ -534,12 +547,12 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
               maxLines: 3,
               minLines: 1,
               style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: const InputDecoration(
-                hintText: 'เขียนข้อความประกาศสั้น ๆ ส่งต่อทุกคน...',
-                hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: context.isThai ? 'เขียนข้อความประกาศสั้น ๆ ส่งต่อทุกคน...' : 'Write short bulletin for all peers...',
+                hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
               ),
             ),
           ),
@@ -579,7 +592,7 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'ฉุกเฉิน',
+                        context.isThai ? 'ฉุกเฉิน' : 'Urgent',
                         style: TextStyle(
                           color: _isUrgent ? Colors.redAccent : Colors.white70,
                           fontSize: 12,
@@ -594,11 +607,11 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
               const SizedBox(width: 8),
 
               // Expiry Duration Chips
-              _buildDurationChip(const Duration(days: 1), '1 วัน'),
+              _buildDurationChip(const Duration(days: 1), context.isThai ? '1 วัน' : '1 Day'),
               const SizedBox(width: 4),
-              _buildDurationChip(const Duration(days: 3), '3 วัน'),
+              _buildDurationChip(const Duration(days: 3), context.isThai ? '3 วัน' : '3 Days'),
               const SizedBox(width: 4),
-              _buildDurationChip(const Duration(days: 7), '7 วัน'),
+              _buildDurationChip(const Duration(days: 7), context.isThai ? '7 วัน' : '7 Days'),
 
               const Spacer(),
 
@@ -617,14 +630,14 @@ class _NoticeBoardSheetState extends State<NoticeBoardSheet> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.push_pin_rounded, size: 16, color: Colors.white),
-                          SizedBox(width: 4),
+                          const Icon(Icons.push_pin_rounded, size: 16, color: Colors.white),
+                          const SizedBox(width: 4),
                           Text(
-                            'ปักประกาศ',
-                            style: TextStyle(
+                            context.isThai ? 'ปักประกาศ' : 'Post Notice',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.bold,

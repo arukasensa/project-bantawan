@@ -37,6 +37,7 @@ import '../widgets/bantawan_settings_sheet.dart';
 import '../widgets/peer_qr_verification_sheet.dart';
 import '../widgets/data_mule_bag_sheet.dart';
 import '../widgets/tactical_callsign_text.dart';
+import '../widgets/mesh_relay_status_sheet.dart';
 import 'package:flutter1/features/home/services/profile_service.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
 import 'dart:ui';
@@ -245,6 +246,19 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
               ],
             ),
             const Spacer(),
+            // 🛰️ Mesh Relay Diagnostics HUD Button
+            IconButton(
+              icon: Icon(
+                service.isRelayBridgeActive ? Icons.alt_route_rounded : Icons.radar_rounded,
+                color: service.isRelayBridgeActive ? Colors.purpleAccent : Colors.cyanAccent,
+                size: 24,
+              ),
+              tooltip: 'ตรวจสอบสถานะ Mesh Relay',
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                MeshRelayStatusSheet.show(context);
+              },
+            ),
             // [⛶] QR Code Button -> opens PeerQrVerificationSheet
             IconButton(
               icon: const Icon(
@@ -686,6 +700,62 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
             },
           ),
 
+          // 🛰️ ปุ่มสถานะและสถิติ Mesh Relay HUD
+          ListenableBuilder(
+            listenable: service,
+            builder: (context, _) {
+              final isBridge = service.isRelayBridgeActive;
+              final directCount = service.connectedDevices.length;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+                    icon: Icon(
+                      isBridge ? Icons.alt_route_rounded : Icons.radar_rounded,
+                      color: isBridge
+                          ? Colors.purpleAccent
+                          : (directCount > 0 ? Colors.greenAccent : Colors.cyanAccent),
+                      size: 20,
+                    ),
+                    tooltip: 'สถานะเครือข่าย Mesh Relay ($directCount ลิงก์)',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      MeshRelayStatusSheet.show(context);
+                    },
+                  ),
+                  if (directCount > 0)
+                    Positioned(
+                      top: 4,
+                      right: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: isBridge ? Colors.purpleAccent : Colors.greenAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 15,
+                          minHeight: 15,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$directCount',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+
           // #mesh channel badge
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -860,68 +930,105 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
   }
 
   Widget _buildHardwareWarningBanner(NearbyService service) {
-    if (service.hardwareWarningMessage == null) return const SizedBox.shrink();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+    if (service.hardwareWarningMessage != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+          border: Border(
+            bottom: BorderSide(
+              color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.location_off_rounded,
-            color: Color(0xFFFCA5A5),
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              service.hardwareWarningMessage!,
-              style: const TextStyle(
-                color: Color(0xFFFCA5A5),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.location_off_rounded,
+              color: Color(0xFFFCA5A5),
+              size: 16,
             ),
-          ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: () async {
-              HapticFeedback.lightImpact();
-              await Geolocator.openLocationSettings();
-              await service.checkHardwareReadiness();
-            },
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Colors.redAccent.withValues(alpha: 0.5),
-                  width: 1,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                service.hardwareWarningMessage!,
+                style: const TextStyle(
+                  color: Color(0xFFFCA5A5),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text(
-                'เปิดตั้งค่า',
-                style: TextStyle(
-                  color: Colors.white,
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () async {
+                HapticFeedback.lightImpact();
+                await Geolocator.openLocationSettings();
+                await service.checkHardwareReadiness();
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                ),
+                child: const Text(
+                  'เปิดตั้งค่า',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (service.hardwareTipMessage != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+          border: Border(
+            bottom: BorderSide(
+              color: const Color(0xFF0EA5E9).withValues(alpha: 0.25),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.wifi_tethering_rounded,
+              color: Color(0xFF7DD3FC),
+              size: 14,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                service.hardwareTipMessage!,
+                style: const TextStyle(
+                  color: Color(0xFFBAE6FD),
                   fontSize: 10.5,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildConnectionStatus(NearbyService service) {
@@ -1089,7 +1196,7 @@ class _NearbyChatScreenState extends State<NearbyChatScreen>
                     content: Text(
                       ok
                           ? '🔄 กำลังรีเฟรชการสแกนบลูทูธ...'
-                          : '⏳ กรุณารอสักครู่ก่อนรีเฟรชการสแกนซ้ำ (จำกัด 1.5 วิ)',
+                          : '⏳ กรุณารอสักครู่ก่อนรีเฟรชการสแกนซ้ำ (จำกัด 5 วิ)',
                     ),
                     duration: const Duration(seconds: 2),
                     backgroundColor: const Color(0xFF1E293B),

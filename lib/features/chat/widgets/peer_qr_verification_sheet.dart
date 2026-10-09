@@ -19,6 +19,7 @@ import '../services/nearby_service.dart';
 import '../models/mesh_peer.dart';
 import '../screens/peer_verification_screen.dart';
 import 'package:flutter1/core/widgets/tactical_decorations_painter.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 📱 [PeerQrVerificationSheet]
 /// วิดเจ็ตหน้าต่าง Bottom Sheet สำหรับการยืนยันตัวตนแบบ Out-of-Band (OOB Physical Verification)
@@ -192,7 +193,7 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                       Icon(Icons.qr_code_rounded, size: 16, color: _selectedTab == 0 ? Colors.cyanAccent : Colors.white54),
                       const SizedBox(width: 6),
                       Text(
-                        "QR ของฉัน",
+                        context.isThai ? "QR ของฉัน" : "My QR",
                         style: TextStyle(
                           color: _selectedTab == 0 ? Colors.cyanAccent : Colors.white54,
                           fontSize: 13,
@@ -236,7 +237,7 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                       Icon(Icons.qr_code_scanner_rounded, size: 16, color: _selectedTab == 1 ? Colors.purpleAccent : Colors.white54),
                       const SizedBox(width: 6),
                       Text(
-                        "สแกน QR เพื่อน",
+                        context.isThai ? "สแกน QR เพื่อน" : "Scan Peer QR",
                         style: TextStyle(
                           color: _selectedTab == 1 ? Colors.purpleAccent : Colors.white54,
                           fontSize: 13,
@@ -374,7 +375,9 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "ให้เพื่อนสแกน QR Code นี้เพื่อยืนยัน Public Key ของคุณ ป้องกันการปลอมแปลงตัวตนในเครือข่าย Mesh",
+                  context.isThai
+                      ? "ให้เพื่อนสแกน QR Code นี้เพื่อยืนยัน Public Key ของคุณ ป้องกันการปลอมแปลงตัวตนในเครือข่าย Mesh"
+                      : "Ask peers to scan this QR Code to verify your Public Key and protect against impersonation.",
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5, height: 1.3),
                 ),
               ),
@@ -387,7 +390,7 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
             Builder(
               builder: (ctx) {
                 final targetPeer = nearby.discoveredMeshPeers[widget.initialPeerId];
-                final peerName = targetPeer?.peerName ?? 'คู่สนทนา';
+                final peerName = targetPeer?.peerName ?? (context.isThai ? 'คู่สนทนา' : 'Peer');
                 return SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -402,7 +405,9 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                     ),
                     icon: const Icon(Icons.verified_user_rounded, size: 18),
                     label: Text(
-                      'ตรวจสอบ Fingerprint และกดยืนยันตัวตน @$peerName',
+                      context.isThai
+                          ? 'ตรวจสอบ Fingerprint และกดยืนยันตัวตน @$peerName'
+                          : 'Verify Fingerprint & Identity @$peerName',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     onPressed: () {
@@ -452,14 +457,14 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                 child: const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 64),
               ),
               const SizedBox(height: 20),
-              const Text(
-                "ยืนยันตัวตนสำเร็จ! (Identity Verified)",
+              Text(
+                context.isThai ? "ยืนยันตัวตนสำเร็จ! (Identity Verified)" : "Identity Verified!",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
-                _scannedResultText ?? "บันทึกกุญแจ Public Key ของเพื่อนแล้ว",
+                _scannedResultText ?? (context.isThai ? "บันทึกกุญแจ Public Key ของเพื่อนแล้ว" : "Peer Public Key saved successfully"),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
               ),
@@ -473,7 +478,10 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                 ),
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                label: const Text("กลับไปยังห้องแชท", style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(
+                  context.isThai ? "กลับไปยังห้องแชท" : "Return to Chat",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -552,7 +560,10 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                       ),
                       onPressed: () => _scannerController?.toggleTorch(),
                       icon: const Icon(Icons.flashlight_on_rounded, color: Colors.white, size: 18),
-                      label: const Text("เปิด/ปิด ไฟฉาย", style: TextStyle(color: Colors.white, fontSize: 12)),
+                      label: Text(
+                        context.isThai ? "เปิด/ปิด ไฟฉาย" : "Toggle Flashlight",
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -565,7 +576,10 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                       ),
                       onPressed: () => _showManualPasteDialog(identity, nearby),
                       icon: const Icon(Icons.paste_rounded, color: Colors.purpleAccent, size: 18),
-                      label: const Text("กรอก Key ด้วยตนเอง", style: TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(
+                        context.isThai ? "กรอก Key ด้วยตนเอง" : "Paste Key Manually",
+                        style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
@@ -578,9 +592,11 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                   icon: const Icon(Icons.verified_user_rounded, size: 16),
-                  label: const Text(
-                    "หรือ ตรวจสอบ Fingerprint และกดยืนยันด้วยตนเอง",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  label: Text(
+                    context.isThai
+                        ? "หรือ ตรวจสอบ Fingerprint และกดยืนยันด้วยตนเอง"
+                        : "Or Verify Fingerprint Manually",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   onPressed: () {
                     final targetPeer = nearby.discoveredMeshPeers[widget.initialPeerId];
@@ -671,7 +687,9 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
         HapticFeedback.heavyImpact();
         setState(() {
           _hasScannedSuccess = true;
-          _scannedResultText = "ยืนยัน Public Key ของ @$targetName ($targetPeerId) สำเร็จแล้ว!";
+          _scannedResultText = context.isThai
+              ? "ยืนยัน Public Key ของ @$targetName ($targetPeerId) สำเร็จแล้ว!"
+              : "Successfully verified Public Key of @$targetName ($targetPeerId)!";
         });
       }
     } catch (e) {
@@ -688,13 +706,16 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.purpleAccent, width: 1)),
-        title: const Text("วาง Public Key หรือ QR Data", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(
+          context.isThai ? "วาง Public Key หรือ QR Data" : "Paste Public Key or QR Data",
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: TextField(
           controller: controller,
           maxLines: 3,
           style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'monospace'),
           decoration: InputDecoration(
-            hintText: "วางรหัส หรือ bantawan://peer?...",
+            hintText: context.isThai ? "วางรหัส หรือ bantawan://peer?..." : "Paste key or bantawan://peer?...",
             hintStyle: const TextStyle(color: Colors.white38),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.05),
@@ -704,7 +725,7 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text("ยกเลิก", style: TextStyle(color: Colors.white54)),
+            child: Text(context.isThai ? "ยกเลิก" : "Cancel", style: const TextStyle(color: Colors.white54)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -715,7 +736,7 @@ class _PeerQrVerificationSheetState extends State<PeerQrVerificationSheet> {
               Navigator.pop(dialogCtx);
               _processScannedPayload(controller.text.trim(), identity, nearby);
             },
-            child: const Text("ยืนยัน"),
+            child: Text(context.isThai ? "ยืนยัน" : "Confirm"),
           ),
         ],
       ),

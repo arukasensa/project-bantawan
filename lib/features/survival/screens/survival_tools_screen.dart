@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
@@ -192,8 +193,8 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
       await Clipboard.setData(ClipboardData(text: link));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("คัดลอกลิงก์แผนที่เรียบร้อยแล้ว"),
+          SnackBar(
+            content: Text(context.l10n.copyCoordsSuccess),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -292,15 +293,15 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
   String _getDisasterTitle(String category) {
     switch (category) {
       case 'flood':
-        return 'เหตุอุทกภัย (น้ำท่วม)';
+        return context.l10n.floodTitle;
       case 'fire':
-        return 'เหตุอัคคีภัย (ไฟไหม้)';
+        return context.l10n.fireTitle;
       case 'earthquake':
-        return 'เหตุแผ่นดินไหว';
+        return context.l10n.earthquakeTitle;
       case 'lost':
-        return 'สถานการณ์หลงทาง';
+        return context.l10n.lostTitle;
       default:
-        return AppLocalizations.of(context)!.survivalTitle;
+        return context.l10n.survivalTitle;
     }
   }
 
@@ -320,39 +321,41 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          "เลือกสถานการณ์เพื่อเข้าถึงระบบช่วยเหลือการสื่อสารแบบจำลองและออฟไลน์",
-          style: TextStyle(color: Colors.white30, fontSize: 11),
+        Text(
+          context.isThai
+              ? "เลือกสถานการณ์เพื่อเข้าถึงระบบช่วยเหลือการสื่อสารแบบจำลองและออฟไลน์"
+              : "Select a disaster scenario for offline tactical tools and beacons",
+          style: const TextStyle(color: Colors.white30, fontSize: 11),
         ),
         const SizedBox(height: 25),
         _buildCategoryCard(
           'flood',
-          'น้ำท่วม',
-          'ฉุกเฉินน้ำท่วมและการสื่อสารออฟไลน์',
+          context.l10n.floodTitle,
+          context.l10n.floodDesc,
           Icons.water_drop_rounded,
           Colors.blueAccent,
         ),
         const SizedBox(height: 16),
         _buildCategoryCard(
           'fire',
-          'ไฟไหม้',
-          'สัญญาณไฟฉายและไซเรนขอความช่วยเหลือ',
+          context.l10n.fireTitle,
+          context.l10n.fireDesc,
           Icons.local_fire_department_rounded,
           Colors.orangeAccent,
         ),
         const SizedBox(height: 16),
         _buildCategoryCard(
           'earthquake',
-          'แผ่นดินไหว',
-          'สัญญาณขอความช่วยเหลือเบื้องต้น',
+          context.l10n.earthquakeTitle,
+          context.l10n.earthquakeDesc,
           Icons.vibration_rounded,
           Colors.redAccent,
         ),
         const SizedBox(height: 16),
         _buildCategoryCard(
           'lost',
-          'การหลงทาง',
-          'เข็มทิศและการระบุพิกัดตำแหน่ง',
+          context.l10n.lostTitle,
+          context.l10n.lostDesc,
           Icons.explore_rounded,
           Colors.greenAccent,
         ),
@@ -566,9 +569,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
           if (category == 'earthquake') _buildEarthquakeGuideSection(),
         ],
         const SizedBox(height: 25),
-        const Text(
-          "แชร์ตำแหน่งของท่าน",
-          style: TextStyle(
+        Text(
+          context.l10n.shareCoordsPrompt,
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -576,16 +579,16 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
         ),
         const SizedBox(height: 15),
         _buildSurvivalBtn(
-          title: "ส่งพิกัดผ่าน SMS",
-          subtitle: "ส่งข้อความขอความช่วยเหลือทันที",
+          title: context.l10n.shareSmsTitle,
+          subtitle: context.l10n.shareSmsSubtitle,
           icon: Icons.sms_rounded,
           color: Colors.greenAccent,
           onTap: _shareLocationSMS,
         ),
         const SizedBox(height: 12),
         _buildSurvivalBtn(
-          title: "คัดลอกลิงก์ตำแหน่ง",
-          subtitle: "แชร์พิกัดเป็น Google Maps Link",
+          title: context.l10n.copyLinkTitle,
+          subtitle: context.l10n.copyLinkSubtitle,
           icon: Icons.link_rounded,
           color: Colors.blueAccent,
           onTap: _shareLocationLink,
@@ -647,9 +650,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "เครือข่ายสื่อสารออฟไลน์ (Mesh Network)",
-                            style: TextStyle(
+                          Text(
+                            context.l10n.meshOfflineNetworkTitle,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -657,8 +660,8 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                           ),
                           Text(
                             isAdv
-                                ? "ระบบกำลังสแกนหาคนรอบข้าง..."
-                                : "ปิดการสื่อสารออฟไลน์",
+                                ? context.l10n.meshScanningSubtitle
+                                : context.l10n.meshOfflineDisabled,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.4),
                               fontSize: 12,
@@ -701,7 +704,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            "เชื่อมต่อแล้ว ${service.connectedDevices.length} โหนด",
+                            context.l10n.meshConnectedNodes(service.connectedDevices.length),
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -727,9 +730,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          "เปิดห้องแชท",
-                          style: TextStyle(
+                        child: Text(
+                          context.l10n.openChatRoom,
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -753,9 +756,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "ขอความช่วยเหลือเร่งด่วน (Local SOS)",
-              style: TextStyle(
+            Text(
+              context.l10n.localSosTitle,
+              style: const TextStyle(
                 color: Colors.redAccent,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -763,7 +766,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              "ส่งสัญญาณถึงคนรอบข้างในระยะ 100 เมตร (ออฟไลน์)",
+              context.l10n.localSosSubtitle,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 12,
@@ -774,10 +777,10 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
               spacing: 10,
               runSpacing: 10,
               children: [
-                _buildSOSChip("ติดอยู่บนหลังคา", service),
-                _buildSOSChip("ต้องการน้ำ/อาหาร", service),
-                _buildSOSChip("มีผู้บาดเจ็บ/สูงอายุ", service),
-                _buildSOSChip("ระดับน้ำสูงขึ้น", service),
+                _buildSOSChip(context.l10n.sosTrappedRoof, service),
+                _buildSOSChip(context.l10n.sosNeedFoodWater, service),
+                _buildSOSChip(context.l10n.sosInjuredElderly, service),
+                _buildSOSChip(context.l10n.sosWaterRising, service),
               ],
             ),
           ],
@@ -793,7 +796,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("ส่งสัญญาณ: $text เรียบร้อยแล้ว"),
+              content: Text(context.l10n.sosSentBroadcast(text)),
               backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),
@@ -823,9 +826,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "ขอความช่วยเหลือด่วน (SOS)",
-          style: TextStyle(
+        Text(
+          context.l10n.urgentSosTitle,
+          style: const TextStyle(
             color: Colors.redAccent,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -836,7 +839,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
           children: [
             Expanded(
               child: _buildSOSButton(
-                "ดับเพลิง (199)",
+                context.l10n.fireService199,
                 Icons.fire_truck_rounded,
                 Colors.orangeAccent,
                 () => _makeEmergencyCall('199'),
@@ -845,7 +848,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
             const SizedBox(width: 12),
             Expanded(
               child: _buildSOSButton(
-                "กู้ชีพ (1669)",
+                context.l10n.medicalService1669,
                 Icons.medical_services_rounded,
                 Colors.redAccent,
                 () => _makeEmergencyCall('1669'),
@@ -896,9 +899,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "สัญญาณขอความช่วยเหลือ",
-              style: TextStyle(
+            Text(
+              context.l10n.emergencySignalsTitle,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -909,7 +912,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
               children: [
                 Expanded(
                   child: _buildSignalCard(
-                    service.isMorseActive ? "ปิดไฟ SOS" : "ไฟฉาย SOS",
+                    service.isMorseActive
+                        ? context.l10n.flashlightSosOff
+                        : context.l10n.flashlightSosOn,
                     Icons.flashlight_on_rounded,
                     service.isMorseActive ? Colors.yellow : Colors.white12,
                     () => service.toggleMorseSOS(!service.isMorseActive),
@@ -919,7 +924,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildSignalCard(
-                    service.isStrobeActive ? "ปิดแฟลช" : "ไฟแฟลช",
+                    service.isStrobeActive
+                        ? context.l10n.strobeOff
+                        : context.l10n.strobeOn,
                     Icons.flash_on_rounded,
                     service.isStrobeActive
                         ? Colors.orangeAccent
@@ -931,7 +938,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildSignalCard(
-                    service.isSirenActive ? "ปิดไซเรน" : "ไซเรน",
+                    service.isSirenActive
+                        ? context.l10n.sirenOff
+                        : context.l10n.sirenOn,
                     Icons.volume_up_rounded,
                     service.isSirenActive ? Colors.redAccent : Colors.white12,
                     () => service.toggleSiren(!service.isSirenActive),
@@ -948,8 +957,8 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
 
   Widget _buildSafetyCheckShortcut() {
     return _buildSurvivalBtn(
-      title: "ระบบเช็คอินอัตโนมัติ (Safety Check)",
-      subtitle: "ส่ง SOS อัตโนมัติหากคุณขาดการติดต่อ",
+      title: context.l10n.safetyCheckShortcutTitle,
+      subtitle: context.l10n.safetyCheckShortcutSubtitle,
       icon: Icons.timer_rounded,
       color: Colors.orangeAccent,
       onTap: () {
@@ -967,17 +976,19 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
         final isActive = hikeService.isHikeActive;
         return _buildSurvivalBtn(
           title: isActive
-              ? "กำลังบันทึกการเดินป่า (Hike Active)"
-              : "เริ่มเดินป่า (Hike Mode)",
+              ? context.l10n.hikeActiveTitle
+              : context.l10n.hikeStartTitle,
           subtitle: isActive
-              ? "บันทึกเส้นทางแล้ว.. คลิกเพื่อหยุด"
-              : "บันทึกเส้นทางเดินและปักหมุดปากทาง",
+              ? context.l10n.hikeActiveSubtitle
+              : context.l10n.hikeStartSubtitle,
           icon: Icons.forest_rounded,
           color: isActive ? Colors.greenAccent : Colors.lightGreenAccent,
           onTap: () async {
             // Capture context-sensitive references BEFORE any await
             // This is the safe way to use BuildContext across async gaps.
             final messenger = ScaffoldMessenger.of(context);
+            final hikeEndMsg = context.l10n.hikeEndSnackbar;
+            final unableLocMsg = context.l10n.unableToGetLocation;
             final offlineService = Provider.of<MapOfflineService>(
               context,
               listen: false,
@@ -986,7 +997,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
             if (isActive) {
               hikeService.stopHike();
               messenger.showSnackBar(
-                const SnackBar(content: Text("สิ้นสุดการบันทึกการเดินป่า")),
+                SnackBar(content: Text(hikeEndMsg)),
               );
             } else {
               try {
@@ -1035,9 +1046,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                "เตรียมความพร้อมการเดินป่า",
-                                style: TextStyle(
+                              Text(
+                                rootContext.l10n.hikePrepTitle,
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -1045,7 +1056,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                               ),
                               const SizedBox(height: 10),
                               Text(
-                                "กำลังเตรียมพื้นที่เดินป่า (10 ตร.กม.) และแผนที่ Offline",
+                                rootContext.l10n.hikePrepDesc,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.6),
@@ -1104,9 +1115,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                                         ),
                                       );
                                     },
-                                    child: const Text(
-                                      "เริ่มการผจญภัย (โหมดเดินป่า)",
-                                      style: TextStyle(
+                                    child: Text(
+                                      rootContext.l10n.hikeStartAdventure,
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -1122,7 +1133,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                                         Navigator.pop(dialogContext);
                                       },
                                       child: Text(
-                                        "ยกเลิก",
+                                        rootContext.l10n.cancelAction,
                                         style: TextStyle(
                                           color: Colors.white.withValues(
                                             alpha: 0.5,
@@ -1145,7 +1156,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
               } catch (e) {
                 if (mounted) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text("ไม่สามารถระบุพิกัดได้")),
+                    SnackBar(content: Text(unableLocMsg)),
                   );
                 }
               }
@@ -1430,22 +1441,30 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
     Color color = Colors.blueAccent;
     switch (category) {
       case 'flood':
-        tip = "ตัดไฟ หาที่สูง และใช้ Nearby Chat ติดต่อคนรอบข้าง";
+        tip = context.isThai
+            ? "ตัดไฟ หาที่สูง และใช้ Nearby Chat ติดต่อคนรอบข้าง"
+            : "Cut power, seek high ground, and use Nearby Chat to coordinate";
         icon = Icons.flood_rounded;
         color = Colors.blue;
         break;
       case 'fire':
-        tip = "หมอบต่ำเลี่ยงควัน ใช้ไฟฉายและไซเรนเพื่อขอทาง";
+        tip = context.isThai
+            ? "หมอบต่ำเลี่ยงควัน ใช้ไฟฉายและไซเรนเพื่อขอทาง"
+            : "Stay low to avoid smoke; use flashlight and siren for distress";
         icon = Icons.fire_truck_rounded;
         color = Colors.orange;
         break;
       case 'earthquake':
-        tip = "หมอบ ป้อง เกาะ และใช้ไซเรนหากติดอยู่ใต้ซาก";
+        tip = context.isThai
+            ? "หมอบ ป้อง เกาะ และใช้ไซเรนหากติดอยู่ใต้ซาก"
+            : "Drop, cover, and hold on; sound siren if trapped in debris";
         icon = Icons.vibration_rounded;
         color = Colors.red;
         break;
       case 'lost':
-        tip = "หยุดอยู่กับที่ (STOP) ใช้เข็มทิศและลูกศรนำทาง";
+        tip = context.isThai
+            ? "หยุดอยู่กับที่ (STOP) ใช้เข็มทิศและลูกศรนำทาง"
+            : "Stay in place (STOP); utilize compass and backtrack navigation";
         icon = Icons.explore_rounded;
         color = Colors.green;
         break;
@@ -1509,8 +1528,8 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                     ),
                     Text(
                       _isLoading
-                          ? "กำลังค้นหา..."
-                          : '${accuracy.toStringAsFixed(1)} เมตร',
+                          ? context.l10n.searchingSignal
+                          : '${accuracy.toStringAsFixed(1)} ${context.l10n.meterUnit}',
                       style: TextStyle(
                         color: color,
                         fontSize: 18,
@@ -1534,7 +1553,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
           children: [
             Expanded(
               child: _buildValueCard(
-                "ละติจูด",
+                context.l10n.latitude,
                 _currentPosition?.latitude.toString() ?? '...',
                 Icons.location_on_rounded,
                 Colors.blueAccent,
@@ -1543,7 +1562,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
             const SizedBox(width: 12),
             Expanded(
               child: _buildValueCard(
-                "ลองจิจูด",
+                context.l10n.longitude,
                 _currentPosition?.longitude.toString() ?? '...',
                 Icons.location_on_rounded,
                 Colors.blueAccent,
@@ -1553,8 +1572,8 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
         ),
         const SizedBox(height: 12),
         _buildValueCard(
-          "ความสูง (MSL)",
-          "${_currentPosition?.altitude.toStringAsFixed(1) ?? '...'} เมตร",
+          context.l10n.altitudeMsl,
+          "${_currentPosition?.altitude.toStringAsFixed(1) ?? '...'} ${context.l10n.meterUnit}",
           Icons.terrain_rounded,
           Colors.tealAccent,
         ),
@@ -1628,7 +1647,7 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'กำลังเริ่มต้นเข็มทิศ...',
+              context.l10n.compassCalibrating,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 13,
@@ -1660,9 +1679,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'เข็มทิศไม่พร้อมใช้งาน',
-                    style: TextStyle(
+                  Text(
+                    context.l10n.compassUnavailable,
+                    style: const TextStyle(
                       color: Colors.orangeAccent,
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -1671,8 +1690,8 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                   const SizedBox(height: 4),
                   Text(
                     _compassPermissionDenied
-                        ? 'กรุณาเปิดสิทธิ์ตำแหน่ง (Location) ในการตั้งค่าแอปเพื่อใช้เข็มทิศ'
-                        : 'อุปกรณ์นี้ไม่มี Magnetometer หรือไม่รองรับเซ็นเซอร์เข็มทิศ',
+                        ? context.l10n.compassPermDenied
+                        : context.l10n.compassSensorMissing,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
@@ -1690,9 +1709,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                         size: 14,
                         color: Colors.blueAccent,
                       ),
-                      label: const Text(
-                        'เปิดการตั้งค่าแอป',
-                        style: TextStyle(
+                      label: Text(
+                        context.l10n.openAppSettings,
+                        style: const TextStyle(
                           color: Colors.blueAccent,
                           fontSize: 12,
                         ),
@@ -1715,9 +1734,9 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
     return Center(
       child: Column(
         children: [
-          const Text(
-            "ทิศทางการมุ่งหน้า",
-            style: TextStyle(color: Colors.white54, fontSize: 13),
+          Text(
+            context.l10n.headingDirectionLabel,
+            style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
           const SizedBox(height: 10),
           Text(
@@ -1837,16 +1856,16 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
     if (heading == null) return "...";
     final double h = (heading % 360 + 360) % 360;
 
-    if (h >= 337.5 || h < 22.5) return "เหนือ (N)";
-    if (h >= 22.5 && h < 67.5) return "ตะวันออกเฉียงเหนือ (NE)";
-    if (h >= 67.5 && h < 112.5) return "ตะวันออก (E)";
-    if (h >= 112.5 && h < 157.5) return "ตะวันออกเฉียงใต้ (SE)";
-    if (h >= 157.5 && h < 202.5) return "ใต้ (S)";
-    if (h >= 202.5 && h < 247.5) return "ตะวันตกเฉียงใต้ (SW)";
-    if (h >= 247.5 && h < 292.5) return "ตะวันตก (W)";
-    if (h >= 292.5 && h < 337.5) return "ตะวันตกเฉียงเหนือ (NW)";
+    if (h >= 337.5 || h < 22.5) return context.isThai ? "เหนือ (N)" : "North (N)";
+    if (h >= 22.5 && h < 67.5) return context.l10n.directionNE;
+    if (h >= 67.5 && h < 112.5) return context.isThai ? "ตะวันออก (E)" : "East (E)";
+    if (h >= 112.5 && h < 157.5) return context.l10n.directionSE;
+    if (h >= 157.5 && h < 202.5) return context.isThai ? "ใต้ (S)" : "South (S)";
+    if (h >= 202.5 && h < 247.5) return context.l10n.directionSW;
+    if (h >= 247.5 && h < 292.5) return context.isThai ? "ตะวันตก (W)" : "West (W)";
+    if (h >= 292.5 && h < 337.5) return context.l10n.directionNW;
 
-    return "เหนือ (N)";
+    return context.isThai ? "เหนือ (N)" : "North (N)";
   }
 }
 

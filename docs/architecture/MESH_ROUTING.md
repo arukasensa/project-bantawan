@@ -51,6 +51,13 @@
 * แทนที่จะส่ง Broadcast ท่วมเครือข่ายเมื่อได้รับข้อความ ระบบใช้ **Reverse Path Routing Table (RPRT)**
 * เมื่อโหนด C ได้รับข้อความส่วนตัวจากโหนด A โหนด C จะส่งใบเสร็จ `ACK_DELIVERED` หรือ `ACK_READ` แบบ **Unicast เจาะจงท่อทางเข้าเดิม** ทำให้ประหยัดแบนด์วิดท์คลื่นวิทยุไปกว่า 80%
 
+### 2.5 การค้นหาเส้นทางแบบพลวัต (Dual Direct/Reverse Next-Hop Routing) & Field Diagnostics
+* **Smart Next-Hop Resolution**: เมื่อโหนดคนกลาง (Node B) ได้รับแพ็กเก็ตแชทส่วนตัวที่ส่งถึงโหนดปลายทาง (Node C) ระบบจะตรวจสอบ 2 ชั้น:
+  1. หาก Node C เชื่อมต่อตรงอยู่กับเครื่องเรา (`discoveredMeshPeers[C]?.directEndpoint`) จะยิงแบบ Unicast ตรงเข้าท่อของ C ทันที
+  2. หาก Node C เป็นโหนดหลายทอด จะค้นหาเส้นทางย้อนกลับจาก `_reversePathTable`
+  3. หากไม่พบเส้นทางตรง จะตกกลับมาทำ Flooding Relay ไปยังทุกท่อข้างเคียงที่ไม่ใช่ท่อผู้ส่ง
+* **Real-time Tactical Relay Diagnostics HUD**: เพิ่มหน้าต่างตรวจสอบสถานะเครือข่าย `MeshRelayStatusSheet` และปุ่ม Trace Route Probe เพื่อให้ผู้ทดสอบภาคสนามมองเห็นสถานะการเชื่อมต่อจริง (Direct Links Count), จำนวนแพ็กเก็ตที่ถูกส่งต่อ (Relayed Count), และยิงแพ็กเก็ตทดสอบเส้นทางได้ทันที
+
 ---
 
 ## 🔒 3. ความปลอดภัยและการเข้ารหัส (E2EE & Privacy)

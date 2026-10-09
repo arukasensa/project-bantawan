@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/weather_service.dart';
 import '../widgets/weather_painter.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🌤️ หน้าจอแดชบอร์ดสภาพอากาศและระดับมลพิษ PM2.5 เชิงลึก
 class WeatherDetailScreen extends StatefulWidget {
@@ -97,7 +98,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
                   // ⏱️ Section: พยากรณ์อากาศ 24 ชั่วโมงข้างหน้า
                   _buildSectionHeader(
-                    title: 'พยากรณ์อากาศ 24 ชั่วโมง',
+                    title: context.isThai ? 'พยากรณ์อากาศ 24 ชั่วโมง' : '24-Hour Forecast',
                     subtitle: 'HOURLY FORECAST',
                     icon: Icons.access_time_rounded,
                   ),
@@ -107,7 +108,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
                   // 📅 Section: คาดการณ์สภาพอากาศ 7 วันล่วงหน้า
                   _buildSectionHeader(
-                    title: 'คาดการณ์สภาพอากาศ 7 วัน',
+                    title: context.isThai ? 'คาดการณ์สภาพอากาศ 7 วัน' : '7-Day Forecast',
                     subtitle: '7-DAY WEATHER FORECAST',
                     icon: Icons.calendar_month_rounded,
                   ),
@@ -117,7 +118,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
                   // 🌍 Section: สภาพบรรยากาศเชิงลึก (6 Metrics)
                   _buildSectionHeader(
-                    title: 'ข้อมูลบรรยากาศและสิ่งแวดล้อม',
+                    title: context.isThai ? 'ข้อมูลบรรยากาศและสิ่งแวดล้อม' : 'Atmospheric Metrics',
                     subtitle: 'ATMOSPHERIC METRICS',
                     icon: Icons.speed_rounded,
                   ),
@@ -127,7 +128,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
                   // 🌫️ Section: ตรวจวัดมลพิษในอากาศ (Air Pollutants)
                   _buildSectionHeader(
-                    title: 'ระดับมลพิษในอากาศ',
+                    title: context.isThai ? 'ระดับมลพิษในอากาศ' : 'Air Pollutants',
                     subtitle: 'AIR POLLUTANTS (WHO STANDARD)',
                     icon: Icons.air_rounded,
                   ),
@@ -137,7 +138,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
                   // 📊 Section: กราฟแนวโน้ม PM2.5 (24H)
                   _buildSectionHeader(
-                    title: 'แนวโน้มฝุ่น PM 2.5 (24 ชม.)',
+                    title: context.isThai ? 'แนวโน้มฝุ่น PM 2.5 (24 ชม.)' : 'PM 2.5 Trend (24h)',
                     subtitle: 'PM 2.5 TREND GRAPH',
                     icon: Icons.auto_graph_rounded,
                   ),
@@ -147,7 +148,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
                   // 🛡️ Section: คำแนะนำด้านสุขภาพและการปฏิบัติตัว
                   _buildSectionHeader(
-                    title: 'คำแนะนำด้านสุขภาพและความปลอดภัย',
+                    title: context.isThai ? 'คำแนะนำด้านสุขภาพและความปลอดภัย' : 'Health & Safety Tips',
                     subtitle: 'SURVIVAL RECOMMENDATIONS',
                     icon: Icons.health_and_safety_rounded,
                   ),
@@ -211,9 +212,9 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'เรดาร์สภาพอากาศ & สิ่งแวดล้อม',
-              style: TextStyle(
+            Text(
+              context.isThai ? 'เรดาร์สภาพอากาศ & สิ่งแวดล้อม' : 'Weather & Environment Radar',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -231,7 +232,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'ข้อมูลดาวเทียม Open-Meteo สด',
+                  context.isThai ? 'ข้อมูลดาวเทียม Open-Meteo สด' : 'Live Open-Meteo Satellite Data',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 11,
@@ -370,7 +371,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                data.weatherConditionTh,
+                context.isThai ? data.weatherConditionTh : data.weatherConditionEn,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -380,7 +381,9 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
               ),
               const SizedBox(height: 2),
               Text(
-                'รู้สึกเหมือน ${data.apparentTemperature.toStringAsFixed(1)}°C',
+                context.isThai
+                    ? 'รู้สึกเหมือน ${data.apparentTemperature.toStringAsFixed(1)}°C'
+                    : 'Feels like ${data.apparentTemperature.toStringAsFixed(1)}°C',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 11,
@@ -434,8 +437,11 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Center(
-          child: Text('ไม่มีข้อมูลพยากรณ์รายชั่วโมง', style: TextStyle(color: Colors.white54)),
+        child: Center(
+          child: Text(
+            context.isThai ? 'ไม่มีข้อมูลพยากรณ์รายชั่วโมง' : 'No hourly forecast data',
+            style: const TextStyle(color: Colors.white54),
+          ),
         ),
       );
     }
@@ -451,7 +457,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
           final item = data.hourlyForecast[index];
           final isNow = index == 0;
           final timeStr = isNow
-              ? 'ตอนนี้'
+              ? (context.isThai ? 'ตอนนี้' : 'Now')
               : '${item.time.hour.toString().padLeft(2, '0')}:00';
 
           return Container(
@@ -530,8 +536,11 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Center(
-          child: Text('ไม่มีข้อมูลพยากรณ์ 7 วัน', style: TextStyle(color: Colors.white54)),
+        child: Center(
+          child: Text(
+            context.isThai ? 'ไม่มีข้อมูลพยากรณ์ 7 วัน' : 'No 7-day forecast data',
+            style: const TextStyle(color: Colors.white54),
+          ),
         ),
       );
     }
@@ -553,7 +562,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
                 SizedBox(
                   width: 60,
                   child: Text(
-                    day.dayNameTh,
+                    day.getDayName(context.isThai),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -568,7 +577,7 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
                 ),
                 Expanded(
                   child: Text(
-                    day.conditionTh,
+                    day.getCondition(context.isThai),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 12,
@@ -641,64 +650,70 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
 
   // ─── 🌍 สภาพบรรยากาศเชิงลึก (6 Tactical Metrics) ───
   Widget _buildAtmosphereGrid(WeatherData data) {
-    String uvLevel = 'ปลอดภัย';
+    String uvLevel = context.isThai ? 'ปลอดภัย' : 'Safe';
     Color uvColor = Colors.greenAccent;
     if (data.uvIndex >= 11) {
-      uvLevel = 'อันตรายสูงสุด';
+      uvLevel = context.isThai ? 'อันตรายสูงสุด' : 'Extreme';
       uvColor = Colors.purpleAccent;
     } else if (data.uvIndex >= 8) {
-      uvLevel = 'สูงมาก';
+      uvLevel = context.isThai ? 'สูงมาก' : 'Very High';
       uvColor = Colors.redAccent;
     } else if (data.uvIndex >= 6) {
-      uvLevel = 'สูง';
+      uvLevel = context.isThai ? 'สูง' : 'High';
       uvColor = Colors.orangeAccent;
     } else if (data.uvIndex >= 3) {
-      uvLevel = 'ปานกลาง';
+      uvLevel = context.isThai ? 'ปานกลาง' : 'Moderate';
       uvColor = Colors.amberAccent;
     }
 
     final metrics = [
       {
-        'title': 'ความชื้นสัมพัทธ์',
+        'title': context.isThai ? 'ความชื้นสัมพัทธ์' : 'Relative Humidity',
         'value': '${data.humidity}%',
-        'subtitle': data.humidity > 80 ? 'ชื้นสูงมาก' : 'ระดับสบายตัว',
+        'subtitle': data.humidity > 80
+            ? (context.isThai ? 'ชื้นสูงมาก' : 'Very Humid')
+            : (context.isThai ? 'ระดับสบายตัว' : 'Comfortable'),
         'icon': Icons.water_drop_outlined,
         'color': Colors.blueAccent,
       },
       {
-        'title': 'ความเร็วลม',
+        'title': context.isThai ? 'ความเร็วลม' : 'Wind Speed',
         'value': data.windSpeed.toStringAsFixed(1),
         'unit': 'km/h',
-        'subtitle': data.windSpeed > 30 ? 'ลมแรง ระวังพายุ' : 'ลมสงบ',
+        'subtitle': data.windSpeed > 30
+            ? (context.isThai ? 'ลมแรง ระวังพายุ' : 'Strong Wind')
+            : (context.isThai ? 'ลมสงบ' : 'Calm'),
         'icon': Icons.air_rounded,
         'color': Colors.cyanAccent,
       },
       {
-        'title': 'ดัชนีรังสี UV',
+        'title': context.isThai ? 'ดัชนีรังสี UV' : 'UV Index',
         'value': data.uvIndex.toStringAsFixed(1),
         'subtitle': uvLevel,
         'icon': Icons.wb_sunny_outlined,
         'color': uvColor,
       },
       {
-        'title': 'ความกดอากาศ',
+        'title': context.isThai ? 'ความกดอากาศ' : 'Surface Pressure',
         'value': data.surfacePressure.toStringAsFixed(0),
         'unit': 'hPa',
-        'subtitle': data.surfacePressure < 1005 ? 'ความกดต่ำ (เสี่ยงฝน)' : 'เสถียร',
+        'subtitle': data.surfacePressure < 1005
+            ? (context.isThai ? 'ความกดต่ำ (เสี่ยงฝน)' : 'Low Pressure (Rain risk)')
+            : (context.isThai ? 'เสถียร' : 'Stable'),
         'icon': Icons.compress_rounded,
         'color': Colors.indigoAccent,
       },
       {
-        'title': 'พระอาทิตย์ขึ้น',
+        'title': context.isThai ? 'พระอาทิตย์ขึ้น' : 'Sunrise',
         'value': data.sunrise,
-        'subtitle': 'รุ่งเช้า',
+        'subtitle': context.isThai ? 'รุ่งเช้า' : 'Dawn',
         'icon': Icons.wb_twilight_rounded,
         'color': Colors.amberAccent,
       },
       {
-        'title': 'พระอาทิตย์ตก',
+        'title': context.isThai ? 'พระอาทิตย์ตก' : 'Sunset',
         'value': data.sunset,
-        'subtitle': 'พลบค่ำ',
+        'subtitle': context.isThai ? 'พลบค่ำ' : 'Dusk',
         'icon': Icons.nights_stay_outlined,
         'color': Colors.deepOrangeAccent,
       },
@@ -790,42 +805,42 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
         'value': weatherData.pm25,
         'unit': 'µg/m³',
         'color': weatherData.pm25 > 35 ? Colors.redAccent : Colors.orangeAccent,
-        'threshold': 'มาตรฐาน: 15-37.5',
+        'threshold': context.isThai ? 'มาตรฐาน: 15-37.5' : 'Standard: 15-37.5',
       },
       {
         'label': 'PM 10',
         'value': weatherData.pm10,
         'unit': 'µg/m³',
         'color': Colors.amberAccent,
-        'threshold': 'มาตรฐาน: < 50',
+        'threshold': context.isThai ? 'มาตรฐาน: < 50' : 'Standard: < 50',
       },
       {
-        'label': 'CO (คาร์บอนฯ)',
+        'label': context.isThai ? 'CO (คาร์บอนฯ)' : 'CO (Carbon)',
         'value': weatherData.co,
         'unit': 'µg/m³',
         'color': Colors.blueAccent,
-        'threshold': 'ปกติ: < 4000',
+        'threshold': context.isThai ? 'ปกติ: < 4000' : 'Normal: < 4000',
       },
       {
-        'label': 'NO2 (ไนโตรเจนฯ)',
+        'label': context.isThai ? 'NO2 (ไนโตรเจนฯ)' : 'NO2 (Nitrogen)',
         'value': weatherData.no2,
         'unit': 'µg/m³',
         'color': Colors.greenAccent,
-        'threshold': 'ปกติ: < 40',
+        'threshold': context.isThai ? 'ปกติ: < 40' : 'Normal: < 40',
       },
       {
-        'label': 'O3 (โอโซน)',
+        'label': context.isThai ? 'O3 (โอโซน)' : 'O3 (Ozone)',
         'value': weatherData.o3,
         'unit': 'µg/m³',
         'color': Colors.purpleAccent,
-        'threshold': 'ปกติ: < 100',
+        'threshold': context.isThai ? 'ปกติ: < 100' : 'Normal: < 100',
       },
       {
-        'label': 'ฝนสะสม',
+        'label': context.isThai ? 'ฝนสะสม' : 'Precipitation',
         'value': weatherData.precipitation,
         'unit': 'mm',
         'color': Colors.cyanAccent,
-        'threshold': 'ปริมาณฝนปัจจุบัน',
+        'threshold': context.isThai ? 'ปริมาณฝนปัจจุบัน' : 'Current rainfall',
       },
     ];
 
@@ -861,8 +876,11 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Center(
-          child: Text("ไม่มีข้อมูลกราฟแนวโน้ม", style: TextStyle(color: Colors.white54)),
+        child: Center(
+          child: Text(
+            context.isThai ? "ไม่มีข้อมูลกราฟแนวโน้ม" : "No trend graph data",
+            style: const TextStyle(color: Colors.white54),
+          ),
         ),
       );
     }
@@ -963,19 +981,25 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     if (weatherData.pm25 > 50) {
       recommendations.add({
         'icon': '😷',
-        'title': 'เตือนภัยฝุ่นระดับวิกฤต',
-        'text': 'สวมหน้ากาก N95 ทันทีเมื่อออกนอกอาคาร และงดกิจกรรมกลางแจ้งทุกชนิด',
+        'title': context.isThai ? 'เตือนภัยฝุ่นระดับวิกฤต' : 'Critical Dust Warning',
+        'text': context.isThai
+            ? 'สวมหน้ากาก N95 ทันทีเมื่อออกนอกอาคาร และงดกิจกรรมกลางแจ้งทุกชนิด'
+            : 'Wear an N95 mask immediately when outdoors. Avoid all outdoor activities.',
       });
       recommendations.add({
         'icon': '🏠',
-        'title': 'ปิดผนึกพื้นที่อาศัย',
-        'text': 'เปิดเครื่องฟอกอากาศและปิดประตูหน้าต่างให้มิดชิดเพื่อป้องกันฝุ่นเข้า',
+        'title': context.isThai ? 'ปิดผนึกพื้นที่อาศัย' : 'Seal Indoor Space',
+        'text': context.isThai
+            ? 'เปิดเครื่องฟอกอากาศและปิดประตูหน้าต่างให้มิดชิดเพื่อป้องกันฝุ่นเข้า'
+            : 'Run air purifiers and keep doors/windows tightly closed to prevent dust ingress.',
       });
     } else if (weatherData.pm25 > 25) {
       recommendations.add({
         'icon': '😷',
-        'title': 'กลุ่มเสี่ยงควรระวัง',
-        'text': 'เด็ก คนชรา และผู้มีโรคทางเดินหายใจควรสวมหน้ากากอนามัย',
+        'title': context.isThai ? 'กลุ่มเสี่ยงควรระวัง' : 'Vulnerable Groups Caution',
+        'text': context.isThai
+            ? 'เด็ก คนชรา และผู้มีโรคทางเดินหายใจควรสวมหน้ากากอนามัย'
+            : 'Children, elderly, and those with respiratory conditions should wear masks.',
       });
     }
 
@@ -983,14 +1007,18 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     if (weatherData.weatherCode >= 95) {
       recommendations.add({
         'icon': '⚡',
-        'title': 'พายุฝนฟ้าคะนองรุนแรง',
-        'text': 'หลีกเลี่ยงที่โล่งแจ้ง ใต้ต้นไม้ใหญ่ ป้ายโฆษณา และระวังฟ้าผ่า',
+        'title': context.isThai ? 'พายุฝนฟ้าคะนองรุนแรง' : 'Severe Thunderstorm',
+        'text': context.isThai
+            ? 'หลีกเลี่ยงที่โล่งแจ้ง ใต้ต้นไม้ใหญ่ ป้ายโฆษณา และระวังฟ้าผ่า'
+            : 'Avoid open areas, large trees, billboards, and beware of lightning strikes.',
       });
     } else if (weatherData.weatherCode >= 51) {
       recommendations.add({
         'icon': '☔',
-        'title': 'เตรียมร่มและเสื้อกันฝน',
-        'text': 'มีฝนตกในพื้นที่ ระมัดระวังถนนลื่นในการเดินทางและขับขี่',
+        'title': context.isThai ? 'เตรียมร่มและเสื้อกันฝน' : 'Carry Umbrella & Raincoat',
+        'text': context.isThai
+            ? 'มีฝนตกในพื้นที่ ระมัดระวังถนนลื่นในการเดินทางและขับขี่'
+            : 'Rain in the area. Drive carefully and watch for slippery roads.',
       });
     }
 
@@ -998,16 +1026,20 @@ class _WeatherDetailScreenState extends State<WeatherDetailScreen>
     if (weatherData.uvIndex >= 8) {
       recommendations.add({
         'icon': '🧴',
-        'title': 'รังสี UV สูงมาก',
-        'text': 'ทาครีมกันแดด SPF30+, สวมแว่นกันแดด และหลีกเลี่ยงแดดช่วง 10:00-15:00 น.',
+        'title': context.isThai ? 'รังสี UV สูงมาก' : 'Very High UV Radiation',
+        'text': context.isThai
+            ? 'ทาครีมกันแดด SPF30+, สวมแว่นกันแดด และหลีกเลี่ยงแดดช่วง 10:00-15:00 น.'
+            : 'Apply SPF30+ sunscreen, wear sunglasses, and avoid sun between 10:00-15:00.',
       });
     }
 
     if (recommendations.isEmpty) {
       recommendations.add({
         'icon': '☘️',
-        'title': 'สภาพแวดล้อมปลอดภัย',
-        'text': 'อากาศบริสุทธิ์และแจ่มใส เหมาะสำหรับกิจกรรมทุกประเภท',
+        'title': context.isThai ? 'สภาพแวดล้อมปลอดภัย' : 'Safe Environment',
+        'text': context.isThai
+            ? 'อากาศบริสุทธิ์และแจ่มใส เหมาะสำหรับกิจกรรมทุกประเภท'
+            : 'Clean air and fair weather, ideal for all outdoor activities.',
       });
     }
 

@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/safety_check_service.dart';
 import 'package:flutter1/core/widgets/tactical_decorations_painter.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🛡️ หน้าจออินเทอร์เฟซเช็กความปลอดภัยกรณีตกอยู่ในภาวะเสี่ยง (Safety Check-in Screen)
 class SafetyCheckScreen extends StatefulWidget {
@@ -347,11 +348,11 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
     String statusText;
 
     if (!service.isActive) {
-      statusText = "ระบบพร้อมสแตนด์บาย • เฝ้าระวังอัตโนมัติผ่านเครือข่าย MESH";
+      statusText = context.l10n.safetyStandbyDesc;
     } else if (service.isWarning) {
-      statusText = "ภาวะวิกฤต! กรุณากดยืนยันความปลอดภัยเพื่อยกเลิกการส่ง SOS";
+      statusText = context.l10n.safetyCrisisDesc;
     } else {
-      statusText = "ระบบกำลังเฝ้าระวัง • แตะหน้าปัดหรือกดปุ่มเพื่อยืนยันตัวตน";
+      statusText = context.l10n.safetyActiveDesc;
     }
 
     return Container(
@@ -656,7 +657,9 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
                   text: TextSpan(
                     children: [
                       TextSpan(
-                        text: isUrgent ? '[เตือนภัยด่วน] ' : '[ระบบเฝ้าระวัง] ',
+                        text: isUrgent
+                            ? (context.isThai ? '[เตือนภัยด่วน] ' : '[URGENT ALERT] ')
+                            : (context.isThai ? '[ระบบเฝ้าระวัง] ' : '[TACTICAL WATCH] '),
                         style: TextStyle(
                           color: isUrgent
                               ? Colors.redAccent
@@ -667,8 +670,12 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
                       ),
                       TextSpan(
                         text: isUrgent
-                            ? 'ระบบกำลังจะยิงสัญญาณ SOS พร้อมพิกัด GPS อัตโนมัติในไม่ช้า'
-                            : 'หากหมดเวลาโดยไม่มีการตอบรับ ระบบจะยิงพิกัด GPS ฉุกเฉินผ่าน Mesh ทันที',
+                            ? (context.isThai
+                                ? 'ระบบกำลังจะยิงสัญญาณ SOS พร้อมพิกัด GPS อัตโนมัติในไม่ช้า'
+                                : 'SOS signal with GPS coords will broadcast shortly.')
+                            : (context.isThai
+                                ? 'หากหมดเวลาโดยไม่มีการตอบรับ ระบบจะยิงพิกัด GPS ฉุกเฉินผ่าน Mesh ทันที'
+                                : 'If timer expires without response, emergency GPS coords will broadcast via Mesh immediately.'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.8),
                           fontSize: 11.5,
@@ -768,9 +775,9 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
                       spacing: 8,
                       runSpacing: 4,
                       children: [
-                        const Text(
-                          "โหมดวนลูป (Recurring)",
-                          style: TextStyle(
+                        Text(
+                          context.isThai ? "โหมดวนลูป (Recurring)" : "Recurring Mode",
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -804,7 +811,9 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      "เริ่มนับรอบใหม่อัตโนมัติทันทีหลังกดยืนยันตัวตน",
+                      context.isThai
+                          ? "เริ่มนับรอบใหม่อัตโนมัติทันทีหลังกดยืนยันตัวตน"
+                          : "Automatically resets countdown after safety check-in",
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.55),
                         fontSize: 11,
@@ -858,7 +867,7 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
               ),
               const SizedBox(width: 6),
               Text(
-                "เลือกระยะเวลานับถอยหลัง (CHECK-IN DURATION)",
+                context.isThai ? "เลือกระยะเวลานับถอยหลัง (CHECK-IN DURATION)" : "CHECK-IN DURATION",
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 10.5,
@@ -869,7 +878,7 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
               if (isLocked) ...[
                 const Spacer(),
                 Text(
-                  "• กำลังนับเวลาอยู่",
+                  context.isThai ? "• กำลังนับเวลาอยู่" : "• Timer Running",
                   style: TextStyle(
                     color: themeColor.withValues(alpha: 0.7),
                     fontSize: 10,
@@ -990,8 +999,8 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
     if (!service.isActive) {
       // Standby CTA: ACTIVATE SHIELD
       return _buildTacticalButton(
-        label: "ACTIVATE SHIELD • $_selectedMinutes MIN",
-        subtitle: "เปิดระบบเฝ้าระวังอัตโนมัติ",
+        label: "${context.l10n.activateShield} • $_selectedMinutes ${context.isThai ? 'นาที' : 'MIN'}",
+        subtitle: context.isThai ? "เปิดระบบเฝ้าระวังอัตโนมัติ" : "Activate automated lifeline watch",
         icon: Icons.shield_rounded,
         gradient: const LinearGradient(
           colors: [Color(0xFF00E5FF), Color(0xFF2979FF)],
@@ -1012,8 +1021,8 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
       children: [
         // Primary Safe Confirmation Button
         _buildTacticalButton(
-          label: "ฉันปลอดภัยดี (I AM SAFE)",
-          subtitle: "กดเพื่อรีเซ็ตเวลานับถอยหลังรอบใหม่",
+          label: context.l10n.iAmSafe,
+          subtitle: context.isThai ? "กดเพื่อรีเซ็ตเวลานับถอยหลังรอบใหม่" : "Tap to reset safety countdown",
           icon: Icons.check_circle_rounded,
           gradient: const LinearGradient(
             colors: [Color(0xFF10B981), Color(0xFF059669)],
@@ -1058,9 +1067,9 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      "DEACTIVATE SYSTEM (ปิดระบบ)",
-                      style: TextStyle(
+                    Text(
+                      context.l10n.deactivateSystem,
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w800,

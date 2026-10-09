@@ -71,7 +71,7 @@ class MainNavigationState extends State<MainNavigation> {
     final bool isThai = Localizations.localeOf(context).languageCode == 'th';
 
     final String homeLabel = l10n?.navHome ?? (isThai ? 'หน้าหลัก' : 'Home');
-    final String firstAidLabel = isThai ? 'ปฐมพยาบาล' : 'First Aid';
+    final String firstAidLabel = l10n?.navFirstAid ?? (isThai ? 'ปฐมพยาบาล' : 'First Aid');
     final String sosLabel = l10n?.navSOS ?? 'SOS';
     final String mapLabel = l10n?.navMap ?? (isThai ? 'แผนที่' : 'Map');
     final String profileLabel = l10n?.navProfile ?? (isThai ? 'โปรไฟล์' : 'Profile');

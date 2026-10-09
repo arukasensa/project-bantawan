@@ -8,6 +8,7 @@ import 'package:flutter1/core/navigation/main_navigation.dart';
 import 'package:flutter1/features/chat/screens/nearby_chat_screen.dart';
 import 'package:flutter1/features/weather/screens/weather_detail_screen.dart';
 import 'package:flutter1/features/weather/services/weather_service.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 🔔 หน้าต่างแสดงรายการแจ้งเตือนสไตล์ Glassmorphism Tactical HUD
 class NotificationBottomSheet extends StatefulWidget {
@@ -88,9 +89,9 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
-                          'การแจ้งเตือน',
-                          style: TextStyle(
+                        Text(
+                          context.isThai ? 'การแจ้งเตือน' : 'Notifications',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -108,7 +109,7 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '$unreadCount ใหม่',
+                              context.isThai ? '$unreadCount ใหม่' : '$unreadCount New',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -125,7 +126,7 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
                               color: Colors.white70,
                               size: 20,
                             ),
-                            tooltip: 'อ่านทั้งหมด',
+                            tooltip: context.isThai ? 'อ่านทั้งหมด' : 'Mark all read',
                             onPressed: () {
                               HapticFeedback.lightImpact();
                               notifService.markAllAsRead();
@@ -138,7 +139,7 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
                               color: Colors.white54,
                               size: 20,
                             ),
-                            tooltip: 'ล้างทั้งหมด',
+                            tooltip: context.isThai ? 'ล้างทั้งหมด' : 'Clear all',
                             onPressed: () => _confirmClearAll(context, notifService),
                           ),
                       ],
@@ -205,7 +206,7 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
           Color color;
 
           if (cat == null) {
-            label = 'ทั้งหมด';
+            label = context.isThai ? 'ทั้งหมด' : 'All';
             count = all.length;
             icon = Icons.all_inbox_rounded;
             color = Colors.white;
@@ -511,32 +512,32 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
   String _getActionLabel(String route) {
     switch (route) {
       case 'map_sos':
-        return 'ดูพิกัดบนแผนที่';
+        return context.isThai ? 'ดูพิกัดบนแผนที่' : 'View on Map';
       case 'map_shelter':
-        return 'ดูศูนย์พักพิงบนแผนที่';
+        return context.isThai ? 'ดูศูนย์พักพิงบนแผนที่' : 'View Shelters on Map';
       case 'weather':
-        return 'ตรวจเช็คสภาพอากาศ';
+        return context.isThai ? 'ตรวจเช็คสภาพอากาศ' : 'Check Weather';
       case 'data_mule':
-        return 'เปิดคลังคนเดินสาร';
+        return context.isThai ? 'เปิดคลังคนเดินสาร' : 'Open Data Mule';
       case 'chat':
-        return 'เปิดห้องแชทเมช';
+        return context.isThai ? 'เปิดห้องแชทเมช' : 'Open Mesh Chat';
       default:
-        return 'ดูรายละเอียด';
+        return context.isThai ? 'ดูรายละเอียด' : 'View Details';
     }
   }
 
   String _getCategoryTitle(NotificationCategory cat) {
     switch (cat) {
       case NotificationCategory.sos:
-        return 'ฉุกเฉิน SOS';
+        return context.isThai ? 'ฉุกเฉิน SOS' : 'Emergency SOS';
       case NotificationCategory.weather:
-        return 'สภาพอากาศ';
+        return context.isThai ? 'สภาพอากาศ' : 'Weather';
       case NotificationCategory.mule:
-        return 'คนเดินสาร';
+        return context.isThai ? 'คนเดินสาร' : 'Data Mule';
       case NotificationCategory.shelter:
-        return 'ศูนย์ช่วยเหลือ';
+        return context.isThai ? 'ศูนย์ช่วยเหลือ' : 'Relief Centers';
       case NotificationCategory.system:
-        return 'ระบบ';
+        return context.isThai ? 'ระบบ' : 'System';
     }
   }
 
@@ -588,18 +589,20 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'ไม่มีการแจ้งเตือนในขณะนี้',
-            style: TextStyle(
+          Text(
+            context.isThai ? 'ไม่มีการแจ้งเตือนในขณะนี้' : 'No notifications right now',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'ข้อมูลการเตือนภัยฉุกเฉินล่าสุดจะปรากฏที่นี่',
-            style: TextStyle(
+          Text(
+            context.isThai
+                ? 'ข้อมูลการเตือนภัยฉุกเฉินล่าสุดจะปรากฏที่นี่'
+                : 'Latest emergency alerts will appear here',
+            style: const TextStyle(
               color: Colors.white38,
               fontSize: 12,
             ),
@@ -615,21 +618,29 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 24),
-            SizedBox(width: 8),
-            Text('ล้างการแจ้งเตือนทั้งหมด', style: TextStyle(color: Colors.white)),
+            const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              context.isThai ? 'ล้างการแจ้งเตือนทั้งหมด' : 'Clear All Notifications',
+              style: const TextStyle(color: Colors.white),
+            ),
           ],
         ),
-        content: const Text(
-          'คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการแจ้งเตือนทั้งหมด?',
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          context.isThai
+              ? 'คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการแจ้งเตือนทั้งหมด?'
+              : 'Are you sure you want to clear all notification history?',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('ยกเลิก', style: TextStyle(color: Colors.white60)),
+            child: Text(
+              context.isThai ? 'ยกเลิก' : 'Cancel',
+              style: const TextStyle(color: Colors.white60),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -640,7 +651,10 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
               service.clearAll();
               Navigator.pop(ctx);
             },
-            child: const Text('ล้างทั้งหมด', style: TextStyle(color: Colors.white)),
+            child: Text(
+              context.isThai ? 'ล้างทั้งหมด' : 'Clear All',
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),

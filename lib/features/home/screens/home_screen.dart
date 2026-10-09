@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 import 'dart:ui';
 import 'package:flutter1/core/navigation/main_navigation.dart';
 import 'package:flutter1/features/emergency/services/call_service.dart';
@@ -169,8 +170,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _determinePosition() async {
     if (!mounted) return;
     setState(() {
-      _currentAddress = "กำลังดึงตำแหน่ง...";
-      _currentCity = "กำลังระบุ...";
+      _currentAddress = context.l10n.gettingLocation;
+      _currentCity = context.l10n.identifyingLoc;
     });
 
     try {
@@ -178,8 +179,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!serviceEnabled) {
         if (mounted) {
           setState(() {
-            _currentAddress = AppLocalizations.of(context)!.retryHint;
-            _currentCity = AppLocalizations.of(context)!.locationNotFound;
+            _currentAddress = context.l10n.retryHint;
+            _currentCity = context.l10n.locationNotFound;
           });
         }
         return;
@@ -191,8 +192,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             setState(() {
-              _currentAddress = "Permission Required"; // TODO: Add to ARB
-              _currentCity = "No Permission";
+              _currentAddress = context.l10n.openPermSettings;
+              _currentCity = context.l10n.locationNotFound;
             });
           }
           return;
@@ -202,8 +203,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           setState(() {
-            _currentAddress = "เปิดสิทธิ์ในตั้งค่า";
-            _currentCity = "ถูกปิดกั้น";
+            _currentAddress = context.l10n.openPermSettings;
+            _currentCity = context.l10n.locationNotFound;
           });
         }
         return;
@@ -247,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               .where((e) => e != null && e.isNotEmpty && !e.contains('+'))
               .join(', ');
           if (_currentAddress != null && _currentAddress!.isEmpty) {
-            _currentAddress = "ไม่ทราบชื่อถนน";
+            _currentAddress = context.l10n.unknownStreet;
           }
 
           _currentCity = [
@@ -723,9 +724,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
-                                  "#mesh ออฟไลน์",
-                                  style: TextStyle(
+                                Text(
+                                  context.l10n.meshOffline,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -755,10 +756,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             const SizedBox(height: 1),
                             Text(
                               hasUrgentNotice
-                                  ? "🚨 มีประกาศด่วน"
+                                  ? context.l10n.urgentNoticeAlert
                                   : (isConnected
-                                      ? "$connectedCount โหนดออนไลน์"
-                                      : (isScanning ? "กำลังสแกนหาเพื่อน..." : "แตะเพื่อเปิดเรดาร์")),
+                                      ? context.l10n.meshConnectedNodes(connectedCount)
+                                      : (isScanning ? context.l10n.meshScanning : context.l10n.tapToOpenRadar)),
                               style: TextStyle(
                                 color: hasUrgentNotice
                                     ? Colors.redAccent
@@ -888,9 +889,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              "🌲 เดินป่าอยู่",
-                              style: TextStyle(
+                            Text(
+                              context.l10n.hikeFloatingActive,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -900,8 +901,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             const SizedBox(height: 1),
                             Text(
                               hikeService.isBacktrackActive
-                                  ? "🧭 กำลังย้อนรอย..."
-                                  : "${hikeService.totalDistanceKm.toStringAsFixed(2)} กม. • ${hikeService.breadcrumbs.length} จุด",
+                                  ? context.l10n.hikeFloatingBacktrack
+                                  : context.l10n.hikeTrailDistance(
+                                      hikeService.totalDistanceKm.toStringAsFixed(2),
+                                      hikeService.breadcrumbs.length,
+                                    ),
                               style: const TextStyle(
                                 color: Colors.greenAccent,
                                 fontSize: 10,
@@ -937,8 +941,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Expanded(
           child: _tacticalCircularButton(
-            title: "SOS",
-            subtitle: "กดเพื่อขอความช่วยเหลือทันที",
+            title: context.l10n.sos,
+            subtitle: context.isThai ? "กดเพื่อขอความช่วยเหลือทันที" : "Immediate Emergency Request",
             color: Colors.redAccent,
             onTap: _navigateToSOS,
             animation: _radarAnimationController,
@@ -947,7 +951,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(width: 20),
         Expanded(
           child: _tacticalCircularButton(
-            title: "SURVIVAL PROTOCOL",
+            title: context.isThai ? "คู่มือและเครื่องมือ" : "SURVIVAL PROTOCOL",
             icon: Icons.explore_rounded,
             color: Colors.blueAccent,
             onTap: () {
@@ -1110,9 +1114,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 ShimmerLoading(
                   isLoading:
-                      _currentCity == "กำลังระบุ..." || _currentCity == null,
+                      _currentCity == "กำลังระบุ..." ||
+                      _currentCity == context.l10n.identifyingLoc ||
+                      _currentCity == null,
                   child: Text(
-                    _currentCity ?? "ไม่ทราบตำแหน่ง",
+                    _currentCity ?? context.l10n.locationNotFound,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -1124,9 +1130,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ShimmerLoading(
                   isLoading:
                       _currentAddress == "กำลังดึงตำแหน่ง..." ||
+                      _currentAddress == context.l10n.gettingLocation ||
                       _currentAddress == null,
                   child: Text(
-                    _currentAddress ?? "ไม่ทราบที่อยู่ขณะนี้",
+                    _currentAddress ?? context.l10n.unknownStreet,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 11,
@@ -1220,14 +1227,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildGreeting() {
-    String greeting = "สวัสดีตอนกลางวัน ,";
+    final l10n = context.l10n;
+    String greeting = l10n.greetingAfternoon;
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      greeting = "สวัสดีตอนเช้า ,";
+      greeting = l10n.greetingMorning;
     } else if (hour < 17) {
-      greeting = "สวัสดีตอนกลางวัน ,";
+      greeting = l10n.greetingAfternoon;
     } else {
-      greeting = "สวัสดีตอนเย็น ,";
+      greeting = l10n.greetingEvening;
     }
 
     return Column(
@@ -1279,9 +1287,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
         const SizedBox(height: 6),
-        const Text(
-          "ระบบดูแลความปลอดภัยทำงานปกติ",
-          style: TextStyle(
+        Text(
+          l10n.safetyStatusNormal,
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -1384,9 +1392,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      'สภาพอากาศและสิ่งแวดล้อม',
-                      style: TextStyle(
+                    Text(
+                      context.isThai ? 'สภาพอากาศและสิ่งแวดล้อม' : 'Weather & Environment',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -1478,7 +1486,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              data.weatherConditionTh,
+                              context.isThai ? data.weatherConditionTh : WeatherService.getConditionEn(data.weatherCode),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -1491,7 +1499,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'รู้สึกเหมือน ${data.apparentTemperature.toStringAsFixed(1)}°C • PM 2.5: ${data.pm25.toStringAsFixed(1)} µg/m³',
+                        '${context.isThai ? "รู้สึกเหมือน" : "Feels like"} ${data.apparentTemperature.toStringAsFixed(1)}°C • PM 2.5: ${data.pm25.toStringAsFixed(1)} µg/m³',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.55),
                           fontSize: 11,
@@ -1509,13 +1517,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 _buildWeatherMiniChip(
                   icon: Icons.water_drop_rounded,
-                  label: 'ชื้น ${data.humidity}%',
+                  label: '${context.isThai ? "ชื้น" : "Humidity"} ${data.humidity}%',
                   color: Colors.cyanAccent,
                 ),
                 const SizedBox(width: 8),
                 _buildWeatherMiniChip(
                   icon: Icons.air_rounded,
-                  label: 'ลม ${data.windSpeed.toStringAsFixed(0)} km/h',
+                  label: '${context.isThai ? "ลม" : "Wind"} ${data.windSpeed.toStringAsFixed(0)} km/h',
                   color: Colors.blueAccent,
                 ),
                 const SizedBox(width: 8),
@@ -1527,6 +1535,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
             ),
             const SizedBox(height: 12),
+
+            // AQI / PM2.5 Tactical Visual Gauge Bar
+            _buildAqiGaugeBar(data, themeColor),
+            const SizedBox(height: 12),
+
+            // Mini 5-Hour Forecast Outlook Strip
+            if (data.hourlyForecast.isNotEmpty) ...[
+              _buildMiniHourlyForecast(data, themeColor),
+              const SizedBox(height: 12),
+            ],
 
             // Bottom Action Strip
             Container(
@@ -1547,7 +1565,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'พยากรณ์ 24 ชม. & 7 วันข้างหน้า',
+                        context.l10n.forecast24h7d,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.75),
                           fontSize: 11,
@@ -1567,6 +1585,223 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+
+  /// 📊 แถบเกจวัดคุณภาพอากาศ AQI และ PM2.5 แบบแถบสีไล่ระดับ
+  Widget _buildAqiGaugeBar(WeatherData data, Color themeColor) {
+    final aqi = data.aqiValue;
+    final progress = (aqi / 250).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.air_rounded, size: 13, color: themeColor),
+                  const SizedBox(width: 5),
+                  Text(
+                    context.isThai ? 'ดัชนีคุณภาพอากาศ' : 'AIR QUALITY INDEX',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: themeColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: themeColor.withValues(alpha: 0.35)),
+                    ),
+                    child: Text(
+                      data.status,
+                      style: TextStyle(
+                        color: themeColor,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'AQI ${aqi.toInt()} • PM2.5: ${data.pm25.toStringAsFixed(1)}',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final barWidth = constraints.maxWidth;
+              return Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.centerLeft,
+                children: [
+                  Container(
+                    height: 5,
+                    width: barWidth,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF10B981), // Emerald (Good: 0-50)
+                          Color(0xFFF59E0B), // Amber (Moderate: 51-100)
+                          Color(0xFFF97316), // Orange (Sensitive: 101-150)
+                          Color(0xFFEF4444), // Red (Unhealthy: 151-200)
+                          Color(0xFFA855F7), // Purple (Very Unhealthy: 201+)
+                        ],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: ((barWidth - 10) * progress).clamp(0.0, barWidth - 10),
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: themeColor, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: themeColor.withValues(alpha: 0.8),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ⏱️ แถบพยากรณ์อากาศล่วงหน้า 5 ชั่วโมงแบบ Mini Strip (Next 5 Hours)
+  Widget _buildMiniHourlyForecast(WeatherData data, Color themeColor) {
+    final now = DateTime.now();
+    final upcoming = data.hourlyForecast
+        .where((h) => h.time.isAfter(now.subtract(const Duration(minutes: 30))))
+        .take(5)
+        .toList();
+    final list = upcoming.isNotEmpty ? upcoming : data.hourlyForecast.take(5).toList();
+
+    if (list.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 6),
+          child: Row(
+            children: [
+              Icon(Icons.schedule_rounded, size: 12, color: Colors.white.withValues(alpha: 0.5)),
+              const SizedBox(width: 5),
+              Text(
+                context.isThai ? 'พยากรณ์ล่วงหน้า 5 ชั่วโมง' : '5-HOUR OUTLOOK',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: list.map((item) {
+            final hourText = '${item.time.hour.toString().padLeft(2, '0')}:00';
+            final isCurrentHour = item.time.hour == now.hour;
+
+            return Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                decoration: BoxDecoration(
+                  color: isCurrentHour
+                      ? themeColor.withValues(alpha: 0.16)
+                      : Colors.white.withValues(alpha: 0.035),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isCurrentHour
+                        ? themeColor.withValues(alpha: 0.5)
+                        : Colors.white.withValues(alpha: 0.06),
+                    width: isCurrentHour ? 1.2 : 1.0,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isCurrentHour ? (context.isThai ? 'ตอนนี้' : 'Now') : hourText,
+                      style: TextStyle(
+                        color: isCurrentHour ? themeColor : Colors.white60,
+                        fontSize: 9.5,
+                        fontWeight: isCurrentHour ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      item.weatherIcon,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${item.temperature.toStringAsFixed(0)}°',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (item.precipitationProbability > 15) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.water_drop, size: 7, color: Colors.lightBlueAccent),
+                          Text(
+                            '${item.precipitationProbability}%',
+                            style: const TextStyle(
+                              color: Colors.lightBlueAccent,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -1635,16 +1870,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "อินเทอร์เน็ตไม่เสถียร",
-                      style: TextStyle(
+                    Text(
+                      context.l10n.internetUnstable,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      "แนะนำให้สำรองแผนที่ออฟไลน์ไว้เพื่อความปลอดภัยก่อนเดินทางติดขัด",
+                      context.l10n.offlineMapRecommend,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 11,
@@ -1661,6 +1896,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                   // Capture messenger before async gap (fixes use_build_context_synchronously)
                   final messenger = ScaffoldMessenger.of(context);
+                  final downloadMsg = context.l10n.startingDownloadMap;
 
                   // Start download logic (needs current position)
                   try {
@@ -1671,8 +1907,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                     if (mounted) {
                       messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text("กำลังเริ่มดาวน์โหลดแผนที่ออฟไลน์..."),
+                        SnackBar(
+                          content: Text(downloadMsg),
                           backgroundColor: Colors.blueAccent,
                         ),
                       );
@@ -1696,7 +1932,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text("ดาวน์โหลด"),
+                child: Text(context.l10n.downloadMap),
               ),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.white54, size: 20),
@@ -1777,9 +2013,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       Text(
                         isActive
                             ? (isWarning
-                                  ? "เตือน: เวลาใกล้หมดแล้ว!"
-                                  : "ระบบเช็คอินกำลังทำงาน")
-                            : "ระบบเช็คอินอัตโนมัติ",
+                                  ? context.l10n.checkInWarningExpiring
+                                  : context.l10n.checkInSystemWorking)
+                            : context.l10n.safetyTitle,
                         style: TextStyle(
                           color: isWarning ? Colors.redAccent : Colors.white,
                           fontSize: 15,
@@ -1788,8 +2024,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                       Text(
                         isActive
-                            ? "เหลือเวลา: ${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}${safetyService.isRecurring ? ' (โหมดวนลูป)' : ''}"
-                            : "ตั้งเวลาเพื่อส่ง SOS อัตโนมัติหากขาดการติดต่อ",
+                            ? "${context.l10n.checkInTimeRemaining('${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}')}${safetyService.isRecurring ? context.l10n.checkInRecurringSuffix : ''}"
+                            : context.l10n.checkInAutoPrompt,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
@@ -1866,9 +2102,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    "DEVICE HEALTH DASHBOARD",
-                    style: TextStyle(
+                  Text(
+                    context.l10n.deviceHealthTitle.toUpperCase(),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -1906,9 +2142,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: _buildHealthStatusItem(
                       icon: batteryIcon,
                       iconColor: batteryColor,
-                      label: "แบตเตอรี่",
+                      label: context.l10n.batteryLabel,
                       value: "$battery%",
-                      subValue: battery < 20 ? "กรุณาชาร์จ" : "ปกติ",
+                      subValue: battery < 20 ? context.l10n.pleaseCharge : context.l10n.normalStatus,
                       subValueColor: battery < 20 ? Colors.redAccent : Colors.white54,
                     ),
                   ),
@@ -1922,9 +2158,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: _buildHealthStatusItem(
                       icon: gps ? Icons.gps_fixed_rounded : Icons.gps_off_rounded,
                       iconColor: gps ? Colors.greenAccent : Colors.redAccent,
-                      label: "สัญญาณ GPS",
-                      value: gps ? "เปิดใช้งาน" : "ปิดใช้งาน",
-                      subValue: gps ? "ระบุตำแหน่งได้" : "ระบุไม่ได้",
+                      label: context.l10n.gpsSignalLabel,
+                      value: gps ? context.l10n.gpsEnabled : context.l10n.gpsDisabled,
+                      subValue: gps ? context.l10n.gpsLockSuccess : context.l10n.gpsLockFail,
                       subValueColor: gps ? Colors.greenAccent : Colors.redAccent,
                     ),
                   ),
@@ -1949,9 +2185,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: _buildHealthStatusItem(
                         icon: Icons.hub_rounded,
                         iconColor: meshCount > 0 ? const Color(0xFF00ADB5) : Colors.white30,
-                        label: "เครือข่าย Mesh",
-                        value: "$meshCount โหนด",
-                        subValue: meshCount > 0 ? "แตะเพื่อแชท" : "ไม่มีการเชื่อมต่อ",
+                        label: context.l10n.meshNodesLabel,
+                        value: "$meshCount ${context.l10n.nodesUnit}",
+                        subValue: meshCount > 0 ? context.l10n.meshTapToChat : context.l10n.meshNoConnection,
                         subValueColor: meshCount > 0 ? const Color(0xFF00ADB5) : Colors.white30,
                       ),
                     ),
@@ -2042,12 +2278,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: const Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 20),
           ),
           const SizedBox(height: 15),
-          const Text(
-            "ประวัติสุขภาพ",
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+          Text(
+            context.l10n.medicalHistory,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
           Text(
-            'หมู่เลือด - $blood',
+            '${context.l10n.bloodTypePrefix}$blood',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -2097,9 +2333,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 15),
-          const Text(
-            "โรงพยาบาลใกล้ที่สุด",
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+          Text(
+            context.l10n.nearestHospitalTitle,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
           Text(
             _isLoadingHospital
@@ -2133,9 +2369,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (onSeeAll != null)
           TextButton(
             onPressed: onSeeAll,
-            child: const Text(
-              'ดูทั้งหมด',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+            child: Text(
+              context.l10n.seeAll,
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
             ),
           ),
       ],
@@ -2148,59 +2384,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        childAspectRatio: 0.85,
+        childAspectRatio: 0.82,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
       itemCount: 6,
       itemBuilder: (context, index) {
         final item = _emergencyNumbers[index];
-        return GestureDetector(
-          onTap: () => _makeCall(item['number']),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: (item['color'] as Color).withValues(alpha: 0.25),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (item['color'] as Color).withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  item['number'],
-                  style: TextStyle(
-                    color: item['color'],
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    _getEmergencyName(context, item['key']),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 10,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        final color = item['color'] as Color;
+        final name = _getEmergencyName(context, item['key']);
+
+        return _EmergencyHotlineCard(
+          number: item['number'] as String,
+          name: name,
+          icon: item['icon'] as IconData,
+          color: color,
+          onTap: () => _makeCall(item['number'] as String),
         );
       },
     );
@@ -2248,6 +2447,157 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
+    );
+  }
+}
+
+/// 📞 บัตรสายด่วนฉุกเฉินเชิงยุทธวิธีสไตล์ Cyberpunk Glassmorphism พร้อม Tactile Interaction
+class _EmergencyHotlineCard extends StatefulWidget {
+  final String number;
+  final String name;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _EmergencyHotlineCard({
+    required this.number,
+    required this.name,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_EmergencyHotlineCard> createState() => _EmergencyHotlineCardState();
+}
+
+class _EmergencyHotlineCardState extends State<_EmergencyHotlineCard> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        HapticFeedback.lightImpact();
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                widget.color.withValues(alpha: _isPressed ? 0.28 : 0.16),
+                const Color(0xFF131D31).withValues(alpha: 0.88),
+                const Color(0xFF0F172A).withValues(alpha: 0.96),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: widget.color.withValues(alpha: _isPressed ? 0.8 : 0.35),
+              width: _isPressed ? 1.6 : 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: _isPressed ? 0.35 : 0.12),
+                blurRadius: _isPressed ? 18 : 12,
+                spreadRadius: _isPressed ? 2 : 0,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Top Action Row: Category Icon & Mini Call Badge
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: widget.color.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(widget.icon, color: widget.color, size: 14),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: widget.color.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: widget.color.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.phone_in_talk_rounded,
+                      size: 10,
+                      color: widget.color,
+                    ),
+                  ),
+                ],
+              ),
+
+              // Emergency Number with Neon Stencil Glow
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  widget.number,
+                  style: TextStyle(
+                    color: widget.color,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    shadows: [
+                      Shadow(
+                        color: widget.color.withValues(alpha: 0.6),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Localized Name Label
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Text(
+                  widget.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

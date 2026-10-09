@@ -14,6 +14,7 @@ import 'package:flutter1/models/medical_facility.dart';
 import 'package:flutter1/providers/map_provider.dart';
 import 'package:flutter1/features/emergency/services/call_service.dart';
 import 'package:flutter1/core/utils/medical_facility_classifier.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// การ์ดลอยแสดงข้อมูลสถานพยาบาลที่เลือกบนแผนที่
 class FloatingFacilityCard extends StatelessWidget {
@@ -120,7 +121,9 @@ class FloatingFacilityCard extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              '${distanceKm.toStringAsFixed(1)} กม.',
+                              context.isThai
+                                  ? '${distanceKm.toStringAsFixed(1)} กม.'
+                                  : '${distanceKm.toStringAsFixed(1)} km',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 13,
@@ -147,9 +150,9 @@ class FloatingFacilityCard extends StatelessWidget {
                             Text(
                               isOpen
                                   ? (facility.isOpen24Hours
-                                      ? 'เปิด 24 ชม.'
-                                      : 'เปิดทำการ')
-                                  : 'ปิดทำการ',
+                                      ? (context.isThai ? 'เปิด 24 ชม.' : 'Open 24h')
+                                      : (context.isThai ? 'เปิดทำการ' : 'Open'))
+                                  : (context.isThai ? 'ปิดทำการ' : 'Closed'),
                               style: TextStyle(
                                 color: isOpen
                                     ? const Color(0xFF10B981)
@@ -191,8 +194,8 @@ class FloatingFacilityCard extends StatelessWidget {
                           ? Icons.local_hospital_rounded
                           : Icons.verified_user_rounded,
                       label: facility.hasEmergency
-                          ? 'แผนกฉุกเฉิน (ER)'
-                          : 'รักษาทั่วไป',
+                          ? (context.isThai ? 'แผนกฉุกเฉิน (ER)' : 'Emergency (ER)')
+                          : (context.isThai ? 'รักษาทั่วไป' : 'General Care'),
                       accentColor: facility.hasEmergency
                           ? const Color(0xFFEF4444)
                           : const Color(0xFF0EA5E9),
@@ -201,8 +204,8 @@ class FloatingFacilityCard extends StatelessWidget {
                     _buildPill(
                       icon: Icons.access_time_filled_rounded,
                       label: facility.isOpen24Hours
-                          ? 'เปิดตลอด 24 ชม.'
-                          : (facility.openingHours ?? 'เวลาทำการปกติ'),
+                          ? (context.isThai ? 'เปิดตลอด 24 ชม.' : 'Open 24 Hours')
+                          : (facility.openingHours ?? (context.isThai ? 'เวลาทำการปกติ' : 'Regular Hours')),
                       accentColor: const Color(0xFF10B981),
                     ),
                     const SizedBox(width: 8),
@@ -210,7 +213,7 @@ class FloatingFacilityCard extends StatelessWidget {
                       icon: Icons.phone_rounded,
                       label: facility.phone.isNotEmpty
                           ? facility.phone
-                          : 'สายด่วน 1669',
+                          : (context.isThai ? 'สายด่วน 1669' : 'Hotline 1669'),
                       accentColor: Colors.amberAccent,
                     ),
                   ],
@@ -285,7 +288,9 @@ class FloatingFacilityCard extends StatelessWidget {
                         color: Colors.white,
                       ),
                       label: Text(
-                        isNavigating ? 'ยกเลิกนำทาง' : 'เริ่มนำทางทันที',
+                        isNavigating
+                            ? (context.isThai ? 'ยกเลิกนำทาง' : 'Stop Route')
+                            : (context.isThai ? 'เริ่มนำทางทันที' : 'Start Navigation'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,

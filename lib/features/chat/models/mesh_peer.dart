@@ -62,9 +62,9 @@ class MeshPeer {
   bool get isReachable {
     final diff = DateTime.now().difference(lastSeen);
     if (hopCount == 1) {
-      return diff.inSeconds <= 25; // โหนดต่อตรง 1-hop หลุดถ้าเงียบเกิน 25 วินาที (Watchdog timeout 22s + buffer)
+      return diff.inSeconds <= 45; // โหนดต่อตรง 1-hop หลุดถ้าเงียบเกิน 45 วินาที (Watchdog timeout 45s + Active Ping)
     }
-    return diff.inSeconds <= 45; // โหนดรีเลย์ Multi-hop หลุดถ้าเงียบเกิน 45 วินาที
+    return diff.inSeconds <= 60; // โหนดรีเลย์ Multi-hop หลุดถ้าเงียบเกิน 60 วินาที
   }
 
   /// 🌐 ดึงสถานะการเชื่อมต่อปัจจุบันของโหนด (Direct BLE 🟢 / Relayed 🟣 / Offline ⚪)

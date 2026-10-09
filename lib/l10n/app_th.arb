@@ -188,5 +188,343 @@
   "sendSos": "ส่งสัญญาณ SOS",
   "shareLocation": "แชร์ตำแหน่งที่ตั้ง",
   "recordVoice": "กดค้างเพื่อบันทึกเสียง",
-  "offlineBagEmpty": "ยังไม่มีซองจดหมายในกระเป๋า"
+  "offlineBagEmpty": "ยังไม่มีซองจดหมายในกระเป๋า",
+  "navFirstAid": "ปฐมพยาบาล",
+  "disasterInterface": "ระบบช่วยเหลือภาวะภัยพิบัติ",
+  "disasterSub": "เลือกสถานการณ์เพื่อเข้าถึงระบบช่วยเหลือการสื่อสารแบบจำลองและออฟไลน์",
+  "floodTitle": "น้ำท่วม",
+  "floodDesc": "ฉุกเฉินน้ำท่วมและการสื่อสารออฟไลน์",
+  "fireTitle": "ไฟไหม้",
+  "fireDesc": "สัญญาณไฟฉายและไซเรนขอความช่วยเหลือ",
+  "earthquakeTitle": "แผ่นดินไหว",
+  "earthquakeDesc": "สัญญาณขอความช่วยเหลือเบื้องต้น",
+  "lostTitle": "การหลงทาง",
+  "lostDesc": "เข็มทิศและการระบุพิกัดตำแหน่ง",
+  "flashlightTitle": "ไฟฉายฉุกเฉิน",
+  "flashlightSos": "โหมด SOS (3 สั้น 3 ยาว 3 สั้น)",
+  "flashlightStrobe": "ไฟกะพริบแจ้งเตือน (Strobe)",
+  "strobeSpeed": "ความถี่กะพริบ: {speed} Hz",
+  "@strobeSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "sirenTitle": "ไซเรนฉุกเฉิน",
+  "sirenPolice": "เสียงตำรวจ",
+  "sirenAmbulance": "เสียงพยาบาล",
+  "sirenTactical": "เสียงเตือนภัยยุทธวิธี",
+  "sirenStop": "ปิดเสียงไซเรน",
+  "compassTitle": "เข็มทิศและการระบุพิกัดตำแหน่ง",
+  "compassCalibrating": "กำลังเริ่มต้นเข็มทิศ...",
+  "compassUnavailable": "เข็มทิศไม่พร้อมใช้งาน",
+  "compassPermDenied": "กรุณาเปิดสิทธิ์ตำแหน่ง (Location) ในการตั้งค่าแอปเพื่อใช้เข็มทิศ",
+  "compassSensorMissing": "อุปกรณ์นี้ไม่มี Magnetometer หรือไม่รองรับเซ็นเซอร์เข็มทิศ",
+  "compassAccuracyLabel": "ความแม่นยำของเซนเซอร์: {acc}",
+  "@compassAccuracyLabel": {
+    "placeholders": {
+      "acc": {
+        "type": "String"
+      }
+    }
+  },
+  "directionN": "ทิศเหนือ",
+  "directionS": "ทิศใต้",
+  "directionE": "ทิศตะวันออก",
+  "directionW": "ทิศตะวันตก",
+  "copyCoordsSuccess": "คัดลอกลิงก์แผนที่เรียบร้อยแล้ว",
+  "shareCoordsPrompt": "แชร์ตำแหน่งของท่าน",
+  "coordCopiedClip": "คัดลอกพิกัดลงคลิปบอร์ดแล้ว",
+  "meshOffline": "#mesh ออฟไลน์",
+  "meshScanning": "กำลังค้นหาโหนด...",
+  "meshConnectedNodes": "โหนดเชื่อมต่อ {count} จุด",
+  "@meshConnectedNodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "disasterAlertTitle": "การแจ้งเตือนภัยพิบัติ",
+  "noDisasterReport": "ไม่มีรายงานภัยพิบัติรุนแรงในพื้นที่",
+  "offlineWeatherInfo": "ข้อมูลสภาพอากาศแบบออฟไลน์",
+  "connectivityTitle": "สถานะการเชื่อมต่อ",
+  "meshOfflineActive": "โหมดออฟไลน์ Mesh ทำงานสมบูรณ์ (ไม่ใช้อินเทอร์เน็ต)",
+  "deviceHealthTitle": "แดชบอร์ดสุขภาพอุปกรณ์",
+  "batteryLabel": "แบตเตอรี่",
+  "storageLabel": "พื้นที่จัดเก็บ",
+  "sensorsLabel": "เซนเซอร์",
+  "gettingLocation": "กำลังดึงตำแหน่ง...",
+  "identifyingLoc": "กำลังระบุ...",
+  "openPermSettings": "เปิดสิทธิ์ในตั้งค่า",
+  "unknownStreet": "ไม่ทราบชื่อถนน",
+  "medicalIdComplete": "ข้อมูลการแพทย์สมบูรณ์ {percent}%",
+  "@medicalIdComplete": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "nearestHospitalTitle": "โรงพยาบาลใกล้ที่สุด",
+  "anonymousMode": "โหมดนิรนาม (ANONYMOUS)",
+  "iceContact": "ผู้ติดต่อฉุกเฉินด่วน (ICE CONTACT)",
+  "hikeElevation": "ระดับความสูง",
+  "hikeDistance": "ระยะทาง",
+  "hikeDuration": "เวลาเดิน",
+  "hikeSpeed": "ความเร็ว",
+  "hikePace": "ความเร็วเฉลี่ย",
+  "hikeAltitude": "ความสูงจากระดับน้ำทะเล",
+  "meterUnit": "ม.",
+  "backtrackTitle": "นำทางย้อนรอย",
+  "backtrackDistanceLabel": "ระยะห่างจากจุดเริ่มต้น: {dist}",
+  "@backtrackDistanceLabel": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      }
+    }
+  },
+  "backtrackArrived": "ถึงจุดเริ่มต้นแล้ว",
+  "endHikeTitle": "สิ้นสุดการเดินป่า?",
+  "endHikeConfirm": "ข้อมูลเส้นทางจะถูกบันทึกเก็บไว้ในอุปกรณ์ของคุณแบบออฟไลน์",
+  "confirmButton": "ยืนยัน",
+  "cancelAction": "ยกเลิก",
+  "noticeBoardTitle": "ประกาศ @ #mesh",
+  "noticePostEmergency": "ประกาศฉุกเฉินด่วน",
+  "noticeDurationLabel": "ระยะเวลาแสดงประกาศ",
+  "duration1d": "1 วัน",
+  "duration3d": "3 วัน",
+  "duration7d": "7 วัน",
+  "noticeDelete": "ลบประกาศ",
+  "noticeEmpty": "ยังไม่มีประกาศในขณะนี้",
+  "noticePostedUrgent": "🚨 ปักประกาศฉุกเฉินและกระจายสัญญาณไปยังทุกโหนดแล้ว",
+  "noticePostedNormal": "📌 ปักประกาศออฟไลน์สำเร็จ กระจายต่อแบบ Peer-to-Peer",
+  "callsignDialogTitle": "เปลี่ยนนามเรียกขาน (@)",
+  "callsignDialogPrompt": "ชื่อนี้จะแสดงใน #mesh และระบุตัวตนในเครือข่ายออฟไลน์:",
+  "saveAction": "บันทึก",
+  "deleteNoticeConfirm": "คุณแน่ใจหรือไม่ว่าต้องการลบประกาศนี้?",
+  "verifyPeerTitle": "ตรวจสอบตัวตนคู่สนทนา",
+  "scanPeerQr": "สแกน QR Code เพื่อยืนยัน",
+  "myQr": "QR ของฉัน",
+  "scanFriendQr": "สแกน QR เพื่อน",
+  "qrInstruction": "ให้เพื่อนสแกน QR Code นี้เพื่อยืนยัน Public Key ของคุณ ป้องกันการปลอมแปลงตัวตนในเครือข่าย Mesh",
+  "verifiedStatus": "ยืนยันตัวตนแล้ว",
+  "unverifiedStatus": "ยังไม่ยืนยันตัวตน",
+  "keyChangedAlert": "⚠️ คำเตือนความปลอดภัย: กุญแจของคู่สนทนาเปลี่ยนแปลง!",
+  "compareFingerprint": "เปรียบเทียบข้อความนี้กับหน้าจอของ {name}",
+  "@compareFingerprint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "safetyTitle": "เช็กความปลอดภัยอัตโนมัติ",
+  "safetySubtitle": "ระบบเฝ้าระวังความปลอดภัยยุทธวิธี",
+  "safetyStandby": "สแตนด์บาย",
+  "safetyAlert": "ภาวะวิกฤต",
+  "safetyActive": "กำลังเฝ้าระวัง",
+  "safetyStandbyDesc": "ระบบพร้อมสแตนด์บาย • เฝ้าระวังอัตโนมัติผ่านเครือข่าย MESH",
+  "safetyActiveDesc": "ระบบกำลังเฝ้าระวัง • แตะหน้าปัดหรือกดปุ่มเพื่อยืนยันตัวตน",
+  "safetyCrisisDesc": "ภาวะวิกฤต! กรุณากดยืนยันความปลอดภัยเพื่อยกเลิกการส่ง SOS",
+  "checkInNow": "ยืนยันความปลอดภัยทันที",
+  "recurringCheckin": "โหมดตรวจสอบซ้ำ",
+  "facilitiesNearbyTitle": "พิกัดสถานพยาบาลรอบตัว",
+  "noFacilitiesFiltered": "ไม่พบสถานพยาบาลตามตัวกรอง",
+  "openStatus": "เปิดทำการอยู่",
+  "closedStatus": "ปิดทำการ",
+  "navigateAction": "นำทาง",
+  "callAction": "โทรออก",
+  "greetingMorning": "สวัสดีตอนเช้า,",
+  "greetingEvening": "สวัสดีตอนเย็น,",
+  "urgentNoticeAlert": "🚨 มีประกาศด่วน",
+  "tapToOpenRadar": "แตะเพื่อเปิดเรดาร์",
+  "hikeFloatingActive": "🌲 เดินป่าอยู่",
+  "hikeFloatingBacktrack": "🧭 กำลังย้อนรอย...",
+  "gpsSignalLabel": "สัญญาณ GPS",
+  "gpsEnabled": "เปิดใช้งาน",
+  "gpsDisabled": "ปิดใช้งาน",
+  "gpsLockSuccess": "ระบุตำแหน่งได้",
+  "gpsLockFail": "ระบุไม่ได้",
+  "meshNodesLabel": "เครือข่าย Mesh",
+  "meshTapToChat": "แตะเพื่อแชท",
+  "meshNoConnection": "ไม่มีการเชื่อมต่อ",
+  "nodesUnit": "โหนด",
+  "pleaseCharge": "กรุณาชาร์จ",
+  "normalStatus": "ปกติ",
+  "forecast24h7d": "พยากรณ์ 24 ชม. & 7 วันข้างหน้า",
+  "internetUnstable": "อินเทอร์เน็ตไม่เสถียร",
+  "offlineMapRecommend": "แนะนำให้สำรองแผนที่ออฟไลน์ไว้เพื่อความปลอดภัยก่อนเดินทางติดขัด",
+  "downloadMap": "ดาวน์โหลด",
+  "startingDownloadMap": "กำลังเริ่มดาวน์โหลดแผนที่ออฟไลน์...",
+  "checkInSystemWorking": "ระบบเช็คอินกำลังทำงาน",
+  "checkInTimeRemaining": "เหลือเวลา: {time}",
+  "@checkInTimeRemaining": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "checkInRecurringSuffix": " (โหมดวนลูป)",
+  "checkInAutoPrompt": "ตั้งเวลาเพื่อส่ง SOS อัตโนมัติหากขาดการติดต่อ",
+  "checkInWarningExpiring": "เตือน: เวลาใกล้หมดแล้ว!",
+  "bloodTypePrefix": "หมู่เลือด - ",
+  "deactivateSystem": "DEACTIVATE SYSTEM (ปิดระบบ)",
+  "iAmSafe": "ฉันปลอดภัยดี (I AM SAFE)",
+  "iAmSafeSubtitle": "กดเพื่อรีเซ็ตเวลานับถอยหลังรอบใหม่",
+  "activateShield": "ACTIVATE SHIELD • {minutes} MIN",
+  "@activateShield": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "activateShieldSubtitle": "เปิดระบบเฝ้าระวังอัตโนมัติ",
+  "checkInDurationLabel": "เลือกระยะเวลานับถอยหลัง (CHECK-IN DURATION)",
+  "countingDown": "• กำลังนับเวลาอยู่",
+  "recurringModeTitle": "โหมดวนลูป (Recurring)",
+  "recurringModeSubtitle": "เริ่มนับรอบใหม่อัตโนมัติทันทีหลังกดยืนยันตัวตน",
+  "systemArmed": "SYSTEM ARMED",
+  "tapToArm": "TAP TO ARM",
+  "urgentNoticeTitle": "[เตือนภัยด่วน] ",
+  "urgentNoticeDesc": "ระบบกำลังจะยิงสัญญาณ SOS พร้อมพิกัด GPS อัตโนมัติในไม่ช้า",
+  "standbyNoticeTitle": "[ระบบเฝ้าระวัง] ",
+  "standbyNoticeDesc": "หากหมดเวลาโดยไม่มีการตอบรับ ระบบจะยิงพิกัด GPS ฉุกเฉินผ่าน Mesh ทันที",
+  "endHikeBtn": "สิ้นสุดการเดินป่า (End Hike)",
+  "hikeResumeBtn": "เดินป่าต่อ",
+  "hikeHoldToEnd": "HOLD TO END",
+  "backtrackArrived": "🎉 ถึงจุดเริ่มต้นแล้ว!",
+  "backtrackDistanceRemaining": "ห่างอีก {dist}",
+  "@backtrackDistanceRemaining": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      }
+    }
+  },
+  "backtrackFollowArrow": "เดินมุ่งหน้าตามลูกศรและรอยเส้นสีส้ม",
+  "backtrackBasecamp": "จุดเริ่มต้น (Basecamp ⛳)",
+  "backtrackNavActive": "กำลังนำทางกลับจุดเริ่มต้น",
+  "hikeRecording": "HIKE RECORDING",
+  "hikeRecordingTrail": "กำลังบันทึกรอยทางออฟไลน์",
+  "hikeMinimizedBox": "ย่อหน้าจอ (บันทึกต่อในพื้นหลัง)",
+  "hikeExitDialogTitle": "ออกจากหน้าเดินป่า?",
+  "hikeExitDialogDesc": "กิจกรรมการเดินป่ากำลังบันทึกอยู่ คุณต้องการทำรายการใด?",
+  "hikeTrailDistance": "{dist} กม. • {points} จุด",
+  "@hikeTrailDistance": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "shareSmsTitle": "ส่งพิกัดผ่าน SMS",
+  "shareSmsSubtitle": "ส่งข้อความขอความช่วยเหลือทันที",
+  "copyLinkTitle": "คัดลอกลิงก์ตำแหน่ง",
+  "copyLinkSubtitle": "แชร์พิกัดเป็น Google Maps Link",
+  "meshOfflineNetworkTitle": "เครือข่ายสื่อสารออฟไลน์ (Mesh Network)",
+  "meshScanningSubtitle": "ระบบกำลังสแกนหาคนรอบข้าง...",
+  "meshOfflineDisabled": "ปิดการสื่อสารออฟไลน์",
+  "openChatRoom": "เปิดห้องแชท",
+  "localSosTitle": "ขอความช่วยเหลือเร่งด่วน (Local SOS)",
+  "localSosSubtitle": "ส่งสัญญาณถึงคนรอบข้างในระยะ 100 เมตร (ออฟไลน์)",
+  "sosTrappedRoof": "ติดอยู่บนหลังคา",
+  "sosNeedFoodWater": "ต้องการน้ำ/อาหาร",
+  "sosInjuredElderly": "มีผู้บาดเจ็บ/สูงอายุ",
+  "sosWaterRising": "ระดับน้ำสูงขึ้น",
+  "sosSentBroadcast": "ส่งสัญญาณ: {text} เรียบร้อยแล้ว",
+  "@sosSentBroadcast": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "urgentSosTitle": "ขอความช่วยเหลือด่วน (SOS)",
+  "fireService199": "ดับเพลิง (199)",
+  "medicalService1669": "กู้ชีพ (1669)",
+  "emergencySignalsTitle": "สัญญาณขอความช่วยเหลือ",
+  "flashlightSosOff": "ปิดไฟ SOS",
+  "flashlightSosOn": "ไฟฉาย SOS",
+  "strobeOff": "ปิดแฟลช",
+  "strobeOn": "ไฟแฟลช",
+  "sirenOff": "ปิดไซเรน",
+  "sirenOn": "ไซเรน",
+  "safetyCheckShortcutTitle": "ระบบเช็คอินอัตโนมัติ (Safety Check)",
+  "safetyCheckShortcutSubtitle": "ส่ง SOS อัตโนมัติหากคุณขาดการติดต่อ",
+  "hikeActiveTitle": "กำลังบันทึกการเดินป่า (Hike Active)",
+  "hikeStartTitle": "เริ่มเดินป่า (Hike Mode)",
+  "hikeActiveSubtitle": "บันทึกเส้นทางแล้ว.. คลิกเพื่อหยุด",
+  "hikeStartSubtitle": "บันทึกเส้นทางเดินและปักหมุดปากทาง",
+  "hikeEndSnackbar": "สิ้นสุดการบันทึกการเดินป่า",
+  "hikePrepTitle": "เตรียมความพร้อมการเดินป่า",
+  "hikePrepDesc": "กำลังเตรียมพื้นที่เดินป่า (10 ตร.กม.) และแผนที่ Offline",
+  "hikeStartAdventure": "เริ่มการผจญภัย (โหมดเดินป่า)",
+  "unableToGetLocation": "ไม่สามารถระบุพิกัดได้",
+  "openAppSettings": "เปิดการตั้งค่าแอป",
+  "headingDirectionLabel": "ทิศทางการมุ่งหน้า",
+  "directionNE": "ตะวันออกเฉียงเหนือ (NE)",
+  "directionSE": "ตะวันออกเฉียงใต้ (SE)",
+  "directionSW": "ตะวันตกเฉียงใต้ (SW)",
+  "directionNW": "ตะวันตกเฉียงเหนือ (NW)",
+  "altitudeMsl": "ความสูง (MSL)",
+  "facilitiesNearbySubtitle": "พิกัดสถานพยาบาลรอบตัว",
+  "facilityUnitCount": "{count} แห่ง",
+  "@facilityUnitCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchMedicalHint": "ค้นหาโรงพยาบาล, คลินิก, ร้านยา...",
+  "openNowFilter": "เปิดอยู่ตอนนี้",
+  "sortByNearest": "ใกล้ที่สุด",
+  "sortByName": "ตามชื่อ A-Z",
+  "chipAll": "ทั้งหมด",
+  "chipHospital": "🏥 รพ.",
+  "chipClinic": "🩺 คลินิก",
+  "chipPharmacy": "💊 ร้านยา",
+  "open24Hours": "เปิด 24 ชม.",
+  "myFingerprintTitle": "📱 Fingerprint ของเครื่องคุณ",
+  "myFingerprintDesc": "ให้ {peer} ตรวจสอบรหัสนี้บนเครื่องของเขา",
+  "@myFingerprintDesc": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "peerFingerprintTitle": "🔑 Fingerprint ของ {peer}",
+  "@peerFingerprintTitle": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "peerFingerprintDesc": "เปรียบเทียบข้อความนี้กับหน้าจอของ {peer}",
+  "@peerFingerprintDesc": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fingerprintCopied": "คัดลอก Fingerprint เรียบร้อย",
+  "noFingerprintData": "ยังไม่มีข้อมูล Fingerprint ให้คัดลอก",
+  "verifiedSuccess": "ยืนยันตัวตนเรียบร้อยแล้ว",
+  "resetTrust": "ยกเลิกการยืนยัน (Reset Trust)",
+  "resetTrustSuccess": "ยกเลิกการยืนยันเรียบร้อยแล้ว",
+  "scanQrForKeys": "สแกน QR Code เพื่อรับ Key ทันที",
+  "waitingForPublicKey": "ยังไม่ได้รับ Public Key จากคู่สนทนานี้ในระบบ Mesh กรุณารอให้คู่สนทนาออนไลน์ หรือสแกน QR Code เพื่อแลกเปลี่ยนกุญแจทันที",
+  "acceptNewKey": "ยืนยันตัวตน Key ใหม่ (Accept New Key)",
+  "markAsVerified": "ยืนยันตัวตนคู่สนทนา (Mark as Verified)"
 }

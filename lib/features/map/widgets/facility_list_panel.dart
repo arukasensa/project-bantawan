@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter1/models/medical_facility.dart';
 import 'package:flutter1/providers/map_provider.dart';
 import 'package:flutter1/core/utils/medical_facility_classifier.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// แผงแสดงรายชื่อสถานพยาบาลและการค้นหาแบบครบวงจร
 class FacilityListPanel extends StatefulWidget {
@@ -128,11 +129,11 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                 ),
                 const SizedBox(width: 10),
 
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'BANTAWAN MED',
                         style: TextStyle(
                           color: Colors.white,
@@ -142,8 +143,8 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                         ),
                       ),
                       Text(
-                        'พิกัดสถานพยาบาลรอบตัว',
-                        style: TextStyle(
+                        context.isThai ? 'พิกัดสถานพยาบาลรอบตัว' : 'Nearby Medical Facilities',
+                        style: const TextStyle(
                           color: Colors.white54,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -166,14 +167,14 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.check_circle_rounded,
-                        color: const Color(0xFF10B981),
+                        color: Color(0xFF10B981),
                         size: 11,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${displayedList.length} แห่ง',
+                        context.isThai ? '${displayedList.length} แห่ง' : '${displayedList.length} places',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
@@ -215,7 +216,7 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                       onChanged: (val) => setState(() {}),
                       onSubmitted: widget.onSearch,
                       decoration: InputDecoration(
-                        hintText: 'ค้นหาโรงพยาบาล, คลินิก, ร้านยา...',
+                        hintText: context.isThai ? 'ค้นหาโรงพยาบาล, คลินิก, ร้านยา...' : 'Search hospitals, clinics, pharmacies...',
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 13,
@@ -278,7 +279,7 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'เปิดอยู่ตอนนี้',
+                          context.isThai ? 'เปิดอยู่ตอนนี้' : 'Open Now',
                           style: TextStyle(
                             color: _onlyOpenNow
                                 ? const Color(0xFF10B981)
@@ -325,7 +326,9 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _sortBy == 'nearest' ? 'ใกล้ที่สุด' : 'ตามชื่อ A-Z',
+                          _sortBy == 'nearest'
+                              ? (context.isThai ? 'ใกล้ที่สุด' : 'Nearest')
+                              : (context.isThai ? 'ตามชื่อ A-Z' : 'Name A-Z'),
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11.5,
@@ -354,13 +357,13 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                _buildCategoryChip('ทั้งหมด', 'all', provider),
+                _buildCategoryChip(context.isThai ? 'ทั้งหมด' : 'All', 'all', provider),
                 const SizedBox(width: 6),
-                _buildCategoryChip('🏥 รพ.', 'hospital', provider),
+                _buildCategoryChip(context.isThai ? '🏥 รพ.' : '🏥 Hosp.', 'hospital', provider),
                 const SizedBox(width: 6),
-                _buildCategoryChip('🩺 คลินิก', 'clinic', provider),
+                _buildCategoryChip(context.isThai ? '🩺 คลินิก' : '🩺 Clinic', 'clinic', provider),
                 const SizedBox(width: 6),
-                _buildCategoryChip('💊 ร้านยา', 'pharmacy', provider),
+                _buildCategoryChip(context.isThai ? '💊 ร้านยา' : '💊 Pharm.', 'pharmacy', provider),
               ],
             ),
           ),
@@ -384,7 +387,7 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'ไม่พบสถานพยาบาลตามตัวกรอง',
+                            context.isThai ? 'ไม่พบสถานพยาบาลตามตัวกรอง' : 'No facilities match filters',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.6),
                               fontSize: 13,
@@ -489,7 +492,7 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                                         Row(
                                           children: [
                                             Text(
-                                              '${distance.toStringAsFixed(1)} กม.',
+                                              context.isThai ? '${distance.toStringAsFixed(1)} กม.' : '${distance.toStringAsFixed(1)} km',
                                               style: TextStyle(
                                                 color: Colors.white70,
                                                 fontSize: 12,
@@ -510,9 +513,9 @@ class _FacilityListPanelState extends State<FacilityListPanel> {
                                             Text(
                                               isOpen
                                                   ? (item.isOpen24Hours
-                                                      ? 'เปิด 24 ชม.'
-                                                      : 'เปิดทำการ')
-                                                  : 'ปิดทำการ',
+                                                      ? (context.isThai ? 'เปิด 24 ชม.' : 'Open 24h')
+                                                      : (context.isThai ? 'เปิดทำการ' : 'Open'))
+                                                  : (context.isThai ? 'ปิดทำการ' : 'Closed'),
                                               style: TextStyle(
                                                 color: isOpen
                                                     ? const Color(0xFF10B981)

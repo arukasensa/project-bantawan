@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 import '../models/hike_summary.dart';
 
 /// 🏆 หน้าต่างสรุปผลกิจกรรมการเดินป่า (Hike Summary Dialog)
@@ -69,9 +70,11 @@ class HikeSummaryDialog extends StatelessWidget {
 
                 const SizedBox(height: 16),
 
-                const Text(
-                  'สิ้นสุดการเดินป่าสำเร็จ!',
-                  style: TextStyle(
+                Text(
+                  context.isThai
+                      ? 'สิ้นสุดการเดินป่าสำเร็จ!'
+                      : 'Hike Adventure Completed!',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -81,9 +84,11 @@ class HikeSummaryDialog extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                const Text(
-                  'ข้อมูลเส้นทางและสถิติการผจญภัยของคุณ',
-                  style: TextStyle(color: Colors.white60, fontSize: 13),
+                Text(
+                  context.isThai
+                      ? 'ข้อมูลเส้นทางและสถิติการผจญภัยของคุณ'
+                      : 'Your trail track & adventure statistics',
+                  style: const TextStyle(color: Colors.white60, fontSize: 13),
                 ),
 
                 const SizedBox(height: 24),
@@ -93,14 +98,14 @@ class HikeSummaryDialog extends StatelessWidget {
                   children: [
                     _buildStatTile(
                       icon: Icons.route_rounded,
-                      label: 'ระยะทางรวม',
+                      label: context.isThai ? 'ระยะทางรวม' : 'Total Distance',
                       value: summary.formattedDistance,
                       color: Colors.cyanAccent,
                     ),
                     const SizedBox(width: 12),
                     _buildStatTile(
                       icon: Icons.timer_outlined,
-                      label: 'เวลาที่ใช้',
+                      label: context.isThai ? 'เวลาที่ใช้' : 'Duration',
                       value: summary.formattedDuration,
                       color: Colors.orangeAccent,
                     ),
@@ -113,17 +118,17 @@ class HikeSummaryDialog extends StatelessWidget {
                   children: [
                     _buildStatTile(
                       icon: Icons.terrain_rounded,
-                      label: 'ระดับความสูงสูงสุด',
+                      label: context.isThai ? 'ระดับความสูงสูงสุด' : 'Max Elevation',
                       value: summary.maxAltitude != null
-                          ? '${summary.maxAltitude!.toStringAsFixed(0)} ม.'
-                          : '-- ม.',
+                          ? '${summary.maxAltitude!.toStringAsFixed(0)} ${context.isThai ? 'ม.' : 'm'}'
+                          : '--',
                       color: Colors.greenAccent,
                     ),
                     const SizedBox(width: 12),
                     _buildStatTile(
                       icon: Icons.flag_circle_rounded,
-                      label: 'จุดบันทึกรอยทาง',
-                      value: '${summary.breadcrumbCount} จุด',
+                      label: context.isThai ? 'จุดบันทึกรอยทาง' : 'Trail Points',
+                      value: '${summary.breadcrumbCount} ${context.isThai ? 'จุด' : 'pts'}',
                       color: Colors.purpleAccent,
                     ),
                   ],
@@ -149,9 +154,11 @@ class HikeSummaryDialog extends StatelessWidget {
                       Navigator.pop(context); // ปิด Dialog
                       onDismiss(); // ออกจากหน้าจอเดินป่า
                     },
-                    child: const Text(
-                      'บันทึกและกลับสู่หน้าหลัก',
-                      style: TextStyle(
+                    child: Text(
+                      context.isThai
+                          ? 'บันทึกและกลับสู่หน้าหลัก'
+                          : 'Save & Return to Home',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,

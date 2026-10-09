@@ -59,6 +59,8 @@ class DailyForecastItem {
 
   String get weatherIcon => WeatherData.getIconFromCode(weatherCode);
   String get conditionTh => WeatherData.getConditionTh(weatherCode);
+  String get conditionEn => WeatherData.getConditionEn(weatherCode);
+  String getCondition(bool isThai) => isThai ? conditionTh : conditionEn;
 
   String get dayNameTh {
     final now = DateTime.now();
@@ -87,6 +89,20 @@ class DailyForecastItem {
       default:
         return '';
     }
+  }
+
+  String getDayName(bool isThai) {
+    if (isThai) return dayNameTh;
+    final now = DateTime.now();
+    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+      return 'Today';
+    }
+    final tomorrow = now.add(const Duration(days: 1));
+    if (date.year == tomorrow.year && date.month == tomorrow.month && date.day == tomorrow.day) {
+      return 'Tomorrow';
+    }
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[(date.weekday - 1).clamp(0, 6)];
   }
 }
 
@@ -258,6 +274,65 @@ class WeatherData {
     }
   }
 
+  /// 📌 แปลงรหัสสภาพอากาศ WMO ให้เป็นข้อความภาษาอังกฤษ
+  static String getConditionEn(int code) {
+    switch (code) {
+      case 0:
+        return 'Clear Sky';
+      case 1:
+        return 'Mainly Clear';
+      case 2:
+        return 'Partly Cloudy';
+      case 3:
+        return 'Overcast';
+      case 45:
+      case 48:
+        return 'Fog';
+      case 51:
+      case 53:
+      case 55:
+        return 'Drizzle';
+      case 56:
+      case 57:
+        return 'Freezing Drizzle';
+      case 61:
+        return 'Slight Rain';
+      case 63:
+        return 'Moderate Rain';
+      case 65:
+        return 'Heavy Rain';
+      case 66:
+      case 67:
+        return 'Freezing Rain';
+      case 71:
+      case 73:
+      case 75:
+      case 77:
+        return 'Snow';
+      case 80:
+      case 81:
+        return 'Rain Showers';
+      case 82:
+        return 'Violent Rain';
+      case 85:
+      case 86:
+        return 'Snow Showers';
+      case 95:
+        return 'Thunderstorm';
+      case 96:
+      case 99:
+        return 'Thunderstorm with Hail';
+      default:
+        return 'Variable Weather';
+    }
+  }
+
+  /// 📌 คำอธิบายสภาพอากาศภาษาอังกฤษตามรหัส WMO
+  String get weatherConditionEn => getConditionEn(weatherCode);
+
+  /// 📌 ดึงคำอธิบายสภาพอากาศตามภาษาที่เลือก
+  String getCondition(bool isThai) => isThai ? weatherConditionTh : weatherConditionEn;
+
   /// 📌 แปลงรหัสสภาพอากาศ WMO ให้เป็น Emoji Icon
   static String getIconFromCode(int code, {bool isDay = true}) {
     switch (code) {
@@ -306,6 +381,12 @@ class WeatherService {
   /// 🔔 Plugin สำหรับแสดง Local Notification เมื่อตรวจพบภัยอากาศ
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+
+  /// 🌐 ผู้ช่วยแปลสภาพอากาศสำหรับ Localization
+  static String getConditionEn(int code) => WeatherData.getConditionEn(code);
+  static String getConditionTh(int code) => WeatherData.getConditionTh(code);
+  static String getCondition(int code, bool isThai) =>
+      isThai ? WeatherData.getConditionTh(code) : WeatherData.getConditionEn(code);
 
   // ============================================================================
   // 🚀 Section 1: Initialization

@@ -297,34 +297,53 @@ class _FirstAidListScreenState extends State<FirstAidListScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                   child: Row(
                     children: [
-                      // Icon Container with radiant glowing circle
-                      Container(
-                        width: 66,
-                        height: 66,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              topicColor.withValues(alpha: 0.28),
-                              topicColor.withValues(alpha: 0.08),
+                      // 3D Glass Badge Icon Container with Hero transition
+                      Hero(
+                        tag: 'icon_${topic.id}',
+                        child: Container(
+                          width: 66,
+                          height: 66,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                topicColor.withValues(alpha: 0.35),
+                                topicColor.withValues(alpha: 0.10),
+                              ],
+                            ),
+                            border: Border.all(
+                              color: topicColor.withValues(alpha: 0.55),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: topicColor.withValues(alpha: 0.35),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              ),
                             ],
                           ),
-                          border: Border.all(
-                            color: topicColor.withValues(alpha: 0.45),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: topicColor.withValues(alpha: 0.25),
-                              blurRadius: 14,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            topic.icon,
-                            style: const TextStyle(fontSize: 30),
+                          child: ClipOval(
+                            child: topic.iconAsset != null
+                                ? Image.asset(
+                                    topic.iconAsset!,
+                                    width: 66,
+                                    height: 66,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        Center(
+                                      child: Text(
+                                        topic.icon,
+                                        style: const TextStyle(fontSize: 30),
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      topic.icon,
+                                      style: const TextStyle(fontSize: 30),
+                                    ),
+                                  ),
                           ),
                         ),
                       ),

@@ -188,5 +188,343 @@
   "sendSos": "Send SOS",
   "shareLocation": "Share Location",
   "recordVoice": "Hold to record voice",
-  "offlineBagEmpty": "Your tactical bag is currently empty"
+  "offlineBagEmpty": "Your tactical bag is currently empty",
+  "navFirstAid": "First Aid",
+  "disasterInterface": "TACTICAL DISASTER INTERFACE",
+  "disasterSub": "Select a scenario to access offline survival tools and simulations",
+  "floodTitle": "Flood Emergency",
+  "floodDesc": "Flood evacuation & offline communication",
+  "fireTitle": "Fire Hazard",
+  "fireDesc": "Emergency strobe & siren distress signals",
+  "earthquakeTitle": "Earthquake",
+  "earthquakeDesc": "Initial distress signals & survival beacons",
+  "lostTitle": "Lost in Wild",
+  "lostDesc": "Digital compass & tactical position fix",
+  "flashlightTitle": "Emergency Flashlight",
+  "flashlightSos": "SOS Strobe (3 Short 3 Long 3 Short)",
+  "flashlightStrobe": "Tactical Strobe Beacon",
+  "strobeSpeed": "Strobe Frequency: {speed} Hz",
+  "@strobeSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "sirenTitle": "Emergency Siren",
+  "sirenPolice": "Police Siren",
+  "sirenAmbulance": "Ambulance Siren",
+  "sirenTactical": "Tactical Alarm",
+  "sirenStop": "Stop Siren",
+  "compassTitle": "Digital Compass & Position Fix",
+  "compassCalibrating": "Calibrating compass...",
+  "compassUnavailable": "Compass Unavailable",
+  "compassPermDenied": "Please enable Location permission in app settings to use compass",
+  "compassSensorMissing": "This device lacks a magnetometer sensor",
+  "compassAccuracyLabel": "Sensor Accuracy: {acc}",
+  "@compassAccuracyLabel": {
+    "placeholders": {
+      "acc": {
+        "type": "String"
+      }
+    }
+  },
+  "directionN": "NORTH",
+  "directionS": "SOUTH",
+  "directionE": "EAST",
+  "directionW": "WEST",
+  "copyCoordsSuccess": "Map link and coordinates copied!",
+  "shareCoordsPrompt": "Share Your Coordinates",
+  "coordCopiedClip": "Coordinates copied to clipboard",
+  "meshOffline": "#mesh Offline",
+  "meshScanning": "Scanning nodes...",
+  "meshConnectedNodes": "{count} nodes connected",
+  "@meshConnectedNodes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "disasterAlertTitle": "Disaster Alert",
+  "noDisasterReport": "No severe disaster reports in this area",
+  "offlineWeatherInfo": "Offline Weather Telemetry",
+  "connectivityTitle": "Connectivity Status",
+  "meshOfflineActive": "Offline Mesh Mode Active (Zero Internet)",
+  "deviceHealthTitle": "Device Health Telemetry",
+  "batteryLabel": "Battery",
+  "storageLabel": "Storage",
+  "sensorsLabel": "Sensors",
+  "gettingLocation": "Acquiring location...",
+  "identifyingLoc": "Identifying...",
+  "openPermSettings": "Open settings to grant permission",
+  "unknownStreet": "Unknown Street",
+  "medicalIdComplete": "Medical ID {percent}% Complete",
+  "@medicalIdComplete": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "nearestHospitalTitle": "Nearest Hospital",
+  "anonymousMode": "Anonymous Mode (ANONYMOUS)",
+  "iceContact": "ICE Contact (Emergency)",
+  "hikeElevation": "ELEVATION",
+  "hikeDistance": "DISTANCE",
+  "hikeDuration": "DURATION",
+  "hikeSpeed": "SPEED",
+  "hikePace": "PACE",
+  "hikeAltitude": "ALTITUDE",
+  "meterUnit": "m",
+  "backtrackTitle": "Backtrack Navigation",
+  "backtrackDistanceLabel": "Distance to trailhead: {dist}",
+  "@backtrackDistanceLabel": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      }
+    }
+  },
+  "backtrackArrived": "Arrived at starting point",
+  "endHikeTitle": "Finish Hike Tracking?",
+  "endHikeConfirm": "Your trail track will be securely stored offline on this device.",
+  "confirmButton": "Confirm",
+  "cancelAction": "Cancel",
+  "noticeBoardTitle": "Notices @ #mesh",
+  "noticePostEmergency": "Urgent Emergency Notice",
+  "noticeDurationLabel": "Notice Expiration",
+  "duration1d": "1 Day",
+  "duration3d": "3 Days",
+  "duration7d": "7 Days",
+  "noticeDelete": "Delete Notice",
+  "noticeEmpty": "No active notices in this mesh sector",
+  "noticePostedUrgent": "🚨 Urgent emergency notice broadcast to all mesh nodes",
+  "noticePostedNormal": "📌 Notice posted successfully via Peer-to-Peer mesh",
+  "callsignDialogTitle": "Change Callsign (@)",
+  "callsignDialogPrompt": "This handle will identify you in the offline #mesh network:",
+  "saveAction": "Save",
+  "deleteNoticeConfirm": "Are you sure you want to delete this notice?",
+  "verifyPeerTitle": "Peer Identity Verification",
+  "scanPeerQr": "Scan QR Code to Verify",
+  "myQr": "My QR Code",
+  "scanFriendQr": "Scan Peer QR",
+  "qrInstruction": "Ask your peer to scan this QR code to verify your public key, preventing MITM attacks.",
+  "verifiedStatus": "Verified Identity",
+  "unverifiedStatus": "Unverified Peer",
+  "keyChangedAlert": "SECURITY WARNING: Peer key has changed!",
+  "compareFingerprint": "Compare this security fingerprint with {name}'s screen",
+  "@compareFingerprint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "safetyTitle": "AUTO CHECK-IN",
+  "safetySubtitle": "TACTICAL LIFELINE MONITOR",
+  "safetyStandby": "STANDBY",
+  "safetyAlert": "CRITICAL ALERT",
+  "safetyActive": "ACTIVE MONITORING",
+  "safetyStandbyDesc": "System Standby • Automatic Mesh Monitoring Ready",
+  "safetyActiveDesc": "Active Lifeline • Tap dial or button to confirm safety",
+  "safetyCrisisDesc": "CRISIS! Please confirm your safety to cancel outgoing SOS",
+  "checkInNow": "Check-in Safety Now",
+  "recurringCheckin": "Recurring Mode",
+  "facilitiesNearbyTitle": "Medical Facilities Nearby",
+  "noFacilitiesFiltered": "No medical facilities match active filter",
+  "openStatus": "Open",
+  "closedStatus": "Closed",
+  "navigateAction": "Directions",
+  "callAction": "Call",
+  "greetingMorning": "Good Morning,",
+  "greetingEvening": "Good Evening,",
+  "urgentNoticeAlert": "🚨 Urgent Notice",
+  "tapToOpenRadar": "Tap to open radar",
+  "hikeFloatingActive": "🌲 Hike Active",
+  "hikeFloatingBacktrack": "🧭 Backtracking...",
+  "gpsSignalLabel": "GPS Signal",
+  "gpsEnabled": "Enabled",
+  "gpsDisabled": "Disabled",
+  "gpsLockSuccess": "Position Locked",
+  "gpsLockFail": "No Fix",
+  "meshNodesLabel": "Mesh Network",
+  "meshTapToChat": "Tap to chat",
+  "meshNoConnection": "No Connection",
+  "nodesUnit": "Nodes",
+  "pleaseCharge": "Please Charge",
+  "normalStatus": "Normal",
+  "forecast24h7d": "Forecast 24h & 7 Days",
+  "internetUnstable": "Internet Unstable",
+  "offlineMapRecommend": "Download offline map for safety before signal is lost",
+  "downloadMap": "Download",
+  "startingDownloadMap": "Starting offline map download...",
+  "checkInSystemWorking": "Check-in System Active",
+  "checkInTimeRemaining": "Time Remaining: {time}",
+  "@checkInTimeRemaining": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "checkInRecurringSuffix": " (Recurring)",
+  "checkInAutoPrompt": "Set timer for auto SOS if unresponsive",
+  "checkInWarningExpiring": "Warning: Time almost up!",
+  "bloodTypePrefix": "Blood Type - ",
+  "deactivateSystem": "DEACTIVATE SYSTEM",
+  "iAmSafe": "I AM SAFE",
+  "iAmSafeSubtitle": "Tap to reset countdown for next cycle",
+  "activateShield": "ACTIVATE SHIELD • {minutes} MIN",
+  "@activateShield": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "activateShieldSubtitle": "Enable automatic safety monitoring",
+  "checkInDurationLabel": "CHECK-IN DURATION",
+  "countingDown": "Counting down",
+  "recurringModeTitle": "Recurring Mode",
+  "recurringModeSubtitle": "Automatically restart timer after checking in",
+  "systemArmed": "SYSTEM ARMED",
+  "tapToArm": "TAP TO ARM",
+  "urgentNoticeTitle": "Urgent Alert",
+  "urgentNoticeDesc": "System will broadcast emergency SOS with GPS coordinates soon",
+  "standbyNoticeTitle": "Tactical Monitor",
+  "standbyNoticeDesc": "If timer expires without response, emergency SOS will be sent via Mesh",
+  "endHikeBtn": "End Hike",
+  "hikeResumeBtn": "Continue Hike",
+  "hikeHoldToEnd": "HOLD TO END",
+  "backtrackArrived": "Arrived at Starting Point!",
+  "backtrackDistanceRemaining": "Remaining: {dist}",
+  "@backtrackDistanceRemaining": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      }
+    }
+  },
+  "backtrackFollowArrow": "Follow the arrow and trail back",
+  "backtrackBasecamp": "Starting Point (Basecamp ⛳)",
+  "backtrackNavActive": "Navigating back to start",
+  "hikeRecording": "HIKE RECORDING",
+  "hikeRecordingTrail": "Recording trail offline",
+  "hikeMinimizedBox": "Minimize (Keep recording in background)",
+  "hikeExitDialogTitle": "Exit Hike Tracking?",
+  "hikeExitDialogDesc": "Hike activity is currently recording. What would you like to do?",
+  "hikeTrailDistance": "{dist} km • {points} pts",
+  "@hikeTrailDistance": {
+    "placeholders": {
+      "dist": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "shareSmsTitle": "Send via SMS",
+  "shareSmsSubtitle": "Send emergency rescue message now",
+  "copyLinkTitle": "Copy Location Link",
+  "copyLinkSubtitle": "Share coordinates as Google Maps Link",
+  "meshOfflineNetworkTitle": "Offline Mesh Network",
+  "meshScanningSubtitle": "Scanning for peers nearby...",
+  "meshOfflineDisabled": "Offline mesh communication disabled",
+  "openChatRoom": "Open Chat",
+  "localSosTitle": "Emergency Local SOS",
+  "localSosSubtitle": "Broadcast to peers within 100 meters (Offline)",
+  "sosTrappedRoof": "Trapped on roof",
+  "sosNeedFoodWater": "Need food/water",
+  "sosInjuredElderly": "Injured/Elderly present",
+  "sosWaterRising": "Water level rising",
+  "sosSentBroadcast": "Signal sent: {text}",
+  "@sosSentBroadcast": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
+  "urgentSosTitle": "Emergency SOS",
+  "fireService199": "Fire Dept (199)",
+  "medicalService1669": "Rescue (1669)",
+  "emergencySignalsTitle": "Emergency Signals",
+  "flashlightSosOff": "Stop SOS Flash",
+  "flashlightSosOn": "Flashlight SOS",
+  "strobeOff": "Turn Off Strobe",
+  "strobeOn": "Strobe Beacon",
+  "sirenOff": "Turn Off Siren",
+  "sirenOn": "Siren",
+  "safetyCheckShortcutTitle": "Auto Check-In (Safety Check)",
+  "safetyCheckShortcutSubtitle": "Send SOS automatically if you lose contact",
+  "hikeActiveTitle": "Hike Tracking Active",
+  "hikeStartTitle": "Start Hike Mode",
+  "hikeActiveSubtitle": "Trail recording active.. tap to stop",
+  "hikeStartSubtitle": "Record trail track and mark starting point",
+  "hikeEndSnackbar": "Hike tracking finished",
+  "hikePrepTitle": "Preparing Hike Session",
+  "hikePrepDesc": "Preparing hike area (10 sq km) & offline map",
+  "hikeStartAdventure": "Start Adventure (Hike Mode)",
+  "unableToGetLocation": "Unable to determine coordinates",
+  "openAppSettings": "Open App Settings",
+  "headingDirectionLabel": "Heading Direction",
+  "directionNE": "Northeast (NE)",
+  "directionSE": "Southeast (SE)",
+  "directionSW": "Southwest (SW)",
+  "directionNW": "Northwest (NW)",
+  "altitudeMsl": "Altitude (MSL)",
+  "facilitiesNearbySubtitle": "Nearby medical coordinates",
+  "facilityUnitCount": "{count} places",
+  "@facilityUnitCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchMedicalHint": "Search hospital, clinic, pharmacy...",
+  "openNowFilter": "Open Now",
+  "sortByNearest": "Nearest",
+  "sortByName": "Name A-Z",
+  "chipAll": "All",
+  "chipHospital": "🏥 Hospital",
+  "chipClinic": "🩺 Clinic",
+  "chipPharmacy": "💊 Pharmacy",
+  "open24Hours": "Open 24h",
+  "myFingerprintTitle": "📱 Your Device Fingerprint",
+  "myFingerprintDesc": "Have {peer} verify this code on their device",
+  "@myFingerprintDesc": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "peerFingerprintTitle": "🔑 Fingerprint of {peer}",
+  "@peerFingerprintTitle": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "peerFingerprintDesc": "Compare this security code with {peer}'s screen",
+  "@peerFingerprintDesc": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fingerprintCopied": "Fingerprint copied to clipboard",
+  "noFingerprintData": "No fingerprint data to copy",
+  "verifiedSuccess": "Identity Verified",
+  "resetTrust": "Reset Trust",
+  "resetTrustSuccess": "Trust status reset successfully",
+  "scanQrForKeys": "Scan QR Code for Keys",
+  "waitingForPublicKey": "Waiting for public key from peer via mesh...",
+  "acceptNewKey": "Accept New Key",
+  "markAsVerified": "Mark as Verified"
 }

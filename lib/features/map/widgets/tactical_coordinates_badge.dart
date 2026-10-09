@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 📍 วิดเจ็ตแสดงพิกัด GPS ละติจูด-ลองจิจูดออฟไลน์ (Tactical Coordinates Badge)
 /// ทำงานได้ 100% โดยไม่ต้องเชื่อมต่ออินเทอร์เน็ต ใช้แจ้งพิกัดกู้ภัย 1669 หรือนำทาง
@@ -59,7 +60,9 @@ class _TacticalCoordinatesBadgeState extends State<TacticalCoordinatesBadge>
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'คัดลอกพิกัด GPS: $coordStr แล้ว (แจ้งกู้ภัย 1669)',
+                context.isThai
+                    ? 'คัดลอกพิกัด GPS: $coordStr แล้ว (แจ้งกู้ภัย 1669)'
+                    : 'Copied GPS coords: $coordStr (Report to 1669)',
                 style: const TextStyle(color: Colors.white, fontSize: 13),
               ),
             ),
@@ -139,9 +142,9 @@ class _TacticalCoordinatesBadgeState extends State<TacticalCoordinatesBadge>
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          "📍 พิกัด GPS: ",
-                          style: TextStyle(
+                        Text(
+                          context.isThai ? "📍 พิกัด GPS: " : "📍 GPS Coords: ",
+                          style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
@@ -169,9 +172,9 @@ class _TacticalCoordinatesBadgeState extends State<TacticalCoordinatesBadge>
                     color: const Color(0xFF10B981).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
-                    "ออฟไลน์",
-                    style: TextStyle(
+                  child: Text(
+                    context.isThai ? "ออฟไลน์" : "OFFLINE",
+                    style: const TextStyle(
                       color: Color(0xFF34D399),
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
