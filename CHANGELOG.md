@@ -2,6 +2,26 @@
 
 เอกสารบันทึกประวัติการเปลี่ยนแปลงและการอัปเดตระบบของโครงการ **BANTAWAN**
 
+## [1.8.0] - 2026-10-10
+
+### 🌐 100% Full Bilingual Localization Parity (TH / EN)
+- **Emergency Contact Screen (`EmergencyContactScreen`)**: ปรับปรุงหน้าจัดการรายชื่อผู้ติดต่อฉุกเฉินส่วนตัวเป็น 2 ภาษาอย่างสมบูรณ์ รองรับหมวดหมู่ความสัมพันธ์ (Family, Partner, Relative, Friend, Colleague, Other), แบบฟอร์มเพิ่ม/แก้ไขรายชื่อ, กล่องยืนยันการลบรายชื่อ, ข้อความสถานะ และเทมเพลต SMS ส่งพิกัดดาวเทียม
+- **SOS Emergency Command Screen (`SosScreen`)**: ปรับปรุงข้อความแนะนำการกดค้าง (Hold Hints), ป้ายสถานะบนปุ่มส่งฉุกเฉิน, กล่องข้อความแจ้งเตือนข้อผิดพลาด (Error Dialogs) และเทมเพลตข้อความ SMS ฉุกเฉินแบบสองภาษาตามสถานะภาษาที่ผู้ใช้เลือกในแอปพลิเคชัน
+- **Safety Check-in Background Service (`SafetyCheckService`)**: เชื่อมต่อการแจ้งเตือนสถานะเฝ้าระวังบนแถบแจ้งเตือน (Ongoing Status Notification), การแจ้งเตือนระยะวิกฤต (Critical Warning Phase Notification) และข้อความขอความช่วยเหลืออัตโนมัติ (Auto Check-in SMS) ให้ดึงค่าภาษาล่าสุดจาก `SharedPreferences` มาส่งข้อความภาษาไทยหรืออังกฤษอย่างถูกต้อง
+- **ARB Parity Automated Testing**: ผ่านชุดทดสอบ `localization_coverage_test.dart` และ `language_provider_test.dart` 100% Parity
+
+### 📻 Tactical Mesh Discovery & Connection Symmetry Optimization
+- **Symmetric Endpoint Registration Fix**: แก้ไขเงื่อนไขใน `NearbyService._initiateConnection` ที่คัดกรองชื่อซ้ำผิดพลาด (ขัดขวางเครื่องที่ใช้ชื่อเริ่มต้น `Survivor`) ทำให้โหนดทั้ง 2 ฝั่งลงทะเบียน Endpoint และแสดงจำนวนโหนดที่เชื่อมต่ออย่างถูกต้องสมมาตร (Symmetric Direct Peer Registration)
+- **Round-2 Handshake & Heartbeat Ping Burst**: เพิ่มกระบวนการยิง Handshake ยืนยันสองทางและ Ping Probe ทันทีที่เชื่อมต่อเสร็จสมบูรณ์ เพื่อยืนยันสถานะการเชื่อมต่อระหว่างโหนดค้นพบ (Discoverer) และโหนดโฆษณา (Advertiser)
+- **Live Connected Node Subtitle**: ปรับปรุงหน้าจอ Survival Tools ให้แสดงผลจำนวนโหนดที่เชื่อมต่ออยู่จริงแบบเรียลไทม์ (`เชื่อมต่อแล้ว X โหนด • กำลังสแกนหาโหนดเพิ่ม`)
+
+### 🎨 Tactical Slate Dark Theme Harmonization (Home Screen)
+- **Emergency Hotline Cards Redesign (`_EmergencyHotlineCard`)**: ปรับดีไซน์บัตรสายด่วนฉุกเฉินบนหน้า Home จากสไตล์ Cyberpunk Neon เรืองแสง มาเป็น **Tactical Slate Dark (`#1E293B`)** ที่สุขุม สบายตา ลดแสงสะท้อนนีออนกวนสายตา เพิ่มความคมชัดและอ่านง่ายของตัวเลขฉุกเฉิน
+- **Interactive Service Cards Redesign (`_InteractiveGlassCard`)**: เปลี่ยนจากการ์ดฝ้าขาวเดิม (`Colors.white`) มาเป็น Dark Slate Frosted Glass ให้เข้าธีม Tactical กับส่วนอื่นๆ ของหน้าจอ
+- **Medical ID & ICE Mini Card Redesign**: ปรับปรุงการ์ดข้อมูลทางการแพทย์ ICE ID แสดงไอคอนเวชระเบียน กรุ๊ปเลือด และสถานะแจ้งเตือนประวัติแพ้ยา/โรคประจำตัวอย่างชัดเจน ควบคู่กับการ์ดโรงพยาบาลใกล้เคียงที่สมดุลกัน
+
+---
+
 ## [1.7.0] - 2026-09-03
 
 ### 🛡️ Critical Security & Cryptography Upgrade

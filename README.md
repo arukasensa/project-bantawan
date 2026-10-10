@@ -16,7 +16,7 @@
 | **GIS & Maps**   | **Map Module Deep Dive** | ระบบแผนที่ 3 สไตล์, OfflineFallbackTileProvider, POI Pipeline | [MAP_MODULE.md](docs/modules/MAP_MODULE.md) |
 | **REST APIs**    | **API Documentation** | สเปกและตัวอย่างคำขอ Longdo Map, OSM Overpass, OSRM, Open-Meteo | [API_DOCUMENTATION.md](docs/api/API_DOCUMENTATION.md) |
 | **Guides**       | **Installation & Deploy**| คู่มือการติดตั้งและคำแนะนำการคอมไพล์ Production APK / Release | [INSTALL.md](docs/guides/INSTALL.md) \| [DEPLOY.md](docs/guides/DEPLOYMENT.md) |
-| **Change Log**   | **Version History** | บันทึกประวัติการพัฒนาและฟีเจอร์ใหม่แต่ละเวอร์ชัน (v1.0.0 - v1.4.0) | [CHANGELOG.md](CHANGELOG.md) |
+| **Change Log**   | **Version History** | บันทึกประวัติการพัฒนาและฟีเจอร์ใหม่แต่ละเวอร์ชัน (v1.0.0 - v1.8.0) | [CHANGELOG.md](CHANGELOG.md) |
 
 > 📌 *ดูสารบัญและแผนผังเอกสารฉบับเต็มได้ที่ [docs/README.md](docs/README.md)*
 
@@ -40,7 +40,13 @@
   * ระบบ **Data Mule (Store-Carry-and-Forward)** ฝากจดหมายเข้ารหัสเดินทางข้ามพื้นที่ห่างไกล
 
 * **🚨 ระบบขอความช่วยเหลือฉุกเฉินบูรณาการ (SOS Command Suite)**
-  * ปุ่ม SOS กดค้าง 3 วินาที (ป้องกันการกดโดนโดยอุบัติเหตุ) เพื่อเปิดเสียงไซเรนฉุกเฉินความถี่สูง, สังเคราะห์เสียงบรรยายภาษาไทย (TTS), และส่ง SMS พิกัดดาวเทียมฉุกเฉิน
+  * ปุ่ม SOS กดค้าง (ป้องกันการกดโดนโดยอุบัติเหตุ) เพื่อเปิดเสียงไซเรนฉุกเฉินความถี่สูง และส่ง SMS พิกัดดาวเทียมฉุกเฉิน
+  * ระบบตรวจสอบความปลอดภัยอัตโนมัติ (**Safety Check-in / Dead Man's Switch**) พร้อมเรดาร์นับถอยหลังและการส่ง SOS อัตโนมัติเมื่อขาดการติดต่อ
+
+* **🌐 ระบบสองภาษาและรองรับสถานการณ์ฉุกเฉินสากล (Full Bilingual Localization - TH/EN)**
+  * รองรับการสลับภาษาแบบไดนามิกทั้งแอป (ไทย 🇹🇭 / อังกฤษ 🇬🇧) ผ่าน `LanguageProvider` และ `SharedPreferences`
+  * ครอบคลุม 100% ทุกหน้าจอหลัก (Home, Weather, Map, First Aid, SOS, Survival Tools, ICE Contacts, Profile)
+  * ระบบแจ้งเตือน Notification และเทมเพลต SMS ส่งพิกัดฉุกเฉินสลับภาษาอัตโนมัติตามการตั้งค่าของผู้ใช้
 
 * **🧭 ชุดเครื่องมือเอาชีวิตรอดดิจิทัล (Digital Survival Tools)**
   * ไฟฉายกะพริบสัญญาณรหัสมอร์สสากล SOS (`... --- ...`), เข็มทิศดิจิทัลบอกพิกัดความสูง, และระบบบันทึกเส้นทางเดินป่า (Hiking Dashboard) พร้อมระบบนำทางย้อนรอย (Backtrack) แม้ล็อกหน้าจอ

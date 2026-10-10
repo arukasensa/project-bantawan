@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:ui';
 import '../services/emergency_contact_service.dart';
 import 'package:flutter1/l10n/generated/app_localizations.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 import '../services/call_service.dart';
 import 'package:flutter/services.dart';
 import 'emergency_contact_screen.dart';
@@ -138,9 +139,11 @@ class _SosScreenState extends State<SosScreen>
       String mapLink =
           "https://maps.google.com/?q=${position.latitude},${position.longitude}";
 
-      String message = "ช่วยด้วย! ฉันต้องการความช่วยเหลือด่วน\nพิกัด: $mapLink";
-
       if (!mounted) return;
+      String message = context.isThai
+          ? "ช่วยด้วย! ฉันต้องการความช่วยเหลือด่วน\nพิกัด: $mapLink"
+          : "HELP! I need emergency assistance\nCoordinates: $mapLink";
+
       String separator = Theme.of(context).platform == TargetPlatform.iOS
           ? ';'
           : ',';
@@ -161,8 +164,10 @@ class _SosScreenState extends State<SosScreen>
     } catch (e) {
       if (!mounted) return;
       _showResultDialog(
-        title: 'ผิดพลาด',
-        message: 'ไม่สามารถส่ง SMS หรือดึงพิกัดได้: $e',
+        title: context.isThai ? 'ผิดพลาด' : 'Error',
+        message: context.isThai
+            ? 'ไม่สามารถส่ง SMS หรือดึงพิกัดได้: $e'
+            : 'Unable to send SMS or retrieve coordinates: $e',
         isError: true,
       );
     }
@@ -430,13 +435,19 @@ class _SosScreenState extends State<SosScreen>
     Color color = Colors.white;
 
     if (_isHolding) {
-      text = 'กำลังส่งสัญญาณ SOS... (ปล่อยเพื่อยกเลิก)';
+      text = context.isThai
+          ? 'กำลังส่งสัญญาณ SOS... (ปล่อยเพื่อยกเลิก)'
+          : 'Sending SOS signal... (Release to cancel)';
       color = const Color(0xFFFF453A);
     } else if (_showHoldHint) {
-      text = 'กดค้าง 1 วินาทีเพื่อส่ง SOS ทันที';
+      text = context.isThai
+          ? 'กดค้าง 1 วินาทีเพื่อส่ง SOS ทันที'
+          : 'Hold for 1 sec to trigger SOS';
       color = Colors.redAccent;
     } else {
-      text = 'กดค้างที่ปุ่ม SOS เพื่อส่งความช่วยเหลือทันที';
+      text = context.isThai
+          ? 'กดค้างที่ปุ่ม SOS เพื่อส่งความช่วยเหลือทันที'
+          : 'Hold SOS button to call for immediate help';
       color = Colors.white70;
     }
 
@@ -516,7 +527,9 @@ class _SosScreenState extends State<SosScreen>
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
-                          _isHolding ? 'กำลังส่ง...' : 'กดค้างส่งทันที',
+                          _isHolding
+                              ? (context.isThai ? 'กำลังส่ง...' : 'Sending...')
+                              : (context.isThai ? 'กดค้างส่งทันที' : 'Hold to Send'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.85),

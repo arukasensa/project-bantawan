@@ -2244,9 +2244,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final blood = profile['bloodType']?.isNotEmpty == true
         ? profile['bloodType']
         : '-';
+    final hasAllergies = profile['allergies']?.isNotEmpty == true;
+    final hasConditions = profile['conditions']?.isNotEmpty == true;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B).withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
@@ -2265,29 +2267,74 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.redAccent.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.redAccent.withValues(alpha: 0.3),
-                width: 1.5,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.medical_services_rounded,
+                  color: Colors.redAccent,
+                  size: 20,
+                ),
               ),
-            ),
-            child: const Icon(Icons.favorite_rounded, color: Colors.redAccent, size: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.25),
+                    width: 1,
+                  ),
+                ),
+                child: const Text(
+                  'ICE ID',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 14),
           Text(
             context.l10n.medicalHistory,
             style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
+          const SizedBox(height: 2),
           Text(
             '${context.l10n.bloodTypePrefix}$blood',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            (hasAllergies || hasConditions)
+                ? (context.isThai ? '• มีประวัติแพ้ยา/โรคประจำตัว' : '• Allergies/Conditions')
+                : (context.isThai ? 'แตะเพื่อเปิดดูข้อมูล' : 'Tap to view details'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: (hasAllergies || hasConditions)
+                  ? const Color(0xFFFFB74D)
+                  : Colors.white38,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -2297,7 +2344,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildHospitalMini() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B).withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(24),
@@ -2316,27 +2363,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.greenAccent.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.greenAccent.withValues(alpha: 0.3),
-                width: 1.5,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.greenAccent.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.local_hospital_rounded,
+                  color: Colors.greenAccent,
+                  size: 20,
+                ),
               ),
-            ),
-            child: const Icon(
-              Icons.local_hospital_rounded,
-              color: Colors.greenAccent,
-              size: 20,
-            ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.greenAccent.withValues(alpha: 0.25),
+                    width: 1,
+                  ),
+                ),
+                child: const Text(
+                  'GPS NAV',
+                  style: TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 14),
           Text(
             context.l10n.nearestHospitalTitle,
             style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
+          const SizedBox(height: 2),
           Text(
             _isLoadingHospital
                 ? '...'
@@ -2347,6 +2420,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.isThai ? 'แตะเพื่อเปิดแผนที่นำทาง' : 'Tap to open navigation',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -2451,7 +2535,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 }
 
-/// 📞 บัตรสายด่วนฉุกเฉินเชิงยุทธวิธีสไตล์ Cyberpunk Glassmorphism พร้อม Tactile Interaction
+/// 📞 บัตรสายด่วนฉุกเฉินสไตล์ Tactical Slate Dark สอดคล้องกับธีมหลัก
 class _EmergencyHotlineCard extends StatefulWidget {
   final String number;
   final String name;
@@ -2485,38 +2569,26 @@ class _EmergencyHotlineCardState extends State<_EmergencyHotlineCard> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
-        scale: _isPressed ? 0.94 : 1.0,
+        scale: _isPressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                widget.color.withValues(alpha: _isPressed ? 0.28 : 0.16),
-                const Color(0xFF131D31).withValues(alpha: 0.88),
-                const Color(0xFF0F172A).withValues(alpha: 0.96),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(22),
+            color: _isPressed
+                ? const Color(0xFF243247).withValues(alpha: 0.85)
+                : const Color(0xFF1E293B).withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: widget.color.withValues(alpha: _isPressed ? 0.8 : 0.35),
-              width: _isPressed ? 1.6 : 1.2,
+              color: widget.color.withValues(alpha: _isPressed ? 0.5 : 0.22),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withValues(alpha: _isPressed ? 0.35 : 0.12),
-                blurRadius: _isPressed ? 18 : 12,
-                spreadRadius: _isPressed ? 2 : 0,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -2530,10 +2602,10 @@ class _EmergencyHotlineCardState extends State<_EmergencyHotlineCard> {
                   Container(
                     padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
-                      color: widget.color.withValues(alpha: 0.15),
+                      color: widget.color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: widget.color.withValues(alpha: 0.3),
+                        color: widget.color.withValues(alpha: 0.25),
                         width: 1,
                       ),
                     ),
@@ -2542,38 +2614,32 @@ class _EmergencyHotlineCardState extends State<_EmergencyHotlineCard> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: widget.color.withValues(alpha: 0.12),
+                      color: Colors.white.withValues(alpha: 0.06),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: widget.color.withValues(alpha: 0.4),
+                        color: Colors.white.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.phone_in_talk_rounded,
                       size: 10,
-                      color: widget.color,
+                      color: Colors.white70,
                     ),
                   ),
                 ],
               ),
 
-              // Emergency Number with Neon Stencil Glow
+              // Emergency Number - ชัดเจน สบายตา ไร้เงาสะท้อนนีออนกวนสายตา
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   widget.number,
                   style: TextStyle(
                     color: widget.color,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                    shadows: [
-                      Shadow(
-                        color: widget.color.withValues(alpha: 0.6),
-                        blurRadius: 10,
-                      ),
-                    ],
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ),
@@ -2584,9 +2650,9 @@ class _EmergencyHotlineCardState extends State<_EmergencyHotlineCard> {
                 child: Text(
                   widget.name,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF94A3B8), // Slate 400
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
                     height: 1.1,
                   ),
                   textAlign: TextAlign.center,
@@ -2626,29 +2692,34 @@ class _InteractiveGlassCardState extends State<_InteractiveGlassCard> {
         scale: _isPressed ? 0.96 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: AnimatedOpacity(
-          opacity: _isPressed ? 0.8 : 1.0,
+          opacity: _isPressed ? 0.85 : 1.0,
           duration: const Duration(milliseconds: 100),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _isPressed
-                        ? Colors.white.withValues(alpha: 0.2)
-                        : Colors.white.withValues(alpha: 0.1),
-                  ),
-                ),
-                child: widget.child,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _isPressed
+                  ? const Color(0xFF283548).withValues(alpha: 0.85)
+                  : const Color(0xFF1E293B).withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _isPressed
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: 1.2,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
+            child: widget.child,
           ),
         ),
       ),
     );
   }
 }
+

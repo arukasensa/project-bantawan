@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:ui';
 import '../services/emergency_contact_service.dart';
 import '../services/call_service.dart';
+import 'package:flutter1/core/utils/l10n_extensions.dart';
 
 /// 📞 หน้าจอจัดการและแสดงรายชื่อผู้ติดต่อฉุกเฉินส่วนตัว (ICE Contacts Screen)
 class EmergencyContactScreen extends StatefulWidget {
@@ -30,13 +31,37 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
   bool _isLoading = true;
 
   final List<Map<String, dynamic>> _relationshipTypes = [
-    {'label': 'ครอบครัว', 'icon': Icons.home_rounded},
-    {'label': 'คนรัก', 'icon': Icons.favorite_rounded},
-    {'label': 'ญาติ', 'icon': Icons.family_restroom_rounded},
-    {'label': 'เพื่อนสนิท', 'icon': Icons.group_rounded},
-    {'label': 'เพื่อนร่วมงาน', 'icon': Icons.work_rounded},
-    {'label': 'อื่นๆ', 'icon': Icons.person_rounded},
+    {'key': 'family', 'icon': Icons.home_rounded},
+    {'key': 'lover', 'icon': Icons.favorite_rounded},
+    {'key': 'relative', 'icon': Icons.family_restroom_rounded},
+    {'key': 'friend', 'icon': Icons.group_rounded},
+    {'key': 'colleague', 'icon': Icons.work_rounded},
+    {'key': 'other', 'icon': Icons.person_rounded},
   ];
+
+  String _getRelationshipLabel(BuildContext context, String keyOrLabel) {
+    final isThai = context.isThai;
+    switch (keyOrLabel) {
+      case 'family':
+      case 'ครอบครัว':
+        return isThai ? 'ครอบครัว' : 'Family';
+      case 'lover':
+      case 'คนรัก':
+        return isThai ? 'คนรัก' : 'Partner';
+      case 'relative':
+      case 'ญาติ':
+        return isThai ? 'ญาติ' : 'Relative';
+      case 'friend':
+      case 'เพื่อนสนิท':
+      case 'คนสนิท':
+        return isThai ? 'เพื่อนสนิท' : 'Friend';
+      case 'colleague':
+      case 'เพื่อนร่วมงาน':
+        return isThai ? 'เพื่อนร่วมงาน' : 'Colleague';
+      default:
+        return isThai ? 'อื่นๆ' : 'Other';
+    }
+  }
 
   @override
   void initState() {
@@ -102,9 +127,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'ยืนยันการลบ',
-                style: TextStyle(
+              Text(
+                context.isThai ? 'ยืนยันการลบ' : 'Confirm Delete',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -113,15 +138,17 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
             ],
           ),
           content: Text(
-            'คุณแน่ใจหรือไม่ว่าต้องการลบรายชื่อ "${contact['name']}" ออกจากการติดต่อฉุกเฉิน?',
+            context.isThai
+                ? 'คุณแน่ใจหรือไม่ว่าต้องการลบรายชื่อ "${contact['name']}" ออกจากการติดต่อฉุกเฉิน?'
+                : 'Are you sure you want to remove "${contact['name']}" from emergency contacts?',
             style: const TextStyle(color: Colors.white70),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text(
-                'ยกเลิก',
-                style: TextStyle(color: Colors.white38),
+              child: Text(
+                context.isThai ? 'ยกเลิก' : 'Cancel',
+                style: const TextStyle(color: Colors.white38),
               ),
             ),
             ElevatedButton(
@@ -132,9 +159,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                 ),
               ),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'ลบรายชื่อ',
-                style: TextStyle(
+              child: Text(
+                context.isThai ? 'ลบรายชื่อ' : 'Delete',
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -159,12 +186,14 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
   }
 
   Future<void> _sendLocation(String phone) async {
+    final isThai = context.isThai;
     try {
       Position position = await Geolocator.getCurrentPosition();
       String mapLink =
           "https://maps.google.com/?q=${position.latitude},${position.longitude}";
-      String message =
-          "ช่วยด้วย! ฉันต้องการความช่วยเหลือด่วน\nพิกัดของฉัน: $mapLink";
+      String message = isThai
+          ? "ช่วยด้วย! ฉันต้องการความช่วยเหลือด่วน\nพิกัดของฉัน: $mapLink"
+          : "HELP! I need emergency assistance\nMy coordinates: $mapLink";
 
       final Uri smsUri = Uri(
         scheme: 'sms',
@@ -183,7 +212,7 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
   void _showAddDialog() {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
-    String selectedRelationship = _relationshipTypes[0]['label'];
+    String selectedRelationship = _relationshipTypes[0]['key'];
 
     showDialog(
       context: context,
@@ -222,9 +251,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'เพิ่มผู้ติดต่อฉุกเฉิน',
-                  style: TextStyle(
+                Text(
+                  context.isThai ? 'เพิ่มผู้ติดต่อฉุกเฉิน' : 'Add Emergency Contact',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
@@ -242,19 +271,19 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                   children: [
                     _buildTextField(
                       nameController,
-                      'ชื่อผู้ติดต่อ',
+                      context.isThai ? 'ชื่อผู้ติดต่อ' : 'Contact Name',
                       Icons.person_outline_rounded,
                     ),
                     const SizedBox(height: 14),
                     _buildTextField(
                       phoneController,
-                      'เบอร์โทรศัพท์',
+                      context.isThai ? 'เบอร์โทรศัพท์' : 'Phone Number',
                       Icons.phone_outlined,
                       keyboardType: TextInputType.phone,
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'ความสัมพันธ์',
+                      context.isThai ? 'ความสัมพันธ์' : 'Relationship',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 13,
@@ -274,10 +303,10 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                       itemCount: _relationshipTypes.length,
                       itemBuilder: (context, index) {
                         final type = _relationshipTypes[index];
-                        final isSelected = selectedRelationship == type['label'];
+                        final isSelected = selectedRelationship == type['key'];
                         return InkWell(
                           onTap: () => setDialogState(
-                            () => selectedRelationship = type['label'],
+                            () => selectedRelationship = type['key'],
                           ),
                           borderRadius: BorderRadius.circular(14),
                           child: AnimatedContainer(
@@ -316,7 +345,7 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    type['label'],
+                                    _getRelationshipLabel(context, type['key']),
                                     style: TextStyle(
                                       color: isSelected ? Colors.white : Colors.white70,
                                       fontSize: 13,
@@ -352,9 +381,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                         ),
                         backgroundColor: Colors.white.withValues(alpha: 0.05),
                       ),
-                      child: const Text(
-                        'ยกเลิก',
-                        style: TextStyle(color: Colors.white70, fontSize: 15),
+                      child: Text(
+                        context.isThai ? 'ยกเลิก' : 'Cancel',
+                        style: const TextStyle(color: Colors.white70, fontSize: 15),
                       ),
                     ),
                   ),
@@ -381,9 +410,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                           Navigator.pop(context);
                         }
                       },
-                      child: const Text(
-                        'บันทึก',
-                        style: TextStyle(
+                      child: Text(
+                        context.isThai ? 'บันทึก' : 'Save',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -462,16 +491,18 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
         ),
         title: Column(
           children: [
-            const Text(
-              'ผู้ติดต่อฉุกเฉิน',
-              style: TextStyle(
+            Text(
+              context.isThai ? 'ผู้ติดต่อฉุกเฉิน' : 'Emergency Contacts',
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
                 fontSize: 20,
               ),
             ),
             Text(
-              '${_contacts.length} รายชื่อ',
+              context.isThai
+                  ? '${_contacts.length} รายชื่อ'
+                  : '${_contacts.length} Contacts',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 12,
@@ -577,9 +608,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
             color: Colors.white.withValues(alpha: 0.1),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'ยังไม่มีรายชื่อผู้ติดต่อ',
-            style: TextStyle(
+          Text(
+            context.isThai ? 'ยังไม่มีรายชื่อผู้ติดต่อ' : 'No Emergency Contacts',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -587,7 +618,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'เพิ่มคนสนิทของคุณเพื่อขอความช่วยเหลือได้เร็วขึ้น',
+            context.isThai
+                ? 'เพิ่มคนสนิทของคุณเพื่อขอความช่วยเหลือได้เร็วขึ้น'
+                : 'Add your close contacts for quick emergency assistance',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.3),
               fontSize: 14,
@@ -597,9 +630,9 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
           ElevatedButton.icon(
             onPressed: _showAddDialog,
             icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'เพิ่มตอนนี้',
-              style: TextStyle(
+            label: Text(
+              context.isThai ? 'เพิ่มตอนนี้' : 'Add Now',
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -618,11 +651,12 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
   }
 
   Widget _buildContactCard(Map<String, String> contact, int index) {
-    final String relationship = contact['relationship'] ?? 'คนสนิท';
+    final String rawRel = contact['relationship'] ?? 'friend';
     final IconData icon = _relationshipTypes.firstWhere(
-      (element) => element['label'] == relationship,
+      (element) => element['key'] == rawRel || element['key'] == 'friend',
       orElse: () => _relationshipTypes.last,
     )['icon'];
+    final String displayRelationship = _getRelationshipLabel(context, rawRel);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -699,7 +733,7 @@ class _EmergencyContactScreenState extends State<EmergencyContactScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              relationship,
+                              displayRelationship,
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.4),
                                 fontSize: 10,

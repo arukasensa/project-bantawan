@@ -908,19 +908,34 @@ class NearbyService extends ChangeNotifier {
               final pName = _pendingPeerNames.remove(id) ?? connectedDevices[id] ?? 'Nearby Peer';
               connectedDevices[id] = pName;
               syncPeersToNewNode(id);
+
+              // 🚀 Burst Handshake รอบที่ 1: ยิงทันทีหลังเชื่อมต่อสำเร็จ
               broadcastPeerAnnounce(targetEndpointId: id);
+              _sendPingProbe(id);
+
+              // 🚀 Burst Handshake รอบที่ 2: ยิงซ้ำหลัง 500ms เพื่อป้องกัน BLE Initial Frame Drop
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (connectedDevices.containsKey(id)) {
+                  broadcastPeerAnnounce(targetEndpointId: id);
+                  _sendPingProbe(id);
+                  debugPrint('[Nearby Advertiser] 🚀 Handshake burst (round 2) sent to $id');
+                }
+              });
+
               _broadcastMeshUpdateToExistingNodes(id);
               _notifyProximity(id, pName);
               debugPrint('[Nearby Advertiser] ✅ Connected: $id ($pName)');
               // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
-              final peerNodeId = discoveredMeshPeers.entries
-                  .where((e) => e.value.directEndpoint == id)
-                  .map((e) => e.key)
-                  .firstOrNull;
-              if (peerNodeId != null) {
-                _deliverPendingMessages(id, peerNodeId);
-                _deliverMuleEnvelopes(id, peerNodeId);
-              }
+              Future.delayed(const Duration(milliseconds: 1500), () {
+                final peerNodeId = discoveredMeshPeers.entries
+                    .where((e) => e.value.directEndpoint == id)
+                    .map((e) => e.key)
+                    .firstOrNull;
+                if (peerNodeId != null) {
+                  _deliverPendingMessages(id, peerNodeId);
+                  _deliverMuleEnvelopes(id, peerNodeId);
+                }
+              });
               _checkAndAdjustDiscoveryState();
               notifyListeners();
             } else {
@@ -1092,27 +1107,36 @@ class NearbyService extends ChangeNotifier {
           _endpointLastActivity[connResultId] = DateTime.now();
           _failedConnectionCooldowns.remove(connResultId);
           final actualName = _pendingPeerNames.remove(connResultId) ?? peerDisplayName;
-          if (actualName != deviceName) {
-            connectedDevices[connResultId] = actualName;
-            syncPeersToNewNode(connResultId);
-            broadcastPeerAnnounce(targetEndpointId: connResultId);
-            _broadcastMeshUpdateToExistingNodes(connResultId);
-            _notifyProximity(peerNodeId ?? connResultId, actualName);
-            debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($actualName)');
-            // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
-            Future.delayed(const Duration(seconds: 2), () {
-              final pNodeId = discoveredMeshPeers.entries
-                  .where((e) => e.value.directEndpoint == connResultId)
-                  .map((e) => e.key)
-                  .firstOrNull;
-              if (pNodeId != null) {
-                _deliverPendingMessages(connResultId, pNodeId);
-                _deliverMuleEnvelopes(connResultId, pNodeId);
-              }
-            });
-            _checkAndAdjustDiscoveryState();
-            notifyListeners();
-          }
+          connectedDevices[connResultId] = actualName;
+          syncPeersToNewNode(connResultId);
+          broadcastPeerAnnounce(targetEndpointId: connResultId);
+          _sendPingProbe(connResultId);
+
+          // 🚀 Burst Handshake รอบที่ 2: ยิงซ้ำหลัง 500ms เพื่อป้องกัน BLE Initial Frame Drop
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (connectedDevices.containsKey(connResultId)) {
+              broadcastPeerAnnounce(targetEndpointId: connResultId);
+              _sendPingProbe(connResultId);
+              debugPrint('[Nearby Discovery] 🚀 Handshake burst (round 2) sent to $connResultId');
+            }
+          });
+
+          _broadcastMeshUpdateToExistingNodes(connResultId);
+          _notifyProximity(peerNodeId ?? connResultId, actualName);
+          debugPrint('[Nearby Discovery] ✅ Connected: $connResultId ($actualName)');
+          // 📬 ส่ง Pending Messages คืนให้ Peer ที่เพิ่ง Connect เข้ามา
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            final pNodeId = discoveredMeshPeers.entries
+                .where((e) => e.value.directEndpoint == connResultId)
+                .map((e) => e.key)
+                .firstOrNull;
+            if (pNodeId != null) {
+              _deliverPendingMessages(connResultId, pNodeId);
+              _deliverMuleEnvelopes(connResultId, pNodeId);
+            }
+          });
+          _checkAndAdjustDiscoveryState();
+          notifyListeners();
         } else {
           // เชื่อมต่อไม่สำเร็จ — ล้าง id ออก และตั้ง Negative Cache Cooldown
           _endpointLastActivity.remove(connResultId);

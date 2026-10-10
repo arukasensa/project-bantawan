@@ -660,11 +660,20 @@ class _SurvivalToolsScreenState extends State<SurvivalToolsScreen>
                           ),
                           Text(
                             isAdv
-                                ? context.l10n.meshScanningSubtitle
+                                ? (service.connectedDevices.isNotEmpty
+                                    ? (context.isThai
+                                        ? 'เชื่อมต่อแล้ว ${service.connectedDevices.length} โหนด • กำลังสแกนหาโหนดเพิ่ม'
+                                        : 'Connected ${service.connectedDevices.length} nodes • Scanning for more')
+                                    : context.l10n.meshScanningSubtitle)
                                 : context.l10n.meshOfflineDisabled,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
+                              color: isAdv && service.connectedDevices.isNotEmpty
+                                  ? const Color(0xFF00E5FF)
+                                  : Colors.white.withValues(alpha: 0.4),
                               fontSize: 12,
+                              fontWeight: isAdv && service.connectedDevices.isNotEmpty
+                                  ? FontWeight.w500
+                                  : FontWeight.normal,
                             ),
                           ),
                         ],
