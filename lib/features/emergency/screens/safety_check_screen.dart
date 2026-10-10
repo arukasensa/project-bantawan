@@ -999,8 +999,8 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
     if (!service.isActive) {
       // Standby CTA: ACTIVATE SHIELD
       return _buildTacticalButton(
-        label: "${context.l10n.activateShield} • $_selectedMinutes ${context.isThai ? 'นาที' : 'MIN'}",
-        subtitle: context.isThai ? "เปิดระบบเฝ้าระวังอัตโนมัติ" : "Activate automated lifeline watch",
+        label: context.l10n.activateShield(_selectedMinutes),
+        subtitle: context.l10n.activateShieldSubtitle,
         icon: Icons.shield_rounded,
         gradient: const LinearGradient(
           colors: [Color(0xFF00E5FF), Color(0xFF2979FF)],
@@ -1022,7 +1022,7 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
         // Primary Safe Confirmation Button
         _buildTacticalButton(
           label: context.l10n.iAmSafe,
-          subtitle: context.isThai ? "กดเพื่อรีเซ็ตเวลานับถอยหลังรอบใหม่" : "Tap to reset safety countdown",
+          subtitle: context.l10n.iAmSafeSubtitle,
           icon: Icons.check_circle_rounded,
           gradient: const LinearGradient(
             colors: [Color(0xFF10B981), Color(0xFF059669)],
@@ -1124,29 +1124,35 @@ class _SafetyCheckScreenState extends State<SafetyCheckScreen>
               children: [
                 Icon(icon, color: Colors.white, size: 24),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.1,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 1),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

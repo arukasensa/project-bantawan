@@ -375,7 +375,7 @@
   "deactivateSystem": "DEACTIVATE SYSTEM (ปิดระบบ)",
   "iAmSafe": "ฉันปลอดภัยดี (I AM SAFE)",
   "iAmSafeSubtitle": "กดเพื่อรีเซ็ตเวลานับถอยหลังรอบใหม่",
-  "activateShield": "ACTIVATE SHIELD • {minutes} MIN",
+  "activateShield": "ACTIVATE SHIELD • {minutes} นาที",
   "@activateShield": {
     "placeholders": {
       "minutes": {

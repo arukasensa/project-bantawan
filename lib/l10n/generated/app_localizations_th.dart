@@ -891,7 +891,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String activateShield(int minutes) {
-    return 'ACTIVATE SHIELD • $minutes MIN';
+    return 'ACTIVATE SHIELD • $minutes นาที';
   }
 
   @override
